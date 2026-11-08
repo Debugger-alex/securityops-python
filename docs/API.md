@@ -67,6 +67,18 @@ Die aktuelle API ist unter `/api/v1` versioniert. OpenAPI/Swagger ist während d
 | PATCH | `/api/v1/scheduling/shifts/{shift_id}` | `scheduling.manage` + Objektzugriff + CSRF |
 | POST | `/api/v1/scheduling/shifts/{shift_id}/publish` oder `/cancel` | `scheduling.manage` + Objektzugriff + CSRF |
 | GET | `/api/v1/scheduling/shifts/{shift_id}/history` | `scheduling.read` und sichtbarer Objekt-/Personalbereich |
+| POST | `/api/v1/time-tracking/start` | `time_tracking.create` oder `time_tracking.manage`; ordnet den aktuellen veröffentlichten Dienst zu |
+| POST | `/api/v1/time-tracking/entries/{entry_id}/pause`, `/resume`, `/stop` | Berechtigter Eigentümer oder `time_tracking.manage`; CSRF |
+| POST | `/api/v1/time-tracking/entries/manual` | `time_tracking.manage`; abgeschlossene UTC-Segmente als einreichungspflichtiger Nachtrag; CSRF |
+| GET | `/api/v1/time-tracking/entries` | `time_tracking.read_own` oder `time_tracking.read_all`; optionale Filter `from_date`, `to_date`, `employee_id`, `object_id`, `customer_id`, `status` |
+| POST | `/api/v1/time-tracking/entries/{entry_id}/corrections` | Eigentümer mit `time_tracking.correct_own` oder berechtigter Verwalter mit `time_tracking.correct_all`; Grund und neue Segmente erforderlich; CSRF |
+| GET | `/api/v1/time-tracking/corrections` | `time_tracking.read_all`; `pending_only` standardmäßig `true` |
+| POST | `/api/v1/time-tracking/entries/{entry_id}/approve` oder `/reject` | `time_tracking.approve` beziehungsweise `time_tracking.reject`; Ablehnung mit Grund; keine Selbstfreigabe; CSRF |
+| POST | `/api/v1/time-tracking/corrections/{correction_id}/approve` oder `/reject` | `time_tracking.approve` beziehungsweise `time_tracking.reject`; Ablehnung mit Grund; CSRF |
+| POST | `/api/v1/time-tracking/entries/{entry_id}/lock` | `time_tracking.manage`; nur freigegebene Buchungen; CSRF |
+| GET | `/api/v1/time-tracking/reports` | `time_tracking.read_own` oder `time_tracking.read_all`; Zeitraum sowie optionale Mitarbeiter-/Objekt-/Kunden-/Statusfilter, `group_by=employee|object|customer|day|week|month` |
+| GET | `/api/v1/time-tracking/reports/missing` | `time_tracking.read_all`; `from_date`, `to_date`; veröffentlichte Schichten ohne Buchung |
+| GET | `/api/v1/time-tracking/export.csv` | `time_tracking.export`; Zeitraum sowie optionale Mitarbeiter-/Objekt-/Kundenfilter; nur freigegebene oder gesperrte Buchungen |
 | GET | `/api/v1/dashboard` | `dashboard.read` |
 
 Kundenlisten blenden archivierte Datensätze standardmäßig aus. Sie können nach Kundenstatus (`status`) und Vertragsstatus (`contract_status`) filtern. Die Sortierfelder sind `company_name`, `customer_number`, `created_at`, `status` und `contract_status`; die Sortierrichtung ist `asc` oder `desc`. Die Suche berücksichtigt Kunden-, Kontakt-, Anschrift- und Websitedaten.
@@ -82,3 +94,13 @@ Dienstzeiten werden als lokale, offsetfreie `starts_at_local`-/`ends_at_local`-W
 Anlage, Änderung und Veröffentlichung prüfen Beschäftigungsstatus/-zeitraum, aktive Objektzuweisung, offene oder genehmigte Abwesenheiten, geforderte gültige Qualifikationen, zeitliche Überschneidungen und den konfigurierten Mindestabstand. Konflikte liefern HTTP 409; bei Konflikten enthält `detail.conflicts` Codes und deutsche Meldungen. PostgreSQL schützt zusätzlich mit einem partiellen GiST-Exclusion-Constraint vor überlappenden Schichten desselben Mitarbeiters (abgesagte Schichten ausgenommen); transaktionsgebundene Advisory Locks serialisieren die API-Konfliktprüfung pro Mitarbeiter. Diese Regeln sind Planungsprüfungen, keine automatische arbeitsrechtliche Konformitätsprüfung. Individuelle regelmäßige Verfügbarkeitsfenster sind nicht Teil des vorhandenen Personalmodells; Verfügbarkeit wird aus Beschäftigungszeitraum, Abwesenheiten und bereits geplanten Diensten abgeleitet.
 
 Schreibzugriffe nutzen den Session-Cookie und müssen `X-CSRF-Token` senden. Archivierte Kunden müssen vor Änderungen reaktiviert werden. Nicht aufgeführte Fachmodule und Endpunkte sind nicht implementiert.
+
+## Zeiterfassung
+
+`POST /time-tracking/start` startet eine offene Buchung für die verknüpfte Personalakte. Ohne `shift_id` wird ein gerade laufender veröffentlichter Dienst gesucht; mehrere passende Dienste werden abgewiesen. Ein Dienst ohne Dienstplan oder eine manuelle historische Buchung erfordert `time_tracking.manage` sowie Mitarbeiter-, Objekt- und Zeitraumangaben. Mitarbeiter und Objekt müssen aktiv und einander zugewiesen sein. Pro Mitarbeiter darf nur eine Buchung offen sein. PostgreSQL-Transaktions-Advisory-Locks serialisieren gleichzeitige Buchungsänderungen; partielle eindeutige Indizes schützen offene Einträge und Segmente zusätzlich.
+
+`pause` beendet den aktuellen Arbeitsabschnitt und startet eine Pause; `resume` beendet diese Pause und startet einen neuen Arbeitsabschnitt. `stop` schließt den aktiven Abschnitt und reicht die Buchung ein. Arbeits-/Pausensegmente müssen in UTC mit Offset geliefert werden, sich abwechseln und lückenlos aufeinanderfolgen. Die Berechnung verwendet die gespeicherten Zeitpunkte ohne Rundung. Das Zeitkonto liefert Soll-/Ist-Sekunden, tatsächliche Pausendauer, geplante Pausen, Start-/Endabweichung und Zeitdifferenz. Berichte können nach Mitarbeiter, Objekt, Kunde, Tag, ISO-Kalenderwoche oder Monat gruppiert werden. „Mehrzeit gegenüber Dienstplan“ summiert nur positive Soll-/Ist-Abweichungen pro Schicht; eine tarifliche Überstunden- oder Zuschlagsberechnung ist nicht enthalten.
+
+Statuswechsel sind serverseitig begrenzt: `open → submitted → approved|rejected`; nur abgeschlossene, nicht gesperrte Buchungen können Korrekturen erhalten. Korrekturanträge erfordern einen Grund und vollständige Ersatzsegmente. Sie schreiben die ursprünglichen Segmentwerte nicht um: genehmigte Segmente werden als eigene Korrekturversion gespeichert und für die effektive Anzeige/Auswertung verwendet. Ablehnung stellt den vorherigen Status wieder her und verlangt eine Begründung. Freigebende dürfen ihre eigenen Arbeitszeiten nicht freigeben. `locked` kann nur aus `approved` gesetzt werden und ist endgültig.
+
+`time_tracking.read_own` beschränkt Buchungen auf die mit der angemeldeten Person verknüpfte Personalakte. `time_tracking.read_all` erlaubt die Verwaltungssicht; ohne `objects.read_all` wird diese zusätzlich auf zugewiesene Objekte beschränkt. Berechtigungen für Erfassung, Korrektur, Freigabe, Ablehnung, Export und Verwaltung sind getrennt. CSV enthält ausschließlich freigegebene/gesperrte Buchungen, verwendet UTF-8 und Semikolon als Trennzeichen und maskiert potenzielle Tabellenformeln.

@@ -39,6 +39,10 @@ import type {
   ScheduleSettings,
   ScheduleShift,
   ScheduleShiftHistory,
+  TimeEntry,
+  TimeEntryCorrection,
+  TimeEntrySummary,
+  MissingShift,
 } from "./types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -569,3 +573,120 @@ export const cancelScheduleShift = (id: string) =>
 
 export const getScheduleShiftHistory = (id: string) =>
   request<ScheduleShiftHistory[]>(`/scheduling/shifts/${id}/history?limit=100`);
+
+export interface TimeEntryFilters {
+  fromDate: string;
+  toDate: string;
+  employeeId?: string;
+  objectId?: string;
+  customerId?: string;
+  status?: string;
+  groupBy?: "employee" | "object" | "customer" | "day" | "week" | "month";
+}
+
+function timeFilterParams(filters: TimeEntryFilters) {
+  const params = new URLSearchParams({
+    from_date: filters.fromDate,
+    to_date: filters.toDate,
+  });
+  if (filters.employeeId) params.set("employee_id", filters.employeeId);
+  if (filters.objectId) params.set("object_id", filters.objectId);
+  if (filters.customerId) params.set("customer_id", filters.customerId);
+  if (filters.status) params.set("status", filters.status);
+  if (filters.groupBy) params.set("group_by", filters.groupBy);
+  return params;
+}
+
+export const getTimeEntries = (filters: TimeEntryFilters) =>
+  request<TimeEntry[]>(`/time-tracking/entries?${timeFilterParams(filters)}`);
+
+export const getTimeReport = (filters: TimeEntryFilters) =>
+  request<TimeEntrySummary>(`/time-tracking/reports?${timeFilterParams(filters)}`);
+
+export const getMissingShifts = (fromDate: string, toDate: string) =>
+  request<MissingShift[]>(
+    `/time-tracking/reports/missing?${new URLSearchParams({
+      from_date: fromDate,
+      to_date: toDate,
+    })}`,
+  );
+
+export const getTimeCorrections = (pendingOnly = true) =>
+  request<TimeEntryCorrection[]>(
+    `/time-tracking/corrections?pending_only=${String(pendingOnly)}`,
+  );
+
+export const startTimeEntry = (data: {
+  shift_id?: string;
+  employee_id?: string;
+  object_id?: string;
+}) =>
+  request<TimeEntry>("/time-tracking/start", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const pauseTimeEntry = (id: string) =>
+  request<TimeEntry>(`/time-tracking/entries/${id}/pause`, { method: "POST" });
+
+export const resumeTimeEntry = (id: string) =>
+  request<TimeEntry>(`/time-tracking/entries/${id}/resume`, { method: "POST" });
+
+export const stopTimeEntry = (id: string) =>
+  request<TimeEntry>(`/time-tracking/entries/${id}/stop`, { method: "POST" });
+
+export const createManualTimeEntry = (data: {
+  employee_id: string;
+  object_id: string;
+  shift_id?: string;
+  segments: Array<{ kind: "work" | "break"; started_at: string; ended_at: string }>;
+}) =>
+  request<TimeEntry>("/time-tracking/entries/manual", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const requestTimeCorrection = (
+  id: string,
+  reason: string,
+  segments: Array<{ kind: "work" | "break"; started_at: string; ended_at: string }>,
+) =>
+  request<TimeEntryCorrection>(`/time-tracking/entries/${id}/corrections`, {
+    method: "POST",
+    body: JSON.stringify({ reason, segments }),
+  });
+
+export const approveTimeEntry = (id: string) =>
+  request<TimeEntry>(`/time-tracking/entries/${id}/approve`, { method: "POST" });
+
+export const rejectTimeEntry = (id: string, reason: string) =>
+  request<TimeEntry>(`/time-tracking/entries/${id}/reject`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+
+export const approveTimeCorrection = (id: string) =>
+  request<TimeEntry>(`/time-tracking/corrections/${id}/approve`, { method: "POST" });
+
+export const rejectTimeCorrection = (id: string, reason: string) =>
+  request<TimeEntry>(`/time-tracking/corrections/${id}/reject`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+
+export async function exportTimeEntries(filters: TimeEntryFilters): Promise<Blob> {
+  const csrf = document.cookie.split("; ").find((cookie) =>
+    cookie.startsWith("securityops_csrf="),
+  )?.split("=")[1];
+  const response = await fetch(`/api/v1/time-tracking/export.csv?${timeFilterParams(filters)}`, {
+    credentials: "same-origin",
+    headers: csrf ? { "X-CSRF-Token": decodeURIComponent(csrf) } : {},
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(
+      typeof body?.detail === "string" ? body.detail : `Serverfehler (${response.status})`,
+    );
+  }
+  return response.blob();
+}

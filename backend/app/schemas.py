@@ -931,6 +931,186 @@ class ScheduleShiftHistoryRead(BaseModel):
     created_at: datetime
 
 
+TimeEntryStatus = Literal[
+    "open", "submitted", "approved", "rejected", "correction_requested", "locked"
+]
+TimeSegmentKind = Literal["work", "break"]
+
+
+class TimeEntryStart(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    shift_id: UUID | None = None
+    employee_id: UUID | None = None
+    object_id: UUID | None = None
+
+
+class TimeSegmentInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: TimeSegmentKind
+    started_at: datetime
+    ended_at: datetime
+
+    @field_validator("started_at", "ended_at")
+    @classmethod
+    def timestamps_must_have_timezone(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("Zeitpunkte müssen einen UTC-Offset enthalten.")
+        return value
+
+    @model_validator(mode="after")
+    def end_must_follow_start(self):
+        if self.ended_at <= self.started_at:
+            raise ValueError("Das Segmentende muss nach dem Segmentbeginn liegen.")
+        return self
+
+
+class TimeSegmentsInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    segments: list[TimeSegmentInput] = Field(min_length=1, max_length=100)
+
+    @model_validator(mode="after")
+    def segments_must_form_a_continuous_work_period(self):
+        for index, segment in enumerate(self.segments):
+            expected_kind = "work" if index % 2 == 0 else "break"
+            if segment.kind != expected_kind:
+                raise ValueError("Arbeits- und Pausensegmente müssen sich abwechseln.")
+            if index and self.segments[index - 1].ended_at != segment.started_at:
+                raise ValueError("Arbeits- und Pausensegmente müssen lückenlos aufeinanderfolgen.")
+        return self
+
+
+class TimeEntryManualCreate(TimeSegmentsInput):
+    employee_id: UUID
+    object_id: UUID
+    shift_id: UUID | None = None
+
+
+class TimeCorrectionCreate(TimeSegmentsInput):
+    reason: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("reason")
+    @classmethod
+    def reason_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Ein Korrekturgrund ist erforderlich.")
+        return value
+
+
+class TimeEntryDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("reason")
+    @classmethod
+    def optional_reason_must_not_be_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            raise ValueError("Der Begründungstext darf nicht leer sein.")
+        return value
+
+
+class TimeEntrySegmentRead(BaseModel):
+    id: UUID
+    position: int
+    kind: TimeSegmentKind
+    started_at: datetime
+    ended_at: datetime | None
+
+
+class TimeEntryCorrectionRead(BaseModel):
+    id: UUID
+    entry_id: UUID
+    reason: str
+    status: Literal["pending", "approved", "rejected"]
+    rejection_reason: str | None
+    requested_by_id: UUID | None
+    decided_by_id: UUID | None
+    requested_at: datetime
+    decided_at: datetime | None
+    segments: list[TimeEntrySegmentRead]
+
+
+class TimeEntryRead(BaseModel):
+    id: UUID
+    employee_id: UUID
+    employee_number: str
+    employee_name: str
+    object_id: UUID
+    object_code: str
+    object_name: str
+    customer_id: UUID
+    customer_name: str
+    shift_id: UUID | None
+    planned_start_at: datetime | None
+    planned_end_at: datetime | None
+    planned_break_seconds: int
+    time_zone: str
+    started_at: datetime
+    ended_at: datetime | None
+    status: TimeEntryStatus
+    actual_work_seconds: float
+    actual_break_seconds: float
+    planned_work_seconds: int | None
+    difference_seconds: float | None
+    start_deviation_seconds: float | None
+    end_deviation_seconds: float | None
+    created_by_id: UUID | None
+    submitted_at: datetime | None
+    reviewed_by_id: UUID | None
+    reviewed_at: datetime | None
+    decision_reason: str | None
+    segments: list[TimeEntrySegmentRead]
+    corrections: list[TimeEntryCorrectionRead]
+
+
+class TimeEntrySummaryRead(BaseModel):
+    from_date: date
+    to_date: date
+    time_zone: str
+    group_by: Literal["employee", "object", "customer", "day", "week", "month"] | None
+    entry_count: int
+    actual_work_seconds: float
+    actual_break_seconds: float
+    planned_work_seconds: int
+    difference_seconds: float
+    overtime_seconds: float
+    pending_count: int
+    groups: list["TimeEntryReportGroup"]
+    items: list[TimeEntryRead]
+
+
+class TimeEntryReportGroup(BaseModel):
+    key: str
+    label: str
+    entry_count: int
+    actual_work_seconds: float
+    actual_break_seconds: float
+    planned_work_seconds: int
+    difference_seconds: float
+    overtime_seconds: float
+    pending_count: int
+
+
+class MissingShiftRead(BaseModel):
+    shift_id: UUID
+    employee_id: UUID
+    employee_number: str
+    employee_name: str
+    object_id: UUID
+    object_code: str
+    object_name: str
+    starts_at: datetime
+    ends_at: datetime
+    time_zone: str
+
+
 CustomerCreate.model_rebuild()
 CustomerUpdate.model_rebuild()
 CustomerRead.model_rebuild()

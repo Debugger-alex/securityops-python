@@ -155,6 +155,37 @@ footer span { padding: 0 5px; }
 .schedule-history { margin-top: 22px; padding-top: 18px; border-top: 1px solid #e5eaed; }
 .schedule-history h3 { margin: 0 0 12px; font-size: 1rem; }
 .schedule-disclaimer { margin: 16px 0 0; line-height: 1.5; }
+.time-tracking-module { padding-bottom: 12px; }
+.time-clock-panel, .time-manual-panel { margin-bottom: 18px; }
+.time-clock-details { color: #43515c; }
+.time-clock-details p { margin: 7px 0; }
+.time-clock-panel > .muted, .time-manual-panel > .muted { margin: 14px 0 0; line-height: 1.5; }
+.time-action-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.time-action-row .text-button { font-size: .76rem; }
+.time-filter-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin: 12px 0 18px; }
+.time-filter-row label { display: grid; flex: 1 1 150px; gap: 6px; color: #43515c; font-size: .82rem; font-weight: 600; }
+.time-filter-row input, .time-filter-row select, .time-correction-form input, .time-correction-form textarea {
+  min-width: 0; height: 40px; border: 1px solid #dfe6ea; border-radius: 7px; background: white; padding: 0 10px;
+}
+.time-filter-row button { min-height: 40px; }
+.time-pause-input { display: flex; flex: 1 1 100%; flex-wrap: wrap; gap: 12px; align-items: end; padding: 10px; border-radius: 8px; background: #f7f9fa; }
+.time-pause-input label { flex: 1 1 180px; }
+.time-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 16px 0; }
+.time-summary-grid article { display: grid; gap: 7px; padding: 13px; border: 1px solid #e5eaed; border-radius: 8px; background: #f8fafb; }
+.time-summary-grid span { color: #74818d; font-size: .78rem; }
+.time-summary-grid strong { color: #243746; font-size: .94rem; }
+.time-status-open { color: #177d79; background: #e8f5f2; }
+.time-status-submitted, .time-status-correction_requested { color: #8a6413; background: #fff5d9; }
+.time-status-approved, .time-status-locked { color: #2d6484; background: #eaf3f8; }
+.time-status-rejected { color: #a63d3d; background: #fff0ef; }
+.time-correction-list { display: grid; gap: 10px; }
+.time-correction-card { padding: 14px; border: 1px solid #e5eaed; border-radius: 8px; background: #fbfcfd; }
+.time-correction-card p { margin: 0 0 7px; }
+.time-correction-card small { display: block; margin-bottom: 10px; color: #74818d; }
+.time-correction-form { display: grid; gap: 14px; margin-top: 20px; padding-top: 18px; border-top: 1px solid #e5eaed; }
+.time-correction-form label { display: grid; gap: 6px; color: #43515c; font-size: .82rem; font-weight: 600; }
+.time-correction-form textarea { min-height: 84px; height: auto; padding: 10px; resize: vertical; }
+.time-correction-form .form-row { align-items: end; }
 
 @media (max-width: 850px) {
   .content-grid { grid-template-columns: 1fr; }

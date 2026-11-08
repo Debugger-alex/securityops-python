@@ -12,6 +12,13 @@ export type EmployeeStatus = "active" | "inactive" | "leave" | "terminated";
 export type EmployeeAbsenceType = "vacation" | "sick_leave" | "other";
 export type EmployeeAbsenceStatus = "pending" | "approved" | "rejected";
 export type ScheduleShiftStatus = "draft" | "published" | "cancelled";
+export type TimeEntryStatus =
+  | "open"
+  | "submitted"
+  | "approved"
+  | "rejected"
+  | "correction_requested"
+  | "locked";
 
 export interface CustomerAddress {
   id: string;
@@ -335,4 +342,97 @@ export interface ScheduleShiftHistory {
   action: string;
   changed_fields: string[];
   created_at: string;
+}
+
+export interface TimeEntrySegment {
+  id: string;
+  position: number;
+  kind: "work" | "break";
+  started_at: string;
+  ended_at: string | null;
+}
+
+export interface TimeEntryCorrection {
+  id: string;
+  entry_id: string;
+  reason: string;
+  status: "pending" | "approved" | "rejected";
+  rejection_reason: string | null;
+  requested_by_id: string | null;
+  decided_by_id: string | null;
+  requested_at: string;
+  decided_at: string | null;
+  segments: TimeEntrySegment[];
+}
+
+export interface TimeEntry {
+  id: string;
+  employee_id: string;
+  employee_number: string;
+  employee_name: string;
+  object_id: string;
+  object_code: string;
+  object_name: string;
+  customer_id: string;
+  customer_name: string;
+  shift_id: string | null;
+  planned_start_at: string | null;
+  planned_end_at: string | null;
+  planned_break_seconds: number;
+  time_zone: string;
+  started_at: string;
+  ended_at: string | null;
+  status: TimeEntryStatus;
+  actual_work_seconds: number;
+  actual_break_seconds: number;
+  planned_work_seconds: number | null;
+  difference_seconds: number | null;
+  start_deviation_seconds: number | null;
+  end_deviation_seconds: number | null;
+  created_by_id: string | null;
+  submitted_at: string | null;
+  reviewed_by_id: string | null;
+  reviewed_at: string | null;
+  decision_reason: string | null;
+  segments: TimeEntrySegment[];
+  corrections: TimeEntryCorrection[];
+}
+
+export interface TimeEntrySummary {
+  from_date: string;
+  to_date: string;
+  time_zone: string;
+  group_by: "employee" | "object" | "customer" | "day" | "week" | "month" | null;
+  entry_count: number;
+  actual_work_seconds: number;
+  actual_break_seconds: number;
+  planned_work_seconds: number;
+  difference_seconds: number;
+  overtime_seconds: number;
+  pending_count: number;
+  groups: Array<{
+    key: string;
+    label: string;
+    entry_count: number;
+    actual_work_seconds: number;
+    actual_break_seconds: number;
+    planned_work_seconds: number;
+    difference_seconds: number;
+    overtime_seconds: number;
+    pending_count: number;
+  }>;
+  items: TimeEntry[];
+}
+
+export interface MissingShift {
+  shift_id: string;
+  employee_id: string;
+  employee_number: string;
+  employee_name: string;
+  object_id: string;
+  object_code: string;
+  object_name: string;
+  starts_at: string;
+  ends_at: string;
+  time_zone: string;
 }
