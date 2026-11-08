@@ -17,6 +17,7 @@ import {
   updateCustomerContact,
 } from "./api";
 import ObjectManagement from "./ObjectManagement";
+import DocumentContractManagement from "./DocumentContractManagement";
 import PersonnelManagement from "./PersonnelManagement";
 import SchedulingManagement from "./SchedulingManagement";
 import TimeTracking from "./TimeTracking";
@@ -125,7 +126,7 @@ export default function App() {
   const [history, setHistory] = useState<CustomerHistory[]>([]);
   const [customerObjects, setCustomerObjects] = useState<SecurityObject[]>([]);
   const [activeModule, setActiveModule] = useState<
-    "customers" | "objects" | "employees" | "scheduling" | "time_tracking"
+    "customers" | "objects" | "employees" | "scheduling" | "time_tracking" | "documents"
   >("customers");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -138,6 +139,9 @@ export default function App() {
   const canReadScheduling = user?.permissions.includes("scheduling.read") ?? false;
   const canReadTimeTracking = user?.permissions.some((permission) =>
     ["time_tracking.read_own", "time_tracking.read_all"].includes(permission),
+  ) ?? false;
+  const canAccessDocuments = user?.permissions.some((permission) =>
+    ["documents.read", "documents.create", "contracts.read", "contracts.create"].includes(permission),
   ) ?? false;
 
   useEffect(() => {
@@ -202,8 +206,13 @@ export default function App() {
       && !canReadScheduling && canReadTimeTracking
     ) {
       setActiveModule("time_tracking");
+    } else if (
+      user && !canReadCustomers && !canReadObjects && !canReadEmployees
+      && !canReadScheduling && !canReadTimeTracking && canAccessDocuments
+    ) {
+      setActiveModule("documents");
     }
-  }, [canReadCustomers, canReadEmployees, canReadObjects, canReadScheduling, canReadTimeTracking, user]);
+  }, [canAccessDocuments, canReadCustomers, canReadEmployees, canReadObjects, canReadScheduling, canReadTimeTracking, user]);
 
   async function submitLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -442,9 +451,14 @@ export default function App() {
         {canReadTimeTracking && <button
           className={activeModule === "time_tracking" ? "module-tab active" : "module-tab"}
           onClick={() => setActiveModule("time_tracking")}>Zeiterfassung</button>}
+        {canAccessDocuments && <button
+          className={activeModule === "documents" ? "module-tab active" : "module-tab"}
+          onClick={() => setActiveModule("documents")}>Dokumente & Verträge</button>}
       </nav>
 
-      {activeModule === "time_tracking" && canReadTimeTracking
+      {activeModule === "documents" && canAccessDocuments
+        ? <DocumentContractManagement user={user} />
+        : activeModule === "time_tracking" && canReadTimeTracking
         ? <TimeTracking user={user} />
         : activeModule === "scheduling" && canReadScheduling
         ? <SchedulingManagement user={user} />

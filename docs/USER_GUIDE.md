@@ -34,7 +34,7 @@ Eine freigegebene Buchung kann nicht direkt überschrieben werden. Über „Korr
 
 Vorgesetzte sehen abhängig von ihrer Berechtigung und Objektzuweisung Arbeitszeiten, offene Korrekturen und veröffentlichte Dienste ohne Buchung. Zeitraum, Mitarbeiter, Objekt, Kunde und Status sind filterbar. Die Übersicht gruppiert nach Mitarbeiter, Objekt, Kunde, Tag, ISO-Kalenderwoche oder Monat und zeigt Soll-/Ist-Zeit, Pausen, Abweichungen sowie offene Freigaben. „Mehrzeit gegenüber Dienstplan“ ist die positive Differenz zur geplanten Arbeitszeit; tarifliche Überstunden, Zuschläge und Rundungen werden nicht berechnet. Der CSV-Export ist auf freigegebene oder gesperrte Buchungen beschränkt und maskiert Tabellenformeln.
 
-Korrekturanträge nach der Freigabe ändern nur die effektive, separat versionierte Ansicht. Gesperrte Einträge sind endgültig und können nicht mehr korrigiert werden. Arbeitszeitberechnung, Zeitzonen und Dienstplanabgleich ersetzen keine fachliche oder arbeitsrechtliche Prüfung. Wachbuch, Kontrollgänge, Dokumente, Verträge und Rechnungen sind weiterhin nicht implementiert; die Anwendung nicht als Ersatz dieser Betriebsprozesse verwenden.
+Korrekturanträge nach der Freigabe ändern nur die effektive, separat versionierte Ansicht. Gesperrte Einträge sind endgültig und können nicht mehr korrigiert werden. Arbeitszeitberechnung, Zeitzonen und Dienstplanabgleich ersetzen keine fachliche oder arbeitsrechtliche Prüfung. Wachbuch, Kontrollgänge und Rechnungen sind weiterhin nicht implementiert; die Anwendung nicht als Ersatz dieser Betriebsprozesse verwenden.
 
 ### Zuschläge und Abrechnungsperioden
 
@@ -45,3 +45,11 @@ Für freigegebene Buchungen kann die Verwaltung einen versionierten Zuschlagsnac
 **Wichtig:** Das Modul berechnet derzeit keine Geldbeträge. Es gibt keine bestätigte Mitarbeiter-Lohnbasis und keine fachliche Festlegung zur Prozentbasis, Einheit eines Festzuschlags oder Rundung. Der Nachweis weist den Geldbetrag daher ausdrücklich als nicht berechnet aus. Er ist kein abrechnungsfertiger Lohn- oder Payroll-Export.
 
 Eine Periode kann nach vollständigem Ablauf endgültig gesperrt werden, wenn jede Buchung freigegeben ist, keine Buchung die Periodengrenze schneidet und jeder veröffentlichte Dienst eine freigegebene Zeiterfassung besitzt. Beim Sperren werden Berechnungssnapshots gesichert. Nach der Sperre sind Korrektur und Neuberechnung ausgeschlossen; es gibt keine Entsperr-Funktion.
+
+### Dokumente und Verträge
+
+Im Modul „Dokumente & Verträge“ können berechtigte Benutzer PDF-, PNG-, JPG/JPEG-, DOCX- und XLSX-Dateien mit Nummer, Titel, Kategorie, Beschreibung, Status, Ablaufdatum und Kunde/Objekt/Mitarbeiterzuordnung hochladen. Uploads werden serverseitig geprüft; Dokumente können gesucht, gefiltert, versioniert und archiviert werden. Archivieren entfernt keine Datei. Jede Version hat Prüfsumme, Zeitstempel und eigene Historie. Über „Herunterladen“ werden Dateien geschützt über die API ausgeliefert; es gibt keine öffentliche Datei-URL.
+
+Zu einer Version kann eine Freigabe angefordert werden. Personen mit `documents.approve` entscheiden sie mit Freigabe oder Ablehnung; Lesende können eine Lesebestätigung pro Version hinterlegen. Details und Chronik zeigen die gespeicherten Zeitpunkte und Aktionen. Verträge erfassen Typ, Nummer, Name, Partner, Kunde, optional Objekt/Mitarbeiter, Laufzeit, Kündigungsfrist, Verlängerungsregel, Status, Vertragsdokument und interne Notizen. Änderungen bleiben in der Vertragschronik.
+
+Mit `contracts.manage_reminders` kann die Vorlaufzeit (standardmäßig 90, 60, 30, 14 und 7 Tage) angepasst und die Erinnerungsplanung über „Erinnerungen aktualisieren“ angestoßen werden. Das System legt idempotente Erinnerungen zu Dokumentablauf, Vertragsablauf, Kündigungsfrist und vereinbarter Verlängerung an. Erinnerungen werden in der Anwendung als offen, erledigt oder verworfen geführt. Eine automatische tägliche Ausführung und E-Mail-/Push-Benachrichtigungen sind nicht enthalten; dafür ist ein geschützter, regelmäßig aufrufender Prozess erforderlich. Datei-Uploads werden nicht auf Schadsoftware gescannt; Dokumentfreigabe ist keine elektronische Signatur.

@@ -16,10 +16,19 @@ from app.main import app
 from app.models import (
     AuditLog,
     Base,
+    Contract,
+    ContractHistory,
     Customer,
     CustomerAddress,
     CustomerContact,
     CustomerHistory,
+    Document,
+    DocumentApproval,
+    DocumentContractReminder,
+    DocumentContractReminderSettings,
+    DocumentHistory,
+    DocumentReadReceipt,
+    DocumentVersion,
     Employee,
     EmployeeAbsence,
     EmployeeHistory,
@@ -91,6 +100,15 @@ def client() -> Generator[TestClient, None, None]:
         db.execute(delete(TimeEntryCorrectionSegment))
         db.execute(delete(TimeEntryCorrection))
         db.execute(delete(TimeEntryHistory))
+        db.execute(delete(DocumentContractReminder))
+        db.execute(delete(ContractHistory))
+        db.execute(delete(DocumentReadReceipt))
+        db.execute(delete(DocumentApproval))
+        db.execute(delete(DocumentVersion))
+        db.execute(delete(Contract))
+        db.execute(delete(DocumentHistory))
+        db.execute(delete(Document))
+        db.execute(delete(DocumentContractReminderSettings))
         db.execute(delete(TimeSurchargeCalculation))
         db.execute(delete(TimeEntrySegment))
         db.execute(delete(TimeEntry))
@@ -162,6 +180,17 @@ def client() -> Generator[TestClient, None, None]:
             "time_tracking.surcharges.manage",
             "time_tracking.periods.read",
             "time_tracking.periods.lock",
+            "documents.read",
+            "documents.create",
+            "documents.update",
+            "documents.archive",
+            "documents.download",
+            "documents.approve",
+            "contracts.read",
+            "contracts.create",
+            "contracts.update",
+            "contracts.archive",
+            "contracts.manage_reminders",
         )
         permissions = {}
         for code in permission_codes:
@@ -220,6 +249,17 @@ def client() -> Generator[TestClient, None, None]:
                 "time_tracking.surcharges.manage",
                 "time_tracking.periods.read",
                 "time_tracking.periods.lock",
+                "documents.read",
+                "documents.create",
+                "documents.update",
+                "documents.archive",
+                "documents.download",
+                "documents.approve",
+                "contracts.read",
+                "contracts.create",
+                "contracts.update",
+                "contracts.archive",
+                "contracts.manage_reminders",
             ),
         )
         get_or_create_role(
@@ -239,7 +279,13 @@ def client() -> Generator[TestClient, None, None]:
             "object_manager",
             "Objektleitung",
             "Testrolle mit zugewiesener Objektverwaltung",
-            ("objects.read", "objects.manage", "objects.sensitive.read"),
+            (
+                "objects.read",
+                "objects.manage",
+                "objects.sensitive.read",
+                "documents.read",
+                "documents.download",
+            ),
         )
         get_or_create_role(
             "hr",
@@ -265,6 +311,17 @@ def client() -> Generator[TestClient, None, None]:
                 "time_tracking.surcharges.manage",
                 "time_tracking.periods.read",
                 "time_tracking.periods.lock",
+                "documents.read",
+                "documents.create",
+                "documents.update",
+                "documents.archive",
+                "documents.download",
+                "documents.approve",
+                "contracts.read",
+                "contracts.create",
+                "contracts.update",
+                "contracts.archive",
+                "contracts.manage_reminders",
             ),
         )
         db.add(ScheduleSettings(id=1, time_zone="Europe/Berlin", minimum_rest_hours=11))

@@ -48,6 +48,18 @@ import type {
   TimeSurchargeCategory,
   TimeSurchargeRule,
   TimeTrackingPeriod,
+  ContractPage,
+  ContractStatus,
+  ContractType,
+  DocumentPage,
+  DocumentApproval,
+  DocumentApprovalQueueItem,
+  DocumentReadReceipt,
+  DocumentVersion,
+  ManagedContract,
+  ManagedDocument,
+  ManagedReminder,
+  ReminderSettings,
 } from "./types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -774,3 +786,162 @@ export async function exportTimeSurchargeCsv(fromDate: string, toDate: string): 
   }
   return response.blob();
 }
+
+export interface DocumentFilters {
+  q: string;
+  status: string;
+  category: string;
+  includeArchived: boolean;
+}
+
+export const getDocuments = (filters: DocumentFilters) => {
+  const params = new URLSearchParams({ limit: "100" });
+  if (filters.q.trim()) params.set("q", filters.q.trim());
+  if (filters.status) params.set("status", filters.status);
+  if (filters.category) params.set("category", filters.category);
+  if (filters.includeArchived) params.set("include_archived", "true");
+  return request<DocumentPage>(`/documents?${params}`);
+};
+
+export const getDocument = (id: string) => request<ManagedDocument>(`/documents/${id}`);
+
+export const createDocument = (data: FormData) =>
+  request<ManagedDocument>("/documents", { method: "POST", body: data });
+
+export const uploadDocumentVersion = (id: string, data: FormData) =>
+  request<DocumentVersion>(`/documents/${id}/versions`, {
+    method: "POST",
+    body: data,
+  });
+
+export const updateDocument = (id: string, data: Partial<ManagedDocument>) =>
+  request<ManagedDocument>(`/documents/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+
+export const archiveDocument = (id: string) =>
+  request<ManagedDocument>(`/documents/${id}/archive`, { method: "POST" });
+
+export const restoreDocument = (id: string) =>
+  request<ManagedDocument>(`/documents/${id}/restore`, { method: "POST" });
+
+export const requestDocumentApproval = (versionId: string) =>
+  request<DocumentApproval>(
+    `/documents/versions/${versionId}/approvals`,
+    { method: "POST" },
+  );
+
+export const decideDocumentApproval = (
+  approvalId: string,
+  status: "approved" | "rejected",
+  decisionNote?: string,
+) =>
+  request<DocumentApproval>(`/documents/approvals/${approvalId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status, decision_note: decisionNote }),
+  });
+
+export const acknowledgeDocumentRead = (versionId: string) =>
+  request<DocumentReadReceipt>(`/documents/versions/${versionId}/read-receipt`, { method: "POST" });
+
+export const getDocumentApprovals = (statusFilter = "pending") =>
+  request<DocumentApprovalQueueItem[]>(
+    `/document-approvals?${new URLSearchParams({ status: statusFilter })}`,
+  );
+
+export async function downloadDocumentVersion(
+  documentId: string,
+  versionId: string,
+): Promise<Blob> {
+  const csrf = document.cookie.split("; ").find((cookie) =>
+    cookie.startsWith("securityops_csrf="),
+  )?.split("=")[1];
+  const response = await fetch(
+    `/api/v1/documents/${documentId}/versions/${versionId}/download`,
+    {
+      credentials: "same-origin",
+      headers: csrf ? { "X-CSRF-Token": decodeURIComponent(csrf) } : {},
+    },
+  );
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(
+      typeof body?.detail === "string" ? body.detail : `Serverfehler (${response.status})`,
+    );
+  }
+  return response.blob();
+}
+
+export interface ContractFilters {
+  q: string;
+  status: string;
+  contractType: ContractType | "";
+  includeArchived: boolean;
+}
+
+export const getContracts = (filters: ContractFilters) => {
+  const params = new URLSearchParams({ limit: "100" });
+  if (filters.q.trim()) params.set("q", filters.q.trim());
+  if (filters.status) params.set("status", filters.status);
+  if (filters.contractType) params.set("contract_type", filters.contractType);
+  if (filters.includeArchived) params.set("include_archived", "true");
+  return request<ContractPage>(`/contracts?${params}`);
+};
+
+export const getContract = (id: string) => request<ManagedContract>(`/contracts/${id}`);
+
+export type ContractInput = {
+  contract_number: string;
+  name: string;
+  contract_type: ContractType;
+  counterparty: string;
+  customer_id: string;
+  object_id?: string | null;
+  employee_id?: string | null;
+  starts_on: string;
+  ends_on?: string | null;
+  notice_period_days?: number | null;
+  renewal_rule?: string | null;
+  status: ContractStatus;
+  document_id?: string | null;
+  internal_notes?: string | null;
+};
+
+export const createContract = (data: ContractInput) =>
+  request<ManagedContract>("/contracts", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const updateContract = (id: string, data: Partial<ContractInput>) =>
+  request<ManagedContract>(`/contracts/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+
+export const archiveContract = (id: string) =>
+  request<ManagedContract>(`/contracts/${id}/archive`, { method: "POST" });
+
+export const restoreContract = (id: string) =>
+  request<ManagedContract>(`/contracts/${id}/restore`, { method: "POST" });
+
+export const getReminders = (statusFilter = "open") =>
+  request<ManagedReminder[]>(`/reminders?${new URLSearchParams({ status: statusFilter })}`);
+
+export const generateReminders = () =>
+  request<{ created: number }>("/reminders/generate", { method: "POST" });
+
+export const updateReminder = (id: string, status: "completed" | "dismissed") =>
+  request<ManagedReminder>(`/reminders/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+
+export const getReminderSettings = () => request<ReminderSettings>("/reminders/settings");
+
+export const updateReminderSettings = (leadDays: number[]) =>
+  request<ReminderSettings>("/reminders/settings", {
+    method: "PUT",
+    body: JSON.stringify({ lead_days: leadDays }),
+  });

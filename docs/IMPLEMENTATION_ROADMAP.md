@@ -14,7 +14,7 @@ Diese Roadmap beschreibt `main` auf Merge-Commit `d066d56b97fbd795be276b0414d6a8
 | Dienstplanung | In `main` umgesetzt; Abnahme offen | PR #19 enthält Scheduling-Kern mit UTC-Zeitpunkten, konfigurierbarer IANA-Zeitzone/Ruhezeit, PostgreSQL-Überlappungsschutz, Prüfungen, API/UI und Änderungshistorie. GitHub-CI für PostgreSQL, parallele Integrationstests, Frontend und Docker war erfolgreich; fachliche Issue-Abnahme steht aus ([#10](https://github.com/Xonni-star/securityops-python/issues/10)). |
 | Zeiterfassung | PR #20 offen; gestapelte Ergänzung in PR #21 | Migration 0012 enthält Buchungen/Segmente, Korrekturfreigaben, Rechte und Berichte. Migration 0013 ergänzt Bundesland, Zuschlagsregeln, versionierte Zeitnachweise, CSV und endgültige Periodensperren. Backend/PostgreSQL/Migrationen-, Frontend- und Docker-CI für PR #21 ist grün. Keine Geldbetragsberechnung ohne fachliche Rechenkonvention ([#4](https://github.com/Xonni-star/securityops-python/issues/4)). |
 | OWKS | Nicht implementiert | Kontrollpunkte, QR/NFC, Rundgänge und Offline-Synchronisierung fehlen ([#3](https://github.com/Xonni-star/securityops-python/issues/3)). |
-| Dokumente und Verträge | Nicht implementiert | Geschützte Ablage, Berechtigungen und Versionierung fehlen ([#8](https://github.com/Xonni-star/securityops-python/issues/8)). |
+| Dokumente und Verträge | In Feature-Branch umgesetzt; Abnahme/Integration offen | Private Ablage, Versionen, Historie, Freigaben, Lesebestätigungen, Verträge und deduplizierte Erinnerungsplanung mit Migration 0014 und Rollenrechten. Branch ist ungemergt; Issue #8 bleibt offen bis zur Nutzerfreigabe ([#8](https://github.com/Xonni-star/securityops-python/issues/8)). |
 | Rechnungswesen | Nicht implementiert | Vertragsbasierte, freigegebene und nicht doppelt abgerechnete Leistungen fehlen ([#7](https://github.com/Xonni-star/securityops-python/issues/7)). |
 | CI und Datenbankqualität | Teilweise umgesetzt | GitHub Actions definiert Python-Lint/Format, Backendtests, PostgreSQL-Migrationen, Frontend-Build und Docker-Image-Builds. Der aktuelle Stand braucht einen erneuten CI-Lauf; SCA/SAST und weitere Produktionshärtung bleiben offen ([#9](https://github.com/Xonni-star/securityops-python/issues/9)). |
 
@@ -41,7 +41,7 @@ Diese Roadmap beschreibt `main` auf Merge-Commit `d066d56b97fbd795be276b0414d6a8
 
 ### P3 – Dokumente, Verträge und Abrechnung
 
-1. Sichere Dokumentenablage mit Zugriffskontrolle, Versionen und Ablaufüberwachung ([#8](https://github.com/Xonni-star/securityops-python/issues/8)).
+1. Dokument-/Vertrags-Feature-Branch gegen PostgreSQL und Docker integrieren, Sicherheitsreview einschließlich Upload-/Berechtigungsgrenzen durchführen und danach Issue #8 fachlich abnehmen. Der aktuelle Stand bietet interne Fristerinnerungen, aber keinen Scheduler, Mail-/Push-Versand oder Virenscanner ([#8](https://github.com/Xonni-star/securityops-python/issues/8)).
 2. Verträge und Abrechnung auf freigegebenen, nicht doppelt verrechneten Leistungsnachweisen aufbauen ([#7](https://github.com/Xonni-star/securityops-python/issues/7)).
 3. Exporte erst nach fachlich verifizierter Spezifikation als DATEV-kompatibel bezeichnen; Steuer-/Rechtskonformität erfordert externe fachliche Prüfung.
 

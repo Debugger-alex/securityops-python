@@ -500,3 +500,144 @@ export interface TimeTrackingPeriod {
   locked_by_id: string | null;
   locked_at: string;
 }
+
+export type DocumentStatus = "draft" | "active" | "expired" | "archived";
+export type ContractType =
+  | "customer" | "object" | "personnel" | "service" | "additional" | "other";
+export type ContractStatus = "draft" | "active" | "terminated" | "expired" | "archived";
+export type ApprovalStatus = "pending" | "approved" | "rejected";
+export type ReminderStatus = "open" | "completed" | "dismissed";
+
+export interface DocumentVersion {
+  id: string;
+  document_id: string;
+  version: number;
+  file_name: string;
+  media_type: string;
+  size_bytes: number;
+  sha256: string;
+  uploaded_by_id: string | null;
+  created_at: string;
+}
+
+export interface DocumentApproval {
+  id: string;
+  version_id: string;
+  requested_by_id: string | null;
+  decided_by_id: string | null;
+  status: ApprovalStatus;
+  decision_note: string | null;
+  created_at: string;
+  decided_at: string | null;
+}
+
+export interface DocumentApprovalQueueItem extends DocumentApproval {
+  document_id: string;
+  document_number: string;
+  document_title: string;
+  version: number;
+}
+
+export interface DocumentReadReceipt {
+  id: string;
+  version_id: string;
+  user_id: string;
+  read_at: string;
+}
+
+export interface DocumentHistory {
+  id: string;
+  actor_id: string | null;
+  action: string;
+  changed_fields: string[];
+  details: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ManagedDocument {
+  id: string;
+  document_number: string;
+  title: string;
+  description: string | null;
+  category: string;
+  status: DocumentStatus;
+  customer_id: string | null;
+  object_id: string | null;
+  employee_id: string | null;
+  expires_on: string | null;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+  latest_version: DocumentVersion | null;
+  versions?: DocumentVersion[];
+  approvals?: DocumentApproval[];
+  read_receipts?: DocumentReadReceipt[];
+  history?: DocumentHistory[];
+}
+
+export interface DocumentPage {
+  items: ManagedDocument[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface ContractHistory {
+  id: string;
+  actor_id: string | null;
+  action: string;
+  changed_fields: string[];
+  details: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ManagedContract {
+  id: string;
+  contract_number: string;
+  name: string;
+  contract_type: ContractType;
+  counterparty: string;
+  customer_id: string;
+  object_id: string | null;
+  employee_id: string | null;
+  starts_on: string;
+  ends_on: string | null;
+  notice_period_days: number | null;
+  renewal_rule: string | null;
+  status: ContractStatus;
+  document_id: string | null;
+  internal_notes: string | null;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+  history: ContractHistory[];
+}
+
+export interface ContractPage {
+  items: ManagedContract[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export type ReminderType =
+  | "document_expiry" | "contract_expiry" | "contract_termination" | "contract_renewal";
+
+export interface ManagedReminder {
+  id: string;
+  document_id: string | null;
+  contract_id: string | null;
+  reminder_type: ReminderType;
+  event_on: string;
+  remind_on: string;
+  status: ReminderStatus;
+  created_at: string;
+  subject: string;
+  number: string;
+}
+
+export interface ReminderSettings {
+  lead_days: number[];
+  updated_by_id: string | null;
+  updated_at: string | null;
+}
