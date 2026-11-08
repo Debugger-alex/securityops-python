@@ -1,6 +1,6 @@
 # SecurityOps – Projektstatus
 
-Arbeitsstand: Zeiterfassungs-Feature-Branch auf `main` bei Merge-Commit `d066d56b97fbd795be276b0414d6a88b8c779962`. PR #19 (Dienstplanung) ist in diesem Ausgangsstand integriert; Issue #10 bleibt bis zur fachlichen Abnahme offen. PR #18 ist mit Merge-Commit `c8d4fbe203d179b7c4b620d604409c7217478033` integriert, seine Backend/PostgreSQL-, Frontend-/Vitest- und Docker-CI war erfolgreich; Issue #6 ist geschlossen. Issue #2 bleibt bis zur formalen Abnahme seiner Akzeptanzkriterien offen. Der aktuelle Branch ergänzt ausschließlich Zeiterfassung für Issue #4; PR, PostgreSQL-CI und Gesamtprüfungen stehen bis zum Abschluss der Branch-Arbeit aus. Dieser Status beschreibt Quellcode und tatsächlich ausgeführte Prüfungen, nicht eine Produktions- oder Rechtsfreigabe.
+Arbeitsstand: Zeiterfassungs-Feature-Branch auf `main` bei Merge-Commit `d066d56b97fbd795be276b0414d6a88b8c779962`. PR #19 (Dienstplanung) ist in diesem Ausgangsstand integriert; Issue #10 bleibt bis zur fachlichen Abnahme offen. PR #18 ist mit Merge-Commit `c8d4fbe203d179b7c4b620d604409c7217478033` integriert, seine Backend/PostgreSQL-, Frontend-/Vitest- und Docker-CI war erfolgreich; Issue #6 ist geschlossen. Issue #2 bleibt bis zur formalen Abnahme seiner Akzeptanzkriterien offen. Der aktuelle Branch ergänzt ausschließlich Zeiterfassung für Issue #4; PR [#20](https://github.com/Xonni-star/securityops-python/pull/20) ist offen, die PostgreSQL-/Docker-CI läuft. Dieser Status beschreibt Quellcode und tatsächlich ausgeführte Prüfungen, nicht eine Produktions- oder Rechtsfreigabe.
 
 ## Implementierter Stand
 
@@ -43,7 +43,7 @@ Arbeitsstand: Zeiterfassungs-Feature-Branch auf `main` bei Merge-Commit `d066d56
 - Architektur, Betrieb und weitere Unterlagen sind im [`README.md`](../README.md) verlinkt.
 - PR #18 (Merge-Commit `c8d4fbe203d179b7c4b620d604409c7217478033`): GitHub-CI für Backend/PostgreSQL, Frontend einschließlich Vitest und Docker erfolgreich; Issue #6 geschlossen.
 - PR #19: GitHub-CI für Backend/Migration/PostgreSQL, Frontend einschließlich Vitest und Docker erfolgreich. Der PostgreSQL-Job deckt Live-Migration und den parallelen Schreibzugriffstest ab.
-- Zeiterfassung: Backend `29 passed, 1 skipped` (übersprungen: PostgreSQL-Constraint-Test in `tests/test_scheduling.py`), Frontend `4 passed`, `npm run build`, Ruff-Lint/Format sowie Alembic-Offline-Upgrade und -Downgrade erfolgreich. Docker und lokale PostgreSQL-Werkzeuge stehen in dieser Umgebung nicht zur Verfügung; CI muss die Live-Migration und den PostgreSQL-Constraint-Test noch ausführen. Ein Offline-SQL-Render gilt nicht als Live-PostgreSQL-Migrationstest.
+- Zeiterfassung: Backend `29 passed, 1 skipped` (übersprungen: PostgreSQL-Constraint-Test in `tests/test_scheduling.py`), Frontend `4 passed`, `npm run build`, Ruff-Lint/Format sowie Alembic-Offline-Upgrade und -Downgrade erfolgreich. Docker und lokale PostgreSQL-Werkzeuge stehen in dieser Umgebung nicht zur Verfügung; PR [#20](https://github.com/Xonni-star/securityops-python/pull/20) führt die Live-Migration und den PostgreSQL-Constraint-Test aus. Ein Offline-SQL-Render gilt nicht als Live-PostgreSQL-Migrationstest.
 - Die CI-Ergebnisse stellen keine Produktions- oder Rechtsfreigabe dar. Issue #10 bleibt bis zur fachlichen Abnahme offen.
 - Derzeit keine E2E-, Last-, Restore-, externe Penetrations- oder unabhängige Datenschutz-/Steuerprüfung.
 
@@ -57,5 +57,5 @@ Arbeitsstand: Zeiterfassungs-Feature-Branch auf `main` bei Merge-Commit `d066d56
 ## Repository-Arbeitsstand
 
 - Der aktuelle Arbeitsbranch ist der isolierte Zeiterfassungs-Feature-Branch, ausgehend von `main` nach Merge von PR #19.
-- PR #18 und PR #19 sind im Ausgangsstand integriert; Issue #6 ist geschlossen. Issue #10 bleibt bis fachlicher Akzeptanz offen. Issue #2 bleibt bis zur formalen Akzeptanz offen.
+- PR #18 und PR #19 sind im Ausgangsstand integriert; Issue #6 ist geschlossen. PR #20 ist offen und nicht gemergt; Issue #4 bleibt ebenfalls offen. Issue #10 bleibt bis fachlicher Akzeptanz offen. Issue #2 bleibt bis zur formalen Akzeptanz offen.
 - Die bereits in `main` gemergte Objektverwaltung wurde nicht neu entwickelt; Personalakten greifen über ihr verknüpftes Benutzerkonto auf die bestehende Zuweisungstabelle zu.
