@@ -2,8 +2,8 @@ import logging
 
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi.extension import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from slowapi.extension import _rate_limit_exceeded_handler
 from slowapi.middleware import SlowAPIMiddleware
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError

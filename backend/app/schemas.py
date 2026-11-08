@@ -99,6 +99,12 @@ class CustomerCreate(BaseModel):
     status: CustomerStatus = "active"
     email: EmailStr | None = None
     phone: str | None = Field(default=None, max_length=40)
+    legal_form: str | None = Field(default=None, max_length=100)
+    vat_number: str | None = Field(default=None, max_length=32)
+    tax_number: str | None = Field(default=None, max_length=32)
+    internal_notes: str | None = Field(default=None, max_length=10000)
+    business_address: "CustomerAddressInput | None" = None
+    billing_address: "CustomerAddressInput | None" = None
 
     @field_validator("company_name")
     @classmethod
@@ -114,6 +120,12 @@ class CustomerUpdate(BaseModel):
     status: CustomerStatus | None = None
     email: EmailStr | None = None
     phone: str | None = Field(default=None, max_length=40)
+    legal_form: str | None = Field(default=None, max_length=100)
+    vat_number: str | None = Field(default=None, max_length=32)
+    tax_number: str | None = Field(default=None, max_length=32)
+    internal_notes: str | None = Field(default=None, max_length=10000)
+    business_address: "CustomerAddressInput | None" = None
+    billing_address: "CustomerAddressInput | None" = None
 
     @field_validator("company_name", "status")
     @classmethod
@@ -142,6 +154,14 @@ class CustomerRead(BaseModel):
     status: CustomerStatus
     email: str | None
     phone: str | None
+    legal_form: str | None
+    vat_number: str | None
+    tax_number: str | None
+    internal_notes: str | None
+    archived_at: datetime | None
+    business_address: "CustomerAddressRead | None"
+    billing_address: "CustomerAddressRead | None"
+    contacts: list["CustomerContactRead"] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 
@@ -157,3 +177,79 @@ class DashboardRead(BaseModel):
     customers_total: int
     customers_active: int
     customers_leads: int
+
+
+class CustomerAddressInput(BaseModel):
+    street: str = Field(min_length=1, max_length=160)
+    house_number: str = Field(min_length=1, max_length=30)
+    postal_code: str = Field(min_length=1, max_length=20)
+    city: str = Field(min_length=1, max_length=100)
+    country_code: str = Field(default="DE", min_length=2, max_length=2, pattern=r"^[A-Z]{2}$")
+
+    @field_validator("street", "house_number", "postal_code", "city")
+    @classmethod
+    def address_values_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Adressfelder dürfen nicht leer sein.")
+        return value
+
+
+class CustomerAddressRead(CustomerAddressInput):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+
+
+class CustomerContactCreate(BaseModel):
+    first_name: str = Field(min_length=1, max_length=100)
+    last_name: str = Field(min_length=1, max_length=100)
+    responsibility: str | None = Field(default=None, max_length=120)
+    email: EmailStr | None = None
+    phone: str | None = Field(default=None, max_length=40)
+    is_primary: bool = False
+
+    @field_validator("first_name", "last_name")
+    @classmethod
+    def contact_names_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Name und Nachname dürfen nicht leer sein.")
+        return value
+
+
+class CustomerContactUpdate(BaseModel):
+    first_name: str | None = Field(default=None, min_length=1, max_length=100)
+    last_name: str | None = Field(default=None, min_length=1, max_length=100)
+    responsibility: str | None = Field(default=None, max_length=120)
+    email: EmailStr | None = None
+    phone: str | None = Field(default=None, max_length=40)
+    is_primary: bool | None = None
+
+    @field_validator("first_name", "last_name", "is_primary")
+    @classmethod
+    def non_nullable_contact_fields_must_not_be_null(cls, value):
+        if value is None:
+            raise ValueError("Ein gesetzter Änderungswert darf nicht null sein.")
+        return value
+
+
+class CustomerContactRead(CustomerContactCreate):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+
+
+class CustomerHistoryRead(BaseModel):
+    id: UUID
+    actor_id: UUID | None
+    action: str
+    changed_fields: list[str]
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+CustomerCreate.model_rebuild()
+CustomerUpdate.model_rebuild()
+CustomerRead.model_rebuild()

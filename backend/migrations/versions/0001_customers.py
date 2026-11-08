@@ -1,8 +1,9 @@
 """Create initial customer table."""
 
-from typing import Sequence
-from alembic import op
+from collections.abc import Sequence
+
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "0001_customers"
@@ -25,15 +26,15 @@ def upgrade() -> None:
         sa.Column("status", sa.String(length=20), nullable=False, server_default="active"),
         sa.Column("email", sa.String(length=254), nullable=True),
         sa.Column("phone", sa.String(length=40), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
         sa.UniqueConstraint("customer_number", name="uq_customers_customer_number"),
-        sa.CheckConstraint(
-            "status IN ('active', 'inactive', 'lead')", name="ck_customers_status"
-        ),
-        sa.CheckConstraint(
-            "length(trim(company_name)) > 0", name="ck_customers_company_name"
-        ),
+        sa.CheckConstraint("status IN ('active', 'inactive', 'lead')", name="ck_customers_status"),
+        sa.CheckConstraint("length(trim(company_name)) > 0", name="ck_customers_company_name"),
     )
     op.create_index("ix_customers_customer_number", "customers", ["customer_number"])
     op.create_index("ix_customers_company_name", "customers", ["company_name"])

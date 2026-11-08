@@ -1,70 +1,52 @@
-# SecurityOps – Bestandsaufnahme und Entwicklungsbericht
+# SecurityOps – Projektstatus
 
-Stand: 2026-11-08
+Stand: 2026-11-08. Die Phase-1-Grundlage ist der Feature-Branch `feature/phase1-security-audit` mit offenem [Pull Request #11](https://github.com/Xonni-star/securityops-python/pull/11). Die Kundenverwaltung liegt isoliert auf `feature/customer-management` mit gestapeltem [Pull Request #12](https://github.com/Xonni-star/securityops-python/pull/12); PR #11 wurde nicht verändert. Dieser Status beschreibt implementierten Quellcode, nicht eine Produktionsfreigabe.
 
-## Phase 1 – Bestandsaufnahme
+## Implementierter Stand
 
-Ausgangsstand des Repositorys war ein einzelner Commit mit FastAPI, einem Kundenmodell samt erster Alembic-Migration, CRUD-Endpunkten für Kunden, kundendatenbasierten Dashboard-Zahlen und einer React-Oberfläche. Es gab noch keine Anmeldung, Rollen, Audit-Protokolle oder weitere Fachmodule. Docker Compose enthielt PostgreSQL, API und Frontend. Ein lokaler Docker-Daemon war für diese Arbeitsphase nicht verfügbar.
+- Modularer FastAPI-Monolith mit SQLAlchemy, PostgreSQL, Alembic sowie React/TypeScript/Vite.
+- Kundenanlage, Filterung, Sortierung, Suche, Detailabruf/-änderung, Geschäfts- und Rechnungsanschriften, Ansprechpartner mit Primärkontakt, Archivierung/Reaktivierung und Historie.
+- Anmeldung mit Argon2id, serverseitig widerrufbaren opaque Sitzungen, Idle-/Absolute-Timeout, CSRF-Prüfung und Login-Rate-Limit.
+- Serverseitige RBAC-Prüfungen, Benutzeranlage/-deaktivierung und Schutz des letzten aktiven Administrators.
+- Audit-Ereignisse für An-/Abmeldung, fehlgeschlagene Anmeldungen, Passwortwechsel, Benutzer- und Kundenänderungen.
+- Additive Rollen-/Rechtemigration `0003_role_permissions`; Administratorrollenvergabe erfordert `users.manage_admin`.
+- Compose-Standard für Secure-Cookie ist `true`; `.env.example` setzt für lokale HTTP-Entwicklung ausdrücklich `false`.
+- Das Datenbankpasswort hat keinen Standardwert in der Anwendung mehr: `POSTGRES_PASSWORD` muss gesetzt sein.
+- GitHub Actions führt Python-Lint/Format, Backendtests auf SQLite und einer temporären PostgreSQL-Testdatenbank, Migrationen, Frontendbuild und Docker-Image-Builds aus. Der erste Lauf zeigte einen Test-Fixture-Konflikt; nach Korrektur waren alle Jobs erfolgreich.
 
-## Phase 2 – Identität, Rechte und Audit
-
-### Fertig implementiert und getestet
-
-- Anmeldung und Abmeldung über zufällige, serverseitig widerrufbare Sitzungs-Cookies.
-- Passwort-Hashing mit Argon2id und generischer Fehlermeldung bei ungültigen Zugangsdaten.
-- Idle- und absolute Sitzungsablaufzeit; Passwortwechsel widerruft alle Sitzungen.
-- CSRF-Schutz für authentifizierte Schreibzugriffe über SameSite-Cookies und einen geprüften Request-Header.
-- Serverseitige RBAC-Prüfungen an Kunden-, Dashboard-, Benutzer-, Rollen- und Audit-Endpunkten.
-- Standardrollen für Administrator, Geschäftsführung, Einsatzleitung, Objektleitung, Personalverwaltung und Mitarbeiter samt initialen Berechtigungen.
-- Benutzeranlage, Rollenvergabe, Aktivierung/Deaktivierung; letzte aktive Administratoren können nicht entfernt oder herabgestuft werden.
-- Sperren häufiger Anmeldeversuche (5/min pro Backend-Prozess).
-- Audit-Einträge für An-/Abmeldung, fehlgeschlagene Anmeldungen, Passwortwechsel, Benutzeränderungen sowie Kundenanlage/-änderungen.
-- Admin-Bootstrap ohne eingebautes Standardpasswort.
-- Login-Oberfläche mit rollenabhängiger Anzeige der Kundenfunktionen.
-
-### Implementiert, aber betrieblich noch nicht vollständig abgesichert
-
-- Rate-Limit-Speicher ist pro Prozess im Arbeitsspeicher; für mehrere Worker/Instanzen muss ein gemeinsamer Speicher eingerichtet werden.
-- Audit-Endpunkte bieten Anwendungsschreibschutz; Datenbankadministratoren können Datenbankzeilen weiterhin direkt verändern.
-- CSRF und Cookies sind implementiert; der Produktivbetrieb setzt HTTPS und `SESSION_COOKIE_SECURE=true` voraus.
-
-### Noch nicht implementiert
-
-- MFA, E-Mail-gestützte Passwortzurücksetzung und vollständige Sitzungsverwaltung in der Oberfläche.
-- Bearbeitung von Rollen und Berechtigungsdefinitionen über eine Administrationsoberfläche.
-- Objektbezogene Zugriffszuteilungen.
-
-## Funktionsübersicht
+## Teilweise implementiert oder offen
 
 | Bereich | Status |
 |---|---|
-| Kunden | Teilweise implementiert: Anlage, Suche, Detailabruf und Änderung. Ansprechpartner, Anschriften, Dokumente, Historie und Archivierung fehlen. |
-| Objekte | Noch nicht implementiert |
-| Personal | Noch nicht implementiert |
-| Dienstplanung | Noch nicht implementiert |
-| Zeiterfassung | Noch nicht implementiert |
-| OWKS und Kontrollgänge | Noch nicht implementiert |
-| Dienstanweisungen und Dokumente | Noch nicht implementiert |
-| Verträge und Abrechnung | Noch nicht implementiert |
-| Dashboard | Teilweise implementiert: Kundenkennzahlen sind datenbankbasiert. Operative Kennzahlen fehlen. |
-| Identity/RBAC | Grundfunktionen implementiert und getestet; MFA, Passwortzurücksetzung und Objektzuweisungen fehlen. |
-| Audit | Grundlegende Ereignisse implementiert und getestet; manipulationssichere Speicherung/Betriebskonzept fehlt. |
+| Kunden | Teilweise umgesetzt: Backend, Migration 0004, API, Filter-/Detail-/Kontakt-/Archivierungsoberflächen und Regressionstests vorhanden. Vertrags- und Dokumentenzuordnung sowie umfassende UX-Prüfung fehlen ([#6](https://github.com/Xonni-star/securityops-python/issues/6)). |
+| Objekte | Nicht implementiert; Kundenbeziehung und objektbezogene Rechte fehlen ([#2](https://github.com/Xonni-star/securityops-python/issues/2)). |
+| Personal/Qualifikationen | Nicht implementiert ([#5](https://github.com/Xonni-star/securityops-python/issues/5)). |
+| Dienstplanung | Nicht implementiert ([#10](https://github.com/Xonni-star/securityops-python/issues/10)). |
+| Zeiterfassung | Nicht implementiert ([#4](https://github.com/Xonni-star/securityops-python/issues/4)). |
+| OWKS/Kontrollgänge | Nicht implementiert ([#3](https://github.com/Xonni-star/securityops-python/issues/3)). |
+| Dokumente/Verträge | Nicht implementiert ([#8](https://github.com/Xonni-star/securityops-python/issues/8)). |
+| Rechnungswesen | Nicht implementiert ([#7](https://github.com/Xonni-star/securityops-python/issues/7)). |
+| Produktion | Nicht freigegeben: Vite-Devserver statt statischer Frontend-Auslieferung, kein TLS-Reverse-Proxy und kein gemeinsamer Rate-Limit-Speicher ([#9](https://github.com/Xonni-star/securityops-python/issues/9)). |
+| Benutzerverwaltung | MFA, Passwortzurücksetzung, aktive Sitzungsübersicht und Rechteeditor fehlen. |
+| Audit | App-seitig lesbar, aber nicht gegen direkte Änderungen privilegierter Datenbankrollen abgesichert. |
 
-## Geänderte Dateien in dieser Phase
+## Dokumentation und Prüfstatus
 
-- Backend: Identity-, Rollen-, Sitzungs-, Berechtigungs- und Auditmodelle; Authentifizierungs-/Benutzer-/Rollen-/Audit-API; Argon2id; Rate-Limit; Admin-Bootstrap; Kunden- und Dashboardberechtigungen.
-- Datenbank: neue Alembic-Migration `0002_identity_audit`.
-- Frontend: Anmeldung, Sitzung und sichtbare Kundenaktionen nach Serverberechtigungen.
-- Infrastruktur/Dokumentation: Cookie-Sicherheitskonfiguration, Installationshinweise, Erstadministrator und dieser Statusbericht.
-- Tests: Anmeldung, CSRF, Sitzungswiderruf, RBAC, Benutzerverwaltung, Rate-Limit und Kundenabläufe.
+- Vollständige Bestandsaufnahme: [`PROJECT_AUDIT.md`](PROJECT_AUDIT.md).
+- Prioritäten und Abhängigkeiten: [`IMPLEMENTATION_ROADMAP.md`](IMPLEMENTATION_ROADMAP.md).
+- Sicherheitsbefunde und offene Maßnahmen: [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md).
+- Architektur, Betrieb und weitere Unterlagen sind im [`README.md`](../README.md) verlinkt.
+- Kundenverwaltungs-Branch: **11 Backend-Tests bestanden** lokal; Ruff-Lint/Format, Frontend-TypeScript-/Produktionsbuild sowie gehostete PostgreSQL-Migration/API-Tests einschließlich Migration 0004 und Docker-Builds erfolgreich.
+- Lokal war kein Docker- oder PostgreSQL-Dienst verfügbar; der gehostete Phase-2-Lauf prüfte PostgreSQL-Migration/API-Tests, Frontendbuild und Docker-Images erfolgreich.
+- Derzeit keine E2E-, Last-, Restore-, externe Penetrations- oder unabhängige Datenschutz-/Steuerprüfung.
 
-## Prüfungsergebnisse
+## Nächste Schritte
 
-- Backend-Tests decken API- und Berechtigungsabläufe mit SQLite ab; sie ersetzen keinen Test gegen einen echten PostgreSQL-Server.
-- PostgreSQL-Migrationen wurden als SQL offline generiert, aber hier nicht gegen einen laufenden PostgreSQL-Dienst ausgeführt.
-- Frontend-TypeScript-Prüfung und Produktionsbuild wurden erfolgreich ausgeführt.
-- Docker-Compose-Datei wurde syntaktisch geladen; Containerstart und Deployment wurden mangels Docker nicht ausgeführt.
+1. Kundenverwaltung [#6](https://github.com/Xonni-star/securityops-python/issues/6) fachlich prüfen und den gestapelten PR auf Phase 1 reviewen.
+2. Den Produktions- und Datenbank-Härtungsumfang aus [Issue #9](https://github.com/Xonni-star/securityops-python/issues/9) schließen und danach Objekte [#2](https://github.com/Xonni-star/securityops-python/issues/2), Personal [#5](https://github.com/Xonni-star/securityops-python/issues/5) und Einsatzmodule gemäß Roadmap angehen.
 
-## Nächste sinnvolle Ausbaustufe
+## Repository-Arbeitsstand
 
-Zuerst Kundenverwaltung abschließen (Ansprechpartner, Rechnungsanschrift, Archivierung, Auditdetails), danach Objektverwaltung mit Kundenbeziehung und objektbezogenen Zugriffsrechten. Erst auf dieser Grundlage sollten Personal- und Einsatzdatenmodule aufbauen.
+- Aktuelle PRs: [#11 – Phase 1: Rechtehärtung und Projektdokumentation](https://github.com/Xonni-star/securityops-python/pull/11) sowie [#12 – Kundenverwaltung](https://github.com/Xonni-star/securityops-python/pull/12).
+- Die Kundenverwaltungsänderungen sind auf `feature/customer-management` gepusht. PR #12 baut auf PR #11 auf; beide bleiben offen.
+- Issues #2 bis #10 bestehen bereits; in diesem Update wurden keine neuen Issues angelegt.

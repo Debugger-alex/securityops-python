@@ -18,7 +18,7 @@ docker compose up --build
 
 Die Anwendung ist danach unter <http://localhost:5173> erreichbar. Die API-Dokumentation befindet sich unter <http://localhost:8000/docs>. Die Ports sind standardmäßig nur an `localhost` gebunden.
 
-Die `SESSION_COOKIE_SECURE`-Einstellung ist im lokalen HTTP-Beispiel deaktiviert. Für jeden Betrieb hinter HTTPS muss sie auf `true` gesetzt werden.
+Die `SESSION_COOKIE_SECURE`-Einstellung ist im lokalen HTTP-Beispiel deaktiviert. Für jeden Betrieb hinter HTTPS muss sie auf `true` gesetzt werden. `POSTGRES_PASSWORD` ist erforderlich; ändere das Beispielpasswort vor dem Start und verwende für jeden Server ein eigenes Secret.
 
 ## Erstes Administratorkonto
 
@@ -77,6 +77,8 @@ Die API-Tests verwenden eine isolierte SQLite-Testdatenbank; der Produktivbetrie
 
 ## Projektstatus und Sicherheit
 
-Die vorhandenen Funktionen und offenen Module sind in [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) dokumentiert. Noch nicht implementiert sind insbesondere MFA, E-Mail-gestützte Passwortzurücksetzung, objektspezifische Zuweisungen, Personal, Dienstplanung, Zeiterfassung, OWKS, Dokumente und Rechnungswesen. Das Audit-Protokoll ist über die Anwendung schreibgeschützt, aber noch nicht durch getrennte Datenbankrollen gegen privilegierte Datenbankänderungen abgesichert.
+Die Bestandsaufnahme und offenen Module sind in [`docs/PROJECT_AUDIT.md`](docs/PROJECT_AUDIT.md), [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) und der [priorisierten Implementierungs-Roadmap](docs/IMPLEMENTATION_ROADMAP.md) dokumentiert. Weitere technische Informationen: [Architektur](docs/ARCHITECTURE.md), [Datenbank](docs/DATABASE.md), [API](docs/API.md), [Sicherheitsstatus](docs/SECURITY.md), [Sicherheitsprüfung](docs/SECURITY_REVIEW.md), [Installation](docs/INSTALLATION.md), [Deployment](docs/DEPLOYMENT.md), [Backup/Restore](docs/BACKUP_RESTORE.md), [Benutzeranleitung](docs/USER_GUIDE.md), [Changelog](docs/CHANGELOG.md) und [Roadmap](docs/ROADMAP.md).
+
+Noch nicht implementiert sind insbesondere MFA, E-Mail-gestützte Passwortzurücksetzung, objektspezifische Zuweisungen, Personal, Dienstplanung, Zeiterfassung, OWKS, Dokumente und Rechnungswesen. Das Audit-Protokoll ist über die Anwendung schreibgeschützt, aber noch nicht durch getrennte Datenbankrollen gegen privilegierte Datenbankänderungen abgesichert.
 
 Die Anmeldung und Rechteprüfung sind ein Entwicklungsstand, keine abgeschlossene Produktionssicherheitszertifizierung. Die Rate-Limits werden derzeit pro Backend-Prozess im Speicher geführt und benötigen für mehrere Worker oder Instanzen einen gemeinsamen Speicher. Vor öffentlichem Betrieb müssen unter anderem HTTPS/Reverse-Proxy, `SESSION_COOKIE_SECURE=true`, zentralisiertes Rate-Limiting, Backup/Wiederherstellung, Sicherheitsprüfung und die Datenschutz-/Aufbewahrungsvorgaben für den konkreten Betrieb eingerichtet sein. Das System enthält noch nicht den vollständigen Funktionsumfang aus dem Master-Prompt.

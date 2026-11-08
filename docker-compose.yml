@@ -24,7 +24,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-securityops}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Bitte POSTGRES_PASSWORD in .env setzen}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
-      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
