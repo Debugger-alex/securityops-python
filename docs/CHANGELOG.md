@@ -2,7 +2,7 @@
 
 ## Kundenverwaltung erweitert
 
-- Website und validierter Vertragsstatus in Kundendaten, Suche und Formularen ergänzt; Migration 0008 übernimmt Bestandskunden ohne Datenverlust.
+- Website und validierter Vertragsstatus in Kundendaten, Suche und Formularen ergänzt; Migration 0010 (`0010_customer_fields`) übernimmt Bestandskunden ohne Datenverlust.
 - Kunden-Detailansicht zeigt vorhandene, serverseitig nach Objektberechtigung gefilterte Objektzuordnungen.
 - API-Validierungs-, Berechtigungs- und Frontendtests für Vertragsstatus, Website und Fehlerfälle ergänzt.
 
