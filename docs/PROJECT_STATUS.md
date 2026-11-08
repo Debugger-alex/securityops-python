@@ -24,17 +24,17 @@ Diese Momentaufnahme trennt gemergten Quellcode, offene PRs, CI und fachliche Ab
 | PR | Status / CI (frisch geprüft) | Basis | Inhalt, Abhängigkeit und Abgrenzung |
 |---|---|---|---|
 | [#25](https://github.com/Xonni-star/securityops-python/pull/25) | Offen; bisheriger Head `2422922b` mit Backend/PostgreSQL/Migrationen, Frontend und Docker erfolgreich | `main` | Diese Dokumentationssynchronisierung. Nur Dokumentation und `AGENTS.md`; nicht gemergt. Der neue Dokumentationsstand wird nach Push erneut geprüft. |
-| [#26](https://github.com/Xonni-star/securityops-python/pull/26) | Offen; Frontend und Docker erfolgreich, Backend/PostgreSQL-Job fehlgeschlagen | `main` | Dienstplan-Verfügbarkeitsfenster, befristete Dienstwünsche/Sperrzeiten und nachvollziehbare Schichtvertretungen; Migration `0016_scheduling_availability`. Issue #10 bleibt offen. Der fehlgeschlagene Backend-Lauf meldet unter anderem Deadlock im bestehenden PostgreSQL-Exclusion-Constraint-Test und `401` im Test für parallele Blockanfrage/Schichterstellung; keine fachliche Abnahme. |
-| [#27](https://github.com/Xonni-star/securityops-python/pull/27) | Offen; Backend/PostgreSQL/Migrationen, Frontend und Docker erfolgreich | `main` | Rechnungswesen-Vorschlag: konfigurierbare Preise/Steuerwerte, Rechnungsentwürfe und unveränderliche Snapshots, Freigabe/Archivierung, Folge-/Stornobelege, Zahlungen/Mahnstatus, geschützte PDFs und idempotenter Export `securityops-accounting-v1`. Issue #7 bleibt offen; CI-Grün ist weder fachliche noch steuerliche/buchhalterische Abnahme. |
+| [#26](https://github.com/Xonni-star/securityops-python/pull/26) | Offen; aktueller Head `7e15c71d539249a5888382ebb7e80ff46a7ebca2`; Backend/PostgreSQL/Migrationen, Frontend und Docker erfolgreich | `main` | Dienstplan-Verfügbarkeitsfenster, befristete Dienstwünsche/Sperrzeiten und nachvollziehbare Schichtvertretungen; Migration `0016_scheduling_availability`. Issue #10 bleibt offen. Ein vorheriger Head hatte einen fehlgeschlagenen Backend-Lauf (u. a. Deadlock/`401` in parallelen Scheduling-Tests); das ist nicht der Checkstatus des aktuellen Heads und kein Beleg fachlicher Abnahme. |
+| [#27](https://github.com/Xonni-star/securityops-python/pull/27) | Offen; aktueller gestapelter Head `ee81a6cf2560c415bb942c713d685b9d3a566e8b`; Backend/PostgreSQL/Migrationen, Frontend und Docker erfolgreich | [#26](https://github.com/Xonni-star/securityops-python/pull/26) | Rechnungswesen-Vorschlag: konfigurierbare Preise/Steuerwerte, Rechnungsentwürfe und unveränderliche Snapshots, Freigabe/Archivierung, Folge-/Stornobelege, Zahlungen/Mahnstatus, geschützte PDFs und idempotenter Export `securityops-accounting-v1`. Migration `0017_billing` folgt auf #26s `0016_scheduling_availability`. Issue #7 bleibt offen; CI-Grün ist weder fachliche noch steuerliche/buchhalterische Abnahme. |
 
-PR #23 (OWKS) und #24 (Dokumente/Verträge) sind gemergt und in `main` enthalten. Ihre Migrationen `0014` und `0015` sind Teil des aktuellen Quell-/Schema-Inventars. PRs #26 und #27 sind beide separat gegen `main` erstellt und nicht aufeinander gestapelt. Beide fügen jeweils eine andere Alembic-Revision `0016_*` mit Vorgänger `0015_documents_contracts` hinzu. Das sind zwei parallele Migrationszweige, keine fortlaufende Kette: Falls beide Änderungen übernommen werden sollen, muss die Reihenfolge samt Revisions-IDs und Alembic-Head ausdrücklich durch Rebase/Umnummerierung oder eine Merge-Revision geklärt werden. Keiner der beiden PR-Vorschläge ist Teil des unten dokumentierten `main`-Schemas.
+PR #23 (OWKS) und #24 (Dokumente/Verträge) sind gemergt und in `main` enthalten. Ihre Migrationen `0014` und `0015` sind Teil des aktuellen Quell-/Schema-Inventars. PR #26 zielt direkt auf `main`, PR #27 ist aktuell auf #26 gestapelt. Ihre Vorschläge bilden die lineare Kette `0015_documents_contracts` → `0016_scheduling_availability` → `0017_billing`; #27 hängt daher von #26 ab. Falls #27 unabhängig von #26 integriert werden soll, müssen Basis und Migration ausdrücklich angepasst und anschließend in PostgreSQL geprüft werden. Keine der PR-Migrationen gehört zum unten dokumentierten `main`-Schema.
 
 ## Vollständiger PR- und Issue-Index
 
 | PR | Status am Prüftag | Titel |
 |---|---|---|
 | [#25](https://github.com/Xonni-star/securityops-python/pull/25) | Offen | Dokumentation mit aktuellem main- und PR-Stand synchronisieren |
-| [#27](https://github.com/Xonni-star/securityops-python/pull/27) | Offen | Rechnungswesen, Freigaben und Buchhaltungsexport |
+| [#27](https://github.com/Xonni-star/securityops-python/pull/27) | Offen, gestapelt auf #26 | Rechnungswesen, Freigaben und Buchhaltungsexport |
 | [#26](https://github.com/Xonni-star/securityops-python/pull/26) | Offen | Add missing scheduling availability and replacements |
 | [#24](https://github.com/Xonni-star/securityops-python/pull/24) | Gemergt | Geschützte Dokumenten- und Vertragsverwaltung |
 | [#23](https://github.com/Xonni-star/securityops-python/pull/23) | Gemergt | OWKS-Wachbuch und QR/NFC-Kontrollgänge integrieren |
@@ -68,11 +68,11 @@ PR #23 (OWKS) und #24 (Dokumente/Verträge) sind gemergt und in `main` enthalten
 
 ## PR- und Issue-Verlauf
 
-- PR #23 und #24 sind gemergt. Offen sind #25, #26 und #27; #26 (Dienstplanung, Issue #10) und #27 (Rechnungswesen, Issue #7) zielen beide auf `main`.
+- PR #23 und #24 sind gemergt. Offen sind #25, #26 und #27; #26 (Dienstplanung, Issue #10) zielt auf `main`, #27 (Rechnungswesen, Issue #7) ist auf #26 gestapelt.
 - PR #21 ist geschlossen, nicht gemergt; die enthaltenen Änderungen sind laut Verlauf in #22/`main` enthalten.
 - Issues #2, #3, #4, #5 und #6 sind geschlossen; #7, #8, #9 und #10 sind laut frischer GitHub-Abfrage offen. Issue #8 wird trotz des gemergten PR #24 als OPEN geführt und bleibt bis zur Bestätigung offen. Keine Issue wurde durch diese Dokumentationsänderung verändert.
 - Issue #9 Produktionshärtung ist offen. Unter den aktuell offenen PRs #25–#27 ist kein eigener PR für Issue #9 zugeordnet; daher wird kein aktueller #9-Umsetzungsfortschritt behauptet.
-- PR #25-Head `2422922b242b744da3825c87c2f590dfeb8a804c` hatte im Lauf 42527761972 erfolgreiche Backend/PostgreSQL/Migrations-, Frontend- und Docker-Checks. Dieser Nachweis gilt für diesen Head; nach dem nächsten Push ist CI erneut zu prüfen. CI ist kein fachlicher Abnahmenachweis.
+- PR #25-Head `2422922b242b744da3825c87c2f590dfeb8a804c` hatte im Lauf 42527761972 erfolgreiche Backend/PostgreSQL/Migrations-, Frontend- und Docker-Checks. Dieser historische Nachweis gilt nur für diesen Head; aktuelle Checkstände stehen am jeweiligen PR. CI ist kein fachlicher Abnahmenachweis.
 
 ## Tests, Betrieb und Abnahme
 

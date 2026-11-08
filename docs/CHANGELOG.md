@@ -9,7 +9,7 @@
 - Frühere Dokumentationssynchronisierung betraf `main` SHA `5f3530463e9531c1f825f43ae4c6a6e60b9974e3` und stellte PR #23/#24 damals korrekt als offen dar; dieser historische Stand ist durch die nun gemergten Änderungen überholt.
 - Ältere Entwicklungsnotizen weiter unten spiegeln den Status zum Zeitpunkt ihrer Erstellung wider; der aktuelle Issue-/PR-Status ist ausschließlich in [`PROJECT_STATUS.md`](PROJECT_STATUS.md) gepflegt.
 - Frühere Einträge darunter sind zeitgebundene Entwicklungsnotizen und beschreiben teilweise den damaligen Stand vor Merge oder Statuswechsel; für den heutigen Bestand gilt [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
-- Folgeprüfung: offen sind PR #25 (Dokumentation), #26 (Dienstplan-Verfügbarkeiten/Vertretungen; Backend-CI fehlgeschlagen) und #27 (Rechnungswesen; CI erfolgreich). Beide Feature-PRs zielen direkt auf `main`, tragen je eine parallele Migration `0016_*` mit Vorgänger `0015_documents_contracts` und sind nicht gestapelt. Issues #2–#6 geschlossen, #7–#10 offen; Issue #8 bleibt trotz PR #24 offen.
+- Folgeprüfung: offen sind PR #25 (Dokumentation), #26 (Dienstplan-Verfügbarkeiten/Vertretungen; aktueller Head CI grün) und #27 (Rechnungswesen; auf #26 gestapelt, aktuelle CI grün). Die Feature-PRs bilden `0015_documents_contracts` → `0016_scheduling_availability` → `0017_billing`; #27 hängt von #26 ab. Issues #2–#6 geschlossen, #7–#10 offen; Issue #8 bleibt trotz PR #24 offen.
 - Ausschließlich Dokumentationen und `AGENTS.md` geändert; keine Anwendung, Schema- oder Migrationsdatei.
 
 ## 2026-11-08 – Gestapelte Ergänzung zu Zeiterfassung/Zuschlägen

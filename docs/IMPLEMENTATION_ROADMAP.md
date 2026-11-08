@@ -14,13 +14,13 @@ Diese Roadmap basiert auf dem tatsächlich gemergten `main`-Stand vom 08.11.2026
 
 ### P1 – Abnahme und Bestand konsolidieren
 
-1. Issue #10: Dienstplanung fachlich abnehmen. PR #26 schlägt dazu wöchentliche Verfügbarkeitsfenster, befristete Dienstwünsche/Sperrzeiten und Schichtvertretungen vor; PR ist offen, gegen `main` (nicht Teil davon) und sein aktueller Backend/PostgreSQL-CI-Job ist fehlgeschlagen. Die bestehende Konflikt-/Ruhezeitprüfung ist keine arbeitsrechtliche Freigabe.
+1. Issue #10: Dienstplanung fachlich abnehmen. PR #26 schlägt dazu wöchentliche Verfügbarkeitsfenster, befristete Dienstwünsche/Sperrzeiten und Schichtvertretungen vor; PR ist offen, gegen `main` (nicht Teil davon). Sein aktueller Head `7e15c71` hat grüne Backend/PostgreSQL/Migrations-, Frontend- und Docker-CI; frühere Checkfehler an einem vorherigen Head sind nicht der aktuelle Checkstatus. Die bestehende Konflikt-/Ruhezeitprüfung ist keine arbeitsrechtliche Freigabe.
 
 ### P2 – Fachliche Ausbau- und Abnahmeaufgaben
 
 1. OWKS ist in `main` (PR #23, Migration `0014`); Issue #3 ist geschlossen. Fachlich weiterhin prüfen: statische Kennungen sind keine physischen Präsenznachweise, und Uploads besitzen keinen Malware-Scan.
 2. Dokumenten-/Vertragsfunktionen sind in `main` (PR #24, Migration `0015`). Issue #8 ist laut aktueller GitHub-Abfrage offen; Vertragsregeln, Dateizugriff und fachliche Akzeptanz sind vor Erledigung konkret abzugleichen.
-3. Issue #7: PR #27 schlägt Rechnungswesen mit konfigurierbaren Preisen/Steuerwerten, Rechnungsentwürfen, Freigabe, unveränderlichen Snapshots, Korrekturbelegen, Zahlungen/Mahnstatus, PDF und Export `securityops-accounting-v1` vor. PR ist offen und nicht in `main`; Preise/Steuersätze bleiben Konfigurationen, keine steuerliche oder buchhalterische Abnahme ist nachgewiesen.
+3. Issue #7: PR #27 schlägt Rechnungswesen mit konfigurierbaren Preisen/Steuerwerten, Rechnungsentwürfen, Freigabe, unveränderlichen Snapshots, Korrekturbelegen, Zahlungen/Mahnstatus, PDF und Export `securityops-accounting-v1` vor. PR ist offen, auf PR #26 gestapelt und nicht in `main`; seine Migration `0017_billing` folgt auf `0016_scheduling_availability`. Preise/Steuersätze bleiben Konfigurationen, keine steuerliche oder buchhalterische Abnahme ist nachgewiesen.
 
 ### P3 – Betriebsqualität und vollständiger Nachweis
 
@@ -31,8 +31,8 @@ Diese Roadmap basiert auf dem tatsächlich gemergten `main`-Stand vom 08.11.2026
 ## Bestätigte GitHub-Lage
 
 - In `main`: Identity, Kunden, Objekte, Personal/Qualifikationen, Dienstplanung, Zeiterfassung, OWKS und Dokumente/Verträge (Migrationen `0001`–`0015`).
-- PR #23/#24 sind gemergt. Offen sind PR #25 (Dokumentation), #26 (Dienstplanung; Backend-CI fehlgeschlagen) und #27 (Rechnungswesen; CI erfolgreich).
-- PR #26 und #27 basieren beide auf `main`/Revision `0015_documents_contracts`, aber beide fügen eigene, unterschiedliche `0016_*`-Revisionen ein. Falls beide Änderungen zusammengeführt werden, muss die lineare Migrationenkette ausdrücklich durch Rebase/Umnummerierung oder Merge-Revision hergestellt werden; aktuell ist keine Reihenfolge vereinbart.
+- PR #23/#24 sind gemergt. Offen sind PR #25 (Dokumentation), #26 (Dienstplanung; aktuelle CI grün) und #27 (Rechnungswesen; auf #26 gestapelt, aktuelle CI grün).
+- PR #26 basiert auf `main`/Revision `0015_documents_contracts`; PR #27 ist darauf gestapelt und ergänzt `0017_billing` nach `0016_scheduling_availability`. Bei Integration ist diese Abhängigkeit zu erhalten; für eine unabhängige Übernahme von #27 wären Basis und Migrationskette ausdrücklich anzupassen.
 - Issues #2–#6 sind geschlossen; #7–#10 sind laut frischer GitHub-Abfrage offen. Issue #8 wird trotz PR #24 weiterhin als offen geführt; zu Issue #9 wird ohne zugeordneten offenen PR kein Umsetzungsfortschritt behauptet.
 
 ## Abhängigkeiten und Abschlusskriterien

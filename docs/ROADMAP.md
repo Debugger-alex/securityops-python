@@ -11,6 +11,6 @@ Die verbindliche Priorisierung, Abhängigkeiten und der aktuelle `main`-/PR-Stat
 5. Rechnungswesen (Issue #7, offener PR #27) auf fachlich freigegebenen Verträgen und Leistungsnachweisen; PR-Vorschlag ist nicht in `main`, Steuerrichtigkeit/Abnahme nicht belegt.
 6. E2E-/Last-/Sicherheits-/Restoretests und eine eigenständige Betriebsabnahme.
 
-PR #26 schlägt zusätzliche Dienstplan-Verfügbarkeiten/Vertretungen vor und ist offen; sein Backend-CI ist fehlgeschlagen. PR #26 und #27 fügen getrennte `0016_*`-Revisionen mit Vorgänger `0015_documents_contracts` hinzu; bei gemeinsamer Übernahme muss die Alembic-Kette explizit vereinheitlicht werden.
+PR #26 schlägt zusätzliche Dienstplan-Verfügbarkeiten/Vertretungen vor und ist offen; sein aktueller CI-Lauf ist grün. PR #27 ist auf #26 gestapelt und ergänzt Rechnungswesen nachgelagert mit `0017_billing` nach `0016_scheduling_availability`; die gestapelte Migrationenkette ist linear, die Abhängigkeit muss bei Integration erhalten bleiben.
 
 Reihenfolge stellt keinen Implementierungs- oder Rechtsstatus dar. Keine Produktions-, Rechts- oder Steuerfreigabe wird behauptet.

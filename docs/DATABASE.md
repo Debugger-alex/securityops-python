@@ -305,7 +305,7 @@ Neue Schemaänderungen benötigen eine neue Alembic-Migration. Ein `Base.metadat
 
 ### Nicht gemergte Migrationsvorschläge
 
-PR #26 (`0016_scheduling_availability`) und PR #27 (`0016_billing`) zielen beide direkt auf `main` und deklarieren jeweils `0015_documents_contracts` als Vorgänger. Sie sind parallele, nicht gestapelte Zweige; weder Migration ist Teil des oben dokumentierten Schemas. Eine gleichzeitige Übernahme erzeugt zwei Alembic-Heads. Vor einer gemeinsamen Integration muss die gewünschte Reihenfolge durch Rebase/Anpassung der Revisions-IDs oder eine explizite Alembic-Merge-Revision festgelegt und in PostgreSQL validiert werden. PR #26s aktueller Backend-CI-Job ist fehlgeschlagen; PR #27s CI war zum Prüfzeitpunkt grün. Diese CI-Status ändern den Migrationsstand von `main` nicht.
+PR #26 (`0016_scheduling_availability`) zielt direkt auf `main`. PR #27 ist aktuell auf PR #26 gestapelt und ergänzt `0017_billing` mit `0016_scheduling_availability` als Vorgänger. Die aktuelle gestapelte Kette ist damit linear (`0015_documents_contracts` → `0016_scheduling_availability` → `0017_billing`); beide Vorschläge bleiben außerhalb des oben dokumentierten `main`-Schemas. Die Stapelabhängigkeit muss beim Zusammenführen erhalten bleiben: #26 muss vor #27 integriert werden oder #27s Basis und Migration sind vor einer unabhängigen Integration ausdrücklich anzupassen und in PostgreSQL zu prüfen. Diese PR-Migrationen und deren CI-Status ändern den Migrationsstand von `main` nicht.
 
 ## Datenhaltungsgrenzen
 
