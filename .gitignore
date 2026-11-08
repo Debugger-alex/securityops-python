@@ -1,4 +1,5 @@
 .env
+.private-document-storage/
 .venv/
 __pycache__/
 *.py[cod]

@@ -52,8 +52,59 @@ jobs:
         run: |
           ruff check app tests migrations
           ruff format --check app tests migrations
-      - name: Migrationen auf PostgreSQL anwenden
-        run: alembic upgrade head
+      - name: Alembic-Migrationskette auf PostgreSQL prüfen
+        run: |
+          alembic history --verbose
+          alembic heads
+          alembic upgrade head
+          python - <<'PY'
+          from uuid import uuid4
+
+          from sqlalchemy import text
+
+          from app.database import engine
+
+          document_id = uuid4()
+          with engine.begin() as connection:
+              connection.execute(
+                  text(
+                      "INSERT INTO documents (id, document_number, title, category) "
+                      "VALUES (:id, :number, 'Downgrade-Prüfung', 'CI')"
+                  ),
+                  {"id": document_id, "number": f"CI-{document_id}"},
+              )
+          with open("/tmp/document_id", "w", encoding="utf-8") as file:
+              file.write(str(document_id))
+          PY
+          if downgrade_output="$(alembic downgrade 0014_owks_wachbuch 2>&1)"; then
+            echo "Der Downgrade mit Dokumentdaten hätte abgelehnt werden müssen."
+            exit 1
+          fi
+          printf '%s\n' "$downgrade_output"
+          grep -q "Dokumenten-/Vertrags-Downgrade abgelehnt" <<< "$downgrade_output"
+          python - <<'PY'
+          from uuid import UUID
+
+          from sqlalchemy import text
+
+          from app.database import engine
+
+          with open("/tmp/document_id", encoding="utf-8") as file:
+              document_id = UUID(file.read())
+          with engine.begin() as connection:
+              exists = connection.execute(
+                  text("SELECT EXISTS (SELECT 1 FROM documents WHERE id = :id)"),
+                  {"id": document_id},
+              ).scalar_one()
+              if not exists:
+                  raise RuntimeError("Das Dokument wurde beim abgelehnten Downgrade verändert.")
+              connection.execute(
+                  text("DELETE FROM documents WHERE id = :id"),
+                  {"id": document_id},
+              )
+          PY
+          alembic downgrade 0014_owks_wachbuch
+          alembic upgrade head
       - name: Backend-Tests ausführen
         run: python -m pytest -q
 

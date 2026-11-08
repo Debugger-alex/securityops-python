@@ -25,6 +25,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Bitte POSTGRES_PASSWORD in .env setzen}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      DOCUMENT_STORAGE_PATH: /var/lib/securityops/documents
+      DOCUMENT_MAX_UPLOAD_BYTES: ${DOCUMENT_MAX_UPLOAD_BYTES:-20971520}
+    volumes:
+      - document_storage:/var/lib/securityops/documents
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
@@ -41,3 +45,4 @@ services:
 
 volumes:
   postgres_data:
+  document_storage:

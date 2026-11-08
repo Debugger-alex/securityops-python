@@ -1,6 +1,7 @@
 from functools import lru_cache
+from pathlib import Path
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import URL
 
@@ -19,6 +20,8 @@ class Settings(BaseSettings):
     session_cookie_secure: bool = True
     session_idle_minutes: int = 30
     session_absolute_hours: int = 12
+    document_storage_path: Path = Path("./.private-document-storage")
+    document_max_upload_bytes: int = Field(default=20 * 1024 * 1024, gt=0, le=100 * 1024 * 1024)
 
     @property
     def database_url(self) -> URL:

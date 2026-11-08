@@ -17,6 +17,7 @@ import {
   updateCustomerContact,
 } from "./api";
 import ObjectManagement from "./ObjectManagement";
+import DocumentContractManagement from "./DocumentContractManagement";
 import PersonnelManagement from "./PersonnelManagement";
 import SchedulingManagement from "./SchedulingManagement";
 import TimeTracking from "./TimeTracking";
@@ -126,7 +127,7 @@ export default function App() {
   const [history, setHistory] = useState<CustomerHistory[]>([]);
   const [customerObjects, setCustomerObjects] = useState<SecurityObject[]>([]);
   const [activeModule, setActiveModule] = useState<
-    "customers" | "objects" | "employees" | "scheduling" | "time_tracking" | "owks"
+    "customers" | "objects" | "employees" | "scheduling" | "time_tracking" | "documents" | "owks"
   >("customers");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -139,6 +140,9 @@ export default function App() {
   const canReadScheduling = user?.permissions.includes("scheduling.read") ?? false;
   const canReadTimeTracking = user?.permissions.some((permission) =>
     ["time_tracking.read_own", "time_tracking.read_all"].includes(permission),
+  ) ?? false;
+  const canAccessDocuments = user?.permissions.some((permission) =>
+    ["documents.read", "documents.create", "contracts.read", "contracts.create"].includes(permission),
   ) ?? false;
   const canReadOWKS = user?.permissions.includes("owks.read") ?? false;
 
@@ -206,11 +210,17 @@ export default function App() {
       setActiveModule("time_tracking");
     } else if (
       user && !canReadCustomers && !canReadObjects && !canReadEmployees
-      && !canReadScheduling && !canReadTimeTracking && canReadOWKS
+      && !canReadScheduling && !canReadTimeTracking && canAccessDocuments
+    ) {
+      setActiveModule("documents");
+    }
+    else if (
+      user && !canReadCustomers && !canReadObjects && !canReadEmployees
+      && !canReadScheduling && !canReadTimeTracking && !canAccessDocuments && canReadOWKS
     ) {
       setActiveModule("owks");
     }
-  }, [canReadCustomers, canReadEmployees, canReadObjects, canReadScheduling, canReadTimeTracking, canReadOWKS, user]);
+  }, [canAccessDocuments, canReadCustomers, canReadEmployees, canReadObjects, canReadOWKS, canReadScheduling, canReadTimeTracking, user]);
 
   async function submitLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -449,12 +459,17 @@ export default function App() {
         {canReadTimeTracking && <button
           className={activeModule === "time_tracking" ? "module-tab active" : "module-tab"}
           onClick={() => setActiveModule("time_tracking")}>Zeiterfassung</button>}
+        {canAccessDocuments && <button
+          className={activeModule === "documents" ? "module-tab active" : "module-tab"}
+          onClick={() => setActiveModule("documents")}>Dokumente & Verträge</button>}
         {canReadOWKS && <button
           className={activeModule === "owks" ? "module-tab active" : "module-tab"}
           onClick={() => setActiveModule("owks")}>Wachbuch</button>}
       </nav>
 
-      {activeModule === "owks" && canReadOWKS
+      {activeModule === "documents" && canAccessDocuments
+        ? <DocumentContractManagement user={user} />
+        : activeModule === "owks" && canReadOWKS
         ? <OWKSManagement user={user} />
         : activeModule === "time_tracking" && canReadTimeTracking
         ? <TimeTracking user={user} />

@@ -1115,6 +1115,288 @@ class TimeTrackingPeriod(Base):
     )
 
 
+class Document(Base):
+    __tablename__ = "documents"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('draft', 'active', 'expired', 'archived')",
+            name="ck_documents_status",
+        ),
+        CheckConstraint("length(trim(title)) > 0", name="ck_documents_title"),
+        Index("ix_documents_status_expiry", "status", "expires_on"),
+        Index("ix_documents_customer", "customer_id", "archived_at"),
+        Index("ix_documents_object", "object_id", "archived_at"),
+        Index("ix_documents_employee", "employee_id", "archived_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    document_number: Mapped[str] = mapped_column(String(80), unique=True, nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    category: Mapped[str] = mapped_column(String(80), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    customer_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("customers.id", ondelete="RESTRICT"), nullable=True
+    )
+    object_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("objects.id", ondelete="RESTRICT"), nullable=True
+    )
+    employee_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("employees.id", ondelete="RESTRICT"), nullable=True
+    )
+    expires_on: Mapped[date | None] = mapped_column(nullable=True)
+    created_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
+class DocumentVersion(Base):
+    __tablename__ = "document_versions"
+    __table_args__ = (
+        UniqueConstraint("document_id", "version", name="uq_document_versions_number"),
+        CheckConstraint("version > 0", name="ck_document_versions_version"),
+        CheckConstraint("size_bytes > 0", name="ck_document_versions_size"),
+        CheckConstraint(
+            "media_type IN ('application/pdf', 'image/png', 'image/jpeg', "
+            "'application/vnd.openxmlformats-officedocument.wordprocessingml.document', "
+            "'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')",
+            name="ck_document_versions_media_type",
+        ),
+        Index("ix_document_versions_document_created", "document_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    document_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("documents.id", ondelete="RESTRICT"), nullable=False
+    )
+    version: Mapped[int] = mapped_column(nullable=False)
+    storage_key: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
+    file_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    media_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    uploaded_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class DocumentApproval(Base):
+    __tablename__ = "document_approvals"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'approved', 'rejected')",
+            name="ck_document_approvals_status",
+        ),
+        Index("ix_document_approvals_version_created", "version_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    version_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("document_versions.id", ondelete="RESTRICT"), nullable=False
+    )
+    requested_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    decided_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    decision_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class DocumentReadReceipt(Base):
+    __tablename__ = "document_read_receipts"
+    __table_args__ = (
+        UniqueConstraint("version_id", "user_id", name="uq_document_read_receipt_user_version"),
+        Index("ix_document_read_receipts_version_read", "version_id", "read_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    version_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("document_versions.id", ondelete="RESTRICT"), nullable=False
+    )
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    read_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class DocumentHistory(Base):
+    __tablename__ = "document_history"
+    __table_args__ = (Index("ix_document_history_document_created", "document_id", "created_at"),)
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    document_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("documents.id", ondelete="RESTRICT"), nullable=False
+    )
+    actor_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    action: Mapped[str] = mapped_column(String(50), nullable=False)
+    changed_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    details: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class Contract(Base):
+    __tablename__ = "contracts"
+    __table_args__ = (
+        CheckConstraint(
+            "contract_type IN ('customer', 'object', 'personnel', 'service', 'additional', 'other')",
+            name="ck_contracts_type",
+        ),
+        CheckConstraint(
+            "status IN ('draft', 'active', 'terminated', 'expired', 'archived')",
+            name="ck_contracts_status",
+        ),
+        CheckConstraint("ends_on IS NULL OR ends_on >= starts_on", name="ck_contracts_dates"),
+        CheckConstraint(
+            "notice_period_days IS NULL OR notice_period_days BETWEEN 0 AND 3650",
+            name="ck_contracts_notice_period",
+        ),
+        CheckConstraint("length(trim(name)) > 0", name="ck_contracts_name"),
+        Index("ix_contracts_status_end", "status", "ends_on"),
+        Index("ix_contracts_customer", "customer_id", "archived_at"),
+        Index("ix_contracts_object", "object_id", "archived_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    contract_number: Mapped[str] = mapped_column(String(80), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    contract_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    counterparty: Mapped[str] = mapped_column(String(200), nullable=False)
+    customer_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("customers.id", ondelete="RESTRICT"), nullable=False
+    )
+    object_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("objects.id", ondelete="RESTRICT"), nullable=True
+    )
+    employee_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("employees.id", ondelete="RESTRICT"), nullable=True
+    )
+    starts_on: Mapped[date] = mapped_column(nullable=False)
+    ends_on: Mapped[date | None] = mapped_column(nullable=True)
+    notice_period_days: Mapped[int | None] = mapped_column(nullable=True)
+    renewal_rule: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
+    document_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("documents.id", ondelete="SET NULL"), nullable=True
+    )
+    internal_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
+class ContractHistory(Base):
+    __tablename__ = "contract_history"
+    __table_args__ = (Index("ix_contract_history_contract_created", "contract_id", "created_at"),)
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    contract_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("contracts.id", ondelete="RESTRICT"), nullable=False
+    )
+    actor_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    action: Mapped[str] = mapped_column(String(50), nullable=False)
+    changed_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    details: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class DocumentContractReminderSettings(Base):
+    __tablename__ = "document_contract_reminder_settings"
+    __table_args__ = (
+        CheckConstraint("id = 1", name="ck_doc_contract_reminder_settings_singleton"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, default=1)
+    lead_days: Mapped[list[int]] = mapped_column(
+        JSON, nullable=False, default=lambda: [90, 60, 30, 14, 7]
+    )
+    updated_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
+class DocumentContractReminder(Base):
+    __tablename__ = "document_contract_reminders"
+    __table_args__ = (
+        CheckConstraint(
+            "(document_id IS NOT NULL AND contract_id IS NULL) OR "
+            "(document_id IS NULL AND contract_id IS NOT NULL)",
+            name="ck_doc_contract_reminders_single_target",
+        ),
+        CheckConstraint(
+            "reminder_type IN ('document_expiry', 'contract_expiry', 'contract_termination', "
+            "'contract_renewal')",
+            name="ck_doc_contract_reminders_type",
+        ),
+        CheckConstraint(
+            "status IN ('open', 'completed', 'dismissed')",
+            name="ck_doc_contract_reminders_status",
+        ),
+        UniqueConstraint("deduplication_key", name="uq_doc_contract_reminders_dedupe"),
+        Index("ix_doc_contract_reminders_due_status", "remind_on", "status"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    document_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("documents.id", ondelete="RESTRICT"), nullable=True
+    )
+    contract_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("contracts.id", ondelete="RESTRICT"), nullable=True
+    )
+    reminder_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    event_on: Mapped[date] = mapped_column(nullable=False)
+    remind_on: Mapped[date] = mapped_column(nullable=False)
+    deduplication_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
 class OWKSControlPoint(Base):
     __tablename__ = "owks_control_points"
     __table_args__ = (

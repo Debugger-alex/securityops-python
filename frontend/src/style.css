@@ -234,11 +234,51 @@ footer span { padding: 0 5px; }
 .time-surcharge-rule-form h3, .time-surcharge-rule-form .muted, .time-surcharge-panel .muted { flex-basis: 100%; }
 .time-surcharge-rule-form select[multiple] { min-height: 112px; }
 .time-surcharge-panel > .panel-heading:not(:first-child) { margin-top: 24px; }
+.document-module { padding-bottom: 12px; }
+.document-intro { padding: 18px 0 20px; }
+.document-intro p:last-child { color: #71808c; margin: 8px 0 0; }
+.document-filter-row { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin: 12px 0 16px; }
+.document-filter-row > label:not(.checkbox-label):not(.search-field) { display: grid; gap: 5px; color: #64727e; font-size: .76rem; }
+.document-filter-row select, .assignment-fields select, .contract-edit-form input, .contract-edit-form select,
+.reminder-settings-form input {
+  min-width: 0; border: 1px solid #dfe6ea; border-radius: 7px; background: white; padding: 9px 10px; color: #172635;
+}
+.document-filter-row .search-field { flex: 1 1 280px; }
+.document-list-panel, .document-create-panel { margin-bottom: 18px; }
+.document-create-panel > .muted { line-height: 1.5; margin: -5px 0 18px; }
+.document-detail-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, .9fr); gap: 24px; align-items: start; }
+.document-detail-grid input { width: 100%; }
+.assignment-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.assignment-fields label, .reminder-settings-form label { display: grid; gap: 6px; color: #43515c; font-size: .82rem; font-weight: 600; }
+.assignment-fields select { width: 100%; }
+.version-section h3 { margin: 0 0 12px; font-size: 1rem; }
+.version-card { display: grid; gap: 8px; padding: 13px 0; border-top: 1px solid #eef1f3; font-size: .84rem; }
+.version-card strong, .version-card small { display: block; overflow-wrap: anywhere; }
+.version-card small { margin-top: 4px; color: #74818d; font-size: .76rem; }
+.version-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.document-version-form { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; padding-top: 14px; border-top: 1px solid #e5eaed; }
+.document-version-form label { display: grid; flex: 1 1 220px; gap: 6px; color: #43515c; font-size: .82rem; font-weight: 600; }
+.document-version-form input { max-width: 100%; }
+.approval-list { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.approval-list li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 18px; padding: 13px; border-radius: 8px; background: #f7f9fa; }
+.approval-list strong, .approval-list small { display: block; }
+.approval-list small { margin-top: 4px; color: #74818d; }
+.contract-edit-form { display: grid; gap: 14px; }
+.contract-edit-form .form-row { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.contract-edit-form label { display: grid; gap: 6px; color: #43515c; font-size: .82rem; font-weight: 600; }
+.contract-edit-form textarea { border: 1px solid #dfe6ea; border-radius: 7px; padding: 10px; resize: vertical; }
+.contract-archive-box { margin-top: 20px; }
+.reminder-settings-form { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin: 18px 0; padding: 16px; border-radius: 8px; background: #f7f9fa; }
+.reminder-settings-form label { flex: 1 1 300px; }
+.reminder-settings-form input { width: 100%; }
+.status-warning { color: #8a6413; background: #fff5d9; }
+.success-message { margin-top: 14px; padding: 10px 12px; border: 1px solid #cae7dc; border-radius: 7px; background: #eef9f4; color: #236a50; font-size: .86rem; }
 
 @media (max-width: 850px) {
   .content-grid { grid-template-columns: 1fr; }
   .detail-grid { grid-template-columns: 1fr; }
   .scheduling-lower { grid-template-columns: 1fr; }
+  .document-detail-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 560px) {
   .shell { padding: 0 18px; }
@@ -255,4 +295,7 @@ footer span { padding: 0 5px; }
   .form-row { grid-template-columns: 1fr; }
   .history-list li { grid-template-columns: 1fr; }
   .history-list time, .history-list small { grid-column: 1; }
+  .document-filter-row { align-items: stretch; }
+  .document-filter-row > label:not(.checkbox-label) { flex: 1 1 100%; }
+  .approval-list li { align-items: start; flex-direction: column; }
 }
