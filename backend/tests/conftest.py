@@ -29,6 +29,7 @@ from app.models import (
     ObjectAssignment,
     ObjectContact,
     ObjectHistory,
+    ObjectSecurityDetails,
     Permission,
     Role,
     SecurityObject,
@@ -77,6 +78,7 @@ def client() -> Generator[TestClient, None, None]:
         db.execute(delete(ObjectAssignment))
         db.execute(delete(ObjectContact))
         db.execute(delete(ObjectAddress))
+        db.execute(delete(ObjectSecurityDetails))
         db.execute(delete(SecurityObject))
         db.execute(delete(CustomerHistory))
         db.execute(delete(CustomerContact))
