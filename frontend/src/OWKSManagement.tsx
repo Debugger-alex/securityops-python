@@ -16,6 +16,11 @@ import {
   updateOWKSEventStatus,
   uploadOWKSAttachment,
 } from "./api";
+import {
+  OWKSControlPointQr,
+  OWKSScanTools,
+  supportsWebNfc,
+} from "./OWKSScanTools";
 import type {
   AuthUser,
   OWKSControlPoint,
@@ -53,10 +58,12 @@ export default function OWKSManagement({ user }: { user: AuthUser }) {
   const [attachmentsOpen, setAttachmentsOpen] = useState<string[]>([]);
   const [points, setPoints] = useState<OWKSControlPoint[]>([]);
   const [routes, setRoutes] = useState<OWKSRoute[]>([]);
+  const [selectedRouteId, setSelectedRouteId] = useState("");
   const [queue, setQueue] = useState<OfflineItem[]>([]);
   const [syncResults, setSyncResults] = useState<OWKSSyncResult[]>([]);
   const [challenge, setChallenge] = useState<{ id: string; expires_at: string } | null>(null);
   const [oneTimeCredential, setOneTimeCredential] = useState("");
+  const [scanCredential, setScanCredential] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -65,7 +72,6 @@ export default function OWKSManagement({ user }: { user: AuthUser }) {
   );
   const canWrite = user.permissions.includes("owks.write") || user.permissions.includes("owks.manage");
   const canManage = user.permissions.includes("owks.manage");
-  const supportsWebNfc = typeof window !== "undefined" && "NDEFReader" in window;
 
   const loadObjectData = useCallback(async (objectId: string) => {
     if (!objectId) return;
@@ -105,6 +111,9 @@ export default function OWKSManagement({ user }: { user: AuthUser }) {
 
   useEffect(() => {
     if (selectedObjectId) void loadObjectData(selectedObjectId);
+    setSelectedRouteId("");
+    setChallenge(null);
+    setScanCredential("");
   }, [loadObjectData, selectedObjectId]);
 
   useEffect(() => {
@@ -238,27 +247,30 @@ export default function OWKSManagement({ user }: { user: AuthUser }) {
     }
   }
 
-  async function submitScan(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function verifyScan(credential: string) {
     if (!challenge) return;
-    const formElement = event.currentTarget;
-    const form = new FormData(formElement);
     setBusy(true);
     try {
       await recordOWKSScan({
         challenge_id: challenge.id,
-        credential: String(form.get("credential")),
+        credential,
         client_event_id: crypto.randomUUID(),
+        ...(selectedRouteId ? { route_id: selectedRouteId } : {}),
       });
       setChallenge(null);
-      formElement.reset();
-      setNotice("Kontrollpunkt verifiziert und im Wachbuch protokolliert.");
+      setScanCredential("");
+      setNotice("Kennung geprüft und im Wachbuch protokolliert. Ein statischer QR-/NFC-Tag beweist keine physische Anwesenheit.");
       await loadObjectData(selectedObjectId);
     } catch (reason) {
       setError(messageFrom(reason));
     } finally {
       setBusy(false);
     }
+  }
+
+  async function submitScan(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await verifyScan(scanCredential);
   }
 
   async function updateStatus(eventId: string, status: "open" | "in_progress" | "resolved") {
@@ -379,22 +391,45 @@ export default function OWKSManagement({ user }: { user: AuthUser }) {
         {canWrite && <section className="panel owks-panel">
           <div className="panel-heading"><div><p className="eyebrow">QR / NFC</p><h2>Kontrollgang</h2></div></div>
           <p className="muted" role="note">
-            {supportsWebNfc
-              ? "Web-NFC wird in dieser Version nicht automatisch ausgelesen. Bitte QR-Code mit einer Scanner-App auslesen und die Kennung einfügen oder manuell eingeben."
-              : "Dieser Browser unterstützt kein Web-NFC. Bitte QR-Code mit einer Scanner-App auslesen und die Kennung einfügen oder manuell eingeben."}
+            {supportsWebNfc()
+              ? "Web-NFC und QR-Kamera können direkt genutzt werden. Der Server prüft Kennung, Challenge und Objekt; ein statischer QR-/NFC-Tag beweist keine physische Anwesenheit."
+              : "Web-NFC ist in diesem Browser/Gerät oder ohne sicheren Kontext nicht verfügbar. Nutzen Sie QR-Scan über HTTPS/lokal oder die manuelle Kennungseingabe."}
           </p>
           {!challenge
             ? <button className="secondary-button" disabled={busy} onClick={() => void beginScan()}>Kontrollanforderung starten</button>
             : <form className="owks-event-form" onSubmit={(event) => void submitScan(event)}>
-              <p>Frische Kontrollanforderung aktiv. Kontrollpunktkennung scannen oder eingeben:</p>
-              <label>QR-/NFC-Kennung<input name="credential" required autoComplete="off" /></label>
+              <p>Frische Kontrollanforderung aktiv. Sie können QR-Kamera, Web-NFC oder die manuelle Eingabe verwenden:</p>
+              <OWKSScanTools
+                disabled={busy}
+                onDetected={(credential) => {
+                  setScanCredential(credential);
+                  void verifyScan(credential);
+                }}
+              />
+              {routes.length > 0 && <label>Kontrollroute (optional)
+                <select
+                  value={selectedRouteId}
+                  onChange={(event) => setSelectedRouteId(event.target.value)}
+                >
+                  <option value="">Keine Route zuordnen</option>
+                  {routes.map((route) => <option key={route.id} value={route.id}>{route.name}</option>)}
+                </select>
+              </label>}
+              <label>QR-/NFC-Kennung<input
+                name="credential"
+                required
+                autoComplete="off"
+                value={scanCredential}
+                onChange={(event) => setScanCredential(event.target.value)}
+              /></label>
               <div className="time-action-row">
                 <button className="primary-button" disabled={busy}>Kontrolle verifizieren</button>
                 <button type="button" className="secondary-button" onClick={() => setChallenge(null)}>Abbrechen</button>
               </div>
             </form>}
           {oneTimeCredential && <div className="owks-secret" role="status">
-            <strong>Einmaliger QR-/NFC-Schlüssel – sicher im Kontrollpunkt hinterlegen:</strong>
+            <strong>Einmaliger Kontrollpunktschlüssel – sicher auf QR-Code oder NFC-Tag hinterlegen:</strong>
+            <OWKSControlPointQr credential={oneTimeCredential} />
             <code>{oneTimeCredential}</code>
             <button className="text-button" onClick={() => setOneTimeCredential("")}>Anzeige schließen</button>
           </div>}

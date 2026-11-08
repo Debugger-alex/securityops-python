@@ -1,9 +1,12 @@
 import asyncio
+import importlib
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
 import pytest
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
 from conftest import ADMIN_PASSWORD, TestingSessionLocal, test_engine
 from fastapi.testclient import TestClient
 from sqlalchemy import select, text, update
@@ -642,3 +645,29 @@ def test_owks_events_are_database_append_only(client: TestClient) -> None:
                 .values(description="unzulässig")
             )
         db.rollback()
+
+
+@pytest.mark.skipif(
+    test_engine.dialect.name != "postgresql",
+    reason="OWKS-Migrationsschutz wird in PostgreSQL geprüft",
+)
+def test_owks_downgrade_refuses_to_delete_operational_data(client: TestClient) -> None:
+    admin_headers = {"X-CSRF-Token": sign_in(client)}
+    object_id = create_object(client, admin_headers, "OWKS-DOWNGRADE")
+    created = client.post(
+        f"/api/v1/owks/objects/{object_id}/control-points",
+        headers=admin_headers,
+        json={"name": "Downgrade-Prüfpunkt", "identifier_type": "qr"},
+    )
+    assert created.status_code == 201
+
+    migration = importlib.import_module("migrations.versions.0014_owks_wachbuch")
+    with test_engine.connect() as connection:
+        context = MigrationContext.configure(connection)
+        with Operations.context(context), pytest.raises(DBAPIError, match="OWKS-Downgrade"):
+            migration.downgrade()
+        connection.rollback()
+
+    retained = client.get(f"/api/v1/owks/objects/{object_id}/control-points")
+    assert retained.status_code == 200
+    assert retained.json()[0]["id"] == created.json()["id"]

@@ -6,6 +6,13 @@ import OWKSManagement from "./OWKSManagement";
 import * as api from "./api";
 import type { AuthUser } from "./types";
 
+const qrScanner = vi.hoisted(() => ({
+  callback: undefined as
+    | ((result: { getText: () => string } | undefined, error: unknown, controls: { stop: () => void }) => void)
+    | undefined,
+  stop: vi.fn(),
+}));
+
 vi.mock("./api", () => ({
   createOWKSChallenge: vi.fn(),
   createOWKSControlPoint: vi.fn(),
@@ -24,6 +31,19 @@ vi.mock("./api", () => ({
   uploadOWKSAttachment: vi.fn(),
 }));
 
+vi.mock("@zxing/browser", () => ({
+  BrowserMultiFormatReader: class {
+    decodeFromVideoDevice(
+      _deviceId: string | undefined,
+      _video: HTMLVideoElement,
+      callback: typeof qrScanner.callback,
+    ) {
+      qrScanner.callback = callback ?? undefined;
+      return Promise.resolve({ stop: qrScanner.stop });
+    }
+  },
+}));
+
 const user: AuthUser = {
   id: "employee-1",
   username: "wache",
@@ -38,6 +58,10 @@ describe("OWKS-NFC-Fallback", () => {
   afterEach(() => {
     cleanup();
     Reflect.deleteProperty(window, "NDEFReader");
+    Reflect.deleteProperty(navigator, "mediaDevices");
+    Object.defineProperty(window, "isSecureContext", { configurable: true, value: false });
+    qrScanner.callback = undefined;
+    qrScanner.stop.mockClear();
   });
 
   beforeEach(() => {
@@ -50,25 +74,76 @@ describe("OWKS-NFC-Fallback", () => {
     vi.mocked(api.getOWKSEvents).mockResolvedValue([]);
     vi.mocked(api.getOWKSControlPoints).mockResolvedValue([]);
     vi.mocked(api.getOWKSRoutes).mockResolvedValue([]);
+    vi.mocked(api.createOWKSChallenge).mockResolvedValue({
+      id: "challenge-1",
+      object_id: "object-1",
+      expires_at: "2026-11-08T22:00:00Z",
+    });
+    vi.mocked(api.recordOWKSScan).mockResolvedValue({} as never);
   });
 
-  it("weist ohne Web-NFC auf QR- und manuelle Eingabe hin", async () => {
+  it("weist ohne sichere Web-NFC-Unterstützung auf QR- und manuelle Eingabe hin", async () => {
     Reflect.deleteProperty(window, "NDEFReader");
+    Object.defineProperty(window, "isSecureContext", { configurable: true, value: false });
     render(<OWKSManagement user={user} />);
 
-    expect(await screen.findByText(/Dieser Browser unterstützt kein Web-NFC/)).toBeTruthy();
-    expect(screen.getByText(/QR-Code mit einer Scanner-App auslesen und die Kennung einfügen/))
+    expect(await screen.findByText(/Web-NFC ist in diesem Browser\/Gerät oder ohne sicheren Kontext/))
       .toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Kontrollanforderung starten" }));
+    const cameraButton = await screen.findByRole("button", { name: "QR-Code mit Kamera scannen" });
+    expect(cameraButton.hasAttribute("disabled")).toBe(true);
   });
 
-  it("verspricht trotz Web-NFC-Unterstützung kein automatisches NFC-Lesen", async () => {
-    Reflect.defineProperty(window, "NDEFReader", { configurable: true, value: undefined });
+  it("zeigt den NFC-Leser nur bei sicherem Kontext und vorhandener Web-NFC-API", async () => {
+    Object.defineProperty(window, "isSecureContext", { configurable: true, value: true });
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: { getUserMedia: vi.fn() },
+    });
+    Reflect.defineProperty(window, "NDEFReader", {
+      configurable: true,
+      value: class {
+        scan = vi.fn();
+        write = vi.fn();
+        onreading = null;
+        onreadingerror = null;
+      },
+    });
     render(<OWKSManagement user={user} />);
 
-    expect(await screen.findByText(/Web-NFC wird in dieser Version nicht automatisch ausgelesen/))
+    await screen.findByRole("heading", { name: "Online-Wachbuch" });
+    fireEvent.click(screen.getByRole("button", { name: "Kontrollanforderung starten" }));
+    await screen.findByRole("button", { name: "NFC-Tag lesen" });
+    expect(screen.getByRole("button", { name: "NFC-Tag lesen" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "QR-Code mit Kamera scannen" }).hasAttribute("disabled"))
+      .toBe(false);
+  });
+
+  it("sendet einen Kamera-QR-Treffer mit der aktiven Server-Challenge zur Verifikation", async () => {
+    Object.defineProperty(window, "isSecureContext", { configurable: true, value: true });
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: { getUserMedia: vi.fn() },
+    });
+    render(<OWKSManagement user={user} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Kontrollanforderung starten" }));
+    fireEvent.click(await screen.findByRole("button", { name: "QR-Code mit Kamera scannen" }));
+    await waitFor(() => expect(qrScanner.callback).toBeDefined());
+    qrScanner.callback?.({ getText: () => "camera-credential" }, undefined, {
+      stop: qrScanner.stop,
+    });
+
+    await waitFor(() => expect(api.recordOWKSScan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        challenge_id: "challenge-1",
+        credential: "camera-credential",
+        client_event_id: expect.any(String),
+      }),
+    ));
+    expect(await screen.findByText(/statischer QR-\/NFC-Tag beweist keine physische Anwesenheit/))
       .toBeTruthy();
-    expect(screen.getByText(/QR-Code mit einer Scanner-App auslesen und die Kennung einfügen/))
-      .toBeTruthy();
+    expect(qrScanner.stop).toHaveBeenCalled();
   });
 
   it("speichert Ereignisse offline in der Warteschlange", async () => {

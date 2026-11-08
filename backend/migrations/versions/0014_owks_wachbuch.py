@@ -244,6 +244,24 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.execute(
+        """
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM owks_control_points)
+                OR EXISTS (SELECT 1 FROM owks_routes)
+                OR EXISTS (SELECT 1 FROM owks_route_points)
+                OR EXISTS (SELECT 1 FROM owks_challenges)
+                OR EXISTS (SELECT 1 FROM owks_events)
+                OR EXISTS (SELECT 1 FROM owks_event_statuses)
+                OR EXISTS (SELECT 1 FROM owks_attachments) THEN
+                RAISE EXCEPTION
+                    'OWKS-Downgrade abgelehnt: Betriebsdaten zuerst sichern und separat archivieren';
+            END IF;
+        END
+        $$
+        """
+    )
     connection = op.get_bind()
     permission_id = stable_id("permission", OWKS_WRITE)
     role_permissions = sa.table(
