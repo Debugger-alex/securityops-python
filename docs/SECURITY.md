@@ -36,7 +36,7 @@ MFA, Passwortzurücksetzung per geprüftem Einmalprozess, aktive Sitzungsverwalt
 
 ## Automatisierte Sicherheitsbefunde
 
-Pull Requests werden durch GitHub Dependency Review (SCA) auf neu eingeführte Abhängigkeiten mit bekannten Schwachstellen ab mittlerer Schwere geprüft; solche Befunde blockieren den Job. CodeQL analysiert Python sowie JavaScript/TypeScript bei Pull Requests, Änderungen auf `main` und wöchentlich. Findings müssen vor Freigabe auf Betroffenheit und Ausnutzbarkeit geprüft, einem Verantwortlichen zugeordnet und als Fix oder begründete Ausnahme dokumentiert werden. Eine Ausnahme nennt mindestens Begründung, kompensierende Maßnahme, Verantwortlichen und Ablauf-/Neubewertungsdatum. Scannerbefunde dürfen nicht kommentarlos unterdrückt werden; nach Fix oder Ausnahme müssen erneute Analyse und Review erfolgen.
+CI auditiert die in `backend/pyproject.toml` deklarierten Python-Abhängigkeiten mit `pip-audit` und den vollständigen Frontend-Lockfile-Baum mit `npm audit`; bekannte Schwachstellen ab mittlerer Schwere blockieren den Job. CodeQL analysiert Python sowie JavaScript/TypeScript bei Pull Requests, Änderungen auf `main` und wöchentlich. Findings müssen vor Freigabe auf Betroffenheit und Ausnutzbarkeit geprüft, einem Verantwortlichen zugeordnet und als Fix oder begründete Ausnahme dokumentiert werden. Eine Ausnahme nennt mindestens Begründung, kompensierende Maßnahme, Verantwortlichen und Ablauf-/Neubewertungsdatum. Scannerbefunde dürfen nicht kommentarlos unterdrückt werden; nach Fix oder Ausnahme müssen erneute Analyse und Review erfolgen.
 
 Der CI-Restore-Test erzeugt ausschließlich synthetische, kurzlebige Testdaten. Kein produktives Backup und kein echter Kunden-, Personal- oder Einsatzdatensatz wurde restauriert.
 
