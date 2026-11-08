@@ -15,6 +15,13 @@ PostgreSQL ist für den Betrieb vorgesehen. Verbindungsdaten werden über `POSTG
 - `object_history`: Akteur, Aktion, Zeit und geänderte Feldnamen; sensible Werte werden nicht in der Historie gespeichert.
 - `object_assignments`: eindeutige Objekt-/Benutzerzuweisung mit Zuordnungszeit und zuordnendem Benutzer.
 - `object_security_details`: getrennte Tabelle für Sicherheitsanforderungen, Zutrittsinformation und Notfallkontakt.
+- `employees`: Personalnummer, optionales eindeutiges Benutzerkonto, Stammdaten, Beschäftigungsstatus, Vertragsart, Wochenstunden und Archivierungszeitpunkt.
+- `employee_qualifications`: Qualifikationsmetadaten und Gültigkeits-/Ablaufdaten; Qualifikationen werden archiviert statt physisch gelöscht.
+- `employee_absences`: Abwesenheitstyp, Zeitraum, Status und erstellendes Benutzerkonto; Constraints sichern erlaubte Typen, Statuswerte und Datumsbereiche.
+- `employee_sensitive_details`: getrennte Anschrift, Notfallkontakt und interne Notizen mit eigener Berechtigungsgrenze.
+- `employee_history`: Akteur, Ereignis, Zeit und geänderte Feldnamen ohne sensible Feldwerte.
+- `employee_object_assignment_history`: unveränderliche Personalhistorie für Zuweisung und Beendigung bestehender Objektzuweisungen; verweist auf Mitarbeiterakte, Objekt und Benutzer.
+- `employee_qualification_documents`: unveränderliche Qualifikationsnachweis-Versionen mit Dateiinhalt in PostgreSQL (`BYTEA`), Medien-/Dateimetadaten, SHA-256-Prüfsumme, Versionsnummer und hochladendem Benutzer.
 - `users`: Benutzername, E-Mail, Name, Argon2id-Passworthash, Aktivstatus und Zeitstempel.
 - `roles`, `permissions`, `user_roles`, `role_permissions`: rollenbasierte Rechte.
 - `user_sessions`: Hash des Sitzungstokens, CSRF-Tokenhash und Ablaufzeiten.
@@ -22,6 +29,6 @@ PostgreSQL ist für den Betrieb vorgesehen. Verbindungsdaten werden über `POSTG
 
 ## Integrität und offene Erweiterungen
 
-UUIDs, Fremdschlüssel, eindeutige Benutzer-/Kundennummern und Status-Constraints sind vorhanden. Kunden und Objekte werden archiviert statt physisch gelöscht; FK-Constraints verhindern das Löschen referenzierter Kunden und Objekte. Kontakte und Adressen sind relational gebunden. Migrationen 0005 bis 0007 ergänzen Objekte, Zuweisungen und sensible Sicherheitsdaten mit Datenübernahme. In dieser Arbeitsumgebung wurden Upgrade- und Downgrade-SQL für PostgreSQL offline gerendert; ein lokaler PostgreSQL-Integrationslauf ist nicht belegt. Mitarbeiterstammdaten, Dienste, Zeitbuchungen, OWKS, Dokumente, Verträge und Rechnungen fehlen. Eine Restore-Prüfung wurde nicht ausgeführt.
+UUIDs, Fremdschlüssel, eindeutige Benutzer-/Kundennummern und Status-Constraints sind vorhanden. Kunden, Objekte, Mitarbeiter und Qualifikationen werden archiviert statt physisch gelöscht; FK-Constraints schützen referenzierte Datensätze. Kontakte und Adressen sind relational gebunden. Migration 0008 ergänzt Personal, Qualifikationen, Abwesenheiten, getrennte sensible Personaldaten und Historie. Migration 0009 ergänzt den Verlauf bestehender Objektzuweisungen für Personalakten, versionierte Qualifikationsdateien und separate Dokumentrechte. Der Upgrade-/Downgrade-SQL wurde offline erzeugt; echte PostgreSQL-Integrationsprüfung steht für die aktuellen, noch uncommitteten Änderungen aus. Dateiinhalte liegen in der Datenbank; externe private Dateiablage und Anwendungsebene-Verschlüsselung sind nicht implementiert. Dienstplanung, Zeitbuchungen, OWKS, Vertragsverwaltung und Rechnungen fehlen. Eine Restore-Prüfung wurde nicht ausgeführt.
 
 Jede Schemaänderung benötigt eine neue Alembic-Migration. Datenlöschungen müssen mit Aufbewahrungsregeln abgestimmt werden; produktive Downgrades mit Datenverlust dürfen nicht automatisch ausgeführt werden.

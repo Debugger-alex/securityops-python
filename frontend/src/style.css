@@ -114,6 +114,11 @@ footer span { padding: 0 5px; }
 .contact-card { display: flex; justify-content: space-between; gap: 12px; padding: 13px 0; border-top: 1px solid #eef1f3; font-size: .86rem; }
 .contact-card strong, .contact-card small { display: block; }
 .contact-card small { margin-top: 4px; color: #74818d; }
+.document-version { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+.document-version a { color: #167c79; font-size: .8rem; font-weight: 600; }
+.document-upload { display: grid; gap: 8px; margin-top: 10px; }
+.document-upload label { display: grid; gap: 6px; color: #43515c; font-size: .78rem; }
+.document-upload input[type="file"] { max-width: 100%; font-size: .78rem; }
 .contact-actions { display: flex; flex-direction: column; align-items: end; gap: 3px; }
 .primary-tag { display: inline-block; margin-left: 8px; border-radius: 12px; padding: 3px 7px; background: #e8f5f2; color: #177d79; font-size: .68rem; }
 .contact-form { display: grid; gap: 12px; margin-top: 14px; padding-top: 16px; border-top: 1px solid #e5eaed; }

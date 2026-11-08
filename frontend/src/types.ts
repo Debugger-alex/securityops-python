@@ -2,6 +2,9 @@ export type CustomerStatus = "active" | "inactive" | "lead";
 export type CustomerSort = "company_name" | "customer_number" | "created_at" | "status";
 export type ObjectStatus = "active" | "inactive";
 export type ObjectSort = "name" | "code" | "created_at" | "status";
+export type EmployeeStatus = "active" | "inactive" | "leave" | "terminated";
+export type EmployeeAbsenceType = "vacation" | "sick_leave" | "other";
+export type EmployeeAbsenceStatus = "pending" | "approved" | "rejected";
 
 export interface CustomerAddress {
   id: string;
@@ -71,6 +74,114 @@ export interface CustomerPage {
   total: number;
   limit: number;
   offset: number;
+}
+
+export interface Employee {
+  id: string;
+  employee_number: string;
+  user_id: string | null;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  job_title: string | null;
+  employment_status: EmployeeStatus;
+  hired_on: string;
+  ended_on: string | null;
+  contract_type: string | null;
+  weekly_hours: string | null;
+  assigned_objects: string[];
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmployeePage {
+  items: Employee[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface EmployeeQualification {
+  id: string;
+  employee_id: string;
+  category: string;
+  name: string;
+  issuer: string | null;
+  valid_from: string | null;
+  expires_on: string | null;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmployeeAccountCandidate {
+  id: string;
+  username: string;
+  full_name: string;
+}
+
+export interface EmployeeObjectAssignment {
+  object_id: string;
+  object_code: string;
+  object_name: string;
+  assigned_at: string;
+}
+
+export interface EmployeeObjectCandidate {
+  object_id: string;
+  object_code: string;
+  object_name: string;
+}
+
+export interface EmployeeObjectAssignmentHistory {
+  id: string;
+  object_id: string;
+  object_code: string;
+  object_name: string;
+  action: "assigned" | "ended";
+  actor_id: string | null;
+  created_at: string;
+}
+
+export interface EmployeeQualificationDocument {
+  id: string;
+  qualification_id: string;
+  version: number;
+  file_name: string;
+  media_type: "application/pdf" | "image/jpeg" | "image/png";
+  size_bytes: number;
+  sha256: string;
+  uploaded_by_id: string | null;
+  created_at: string;
+}
+
+export interface EmployeeAbsence {
+  id: string;
+  employee_id: string;
+  absence_type: EmployeeAbsenceType;
+  starts_on: string;
+  ends_on: string;
+  status: EmployeeAbsenceStatus;
+  created_by_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmployeeSensitiveDetails {
+  employee_id: string;
+  address: string | null;
+  emergency_contact: string | null;
+  internal_notes: string | null;
+  updated_at: string | null;
+}
+
+export interface EmployeeHistory {
+  id: string;
+  actor_id: string | null;
+  action: string;
+  changed_fields: string[];
+  created_at: string;
 }
 
 export interface Dashboard {

@@ -1,6 +1,6 @@
 # SecurityOps – Sicherheitsprüfung
 
-Diese Prüfung fasst den bisherigen statischen Review und den Objekt-Sicherheitsreview für `feature/object-management-completion` zusammen. Sie ist kein Penetrationstest und keine Produktionsfreigabe. Nicht implementierte Funktionen (z. B. Datei-Uploads) wurden nicht als vorhandene Angriffsfläche bewertet. Es wurden keine echten Betriebsdaten verwendet.
+Diese Prüfung fasst die bisherigen Reviews für `main` nach PR #16 und den aktuellen Feature-Branch `feature/personnel-management` zusammen. Sie ist kein Penetrationstest und keine Produktionsfreigabe. Es wurden keine echten Betriebsdaten verwendet.
 
 ## Zusammenfassung
 
@@ -14,8 +14,10 @@ Diese Prüfung fasst den bisherigen statischen Review und den Objekt-Sicherheits
 | SEC-06 | Niedrig | Offen | API setzt keine expliziten allgemeinen Browser-Sicherheitsheader; dies muss derzeit ein vorgeschalteter Webserver übernehmen. |
 | SEC-07 | Mittel | In `main` behoben | Die Anwendung verlangt `POSTGRES_PASSWORD`; Tests setzen ausschließlich einen Testwert. |
 | SEC-08 | Hoch | In `main` behoben | Administratorrollenvergabe/-änderung ist serverseitig zusätzlich an `users.manage_admin` gebunden und durch Regressionstest abgedeckt. |
-| SEC-09 | Hoch | Im Feature-Branch behoben, CI ausstehend | Objektendpunkte erzwangen zuvor keine Zuweisung und erlaubten mit Modulrechten Zugriff auf fremde Objekte. Lesen, Ändern, Archivieren, Kontakte, Historie, Zuweisungen und sensible Details prüfen jetzt den Objekt-Scope serverseitig. |
-| SEC-10 | Hoch | Im Feature-Branch behoben, CI ausstehend | Allgemeine Objektantworten enthielten zuvor Sicherheits-/Zutrittsdaten. Diese Angaben liegen nun getrennt und benötigen eigene Les-/Schreibberechtigungen; Negativtests prüfen Antworttrennung und Scope. |
+| SEC-09 | Hoch | In `main` behoben, PR #16 CI erfolgreich | Objektendpunkte erzwangen zuvor keine Zuweisung und erlaubten mit Modulrechten Zugriff auf fremde Objekte. Lesen, Ändern, Archivieren, Kontakte, Historie, Zuweisungen und sensible Details prüfen jetzt den Objekt-Scope serverseitig. |
+| SEC-10 | Hoch | In `main` behoben, PR #16 CI erfolgreich | Allgemeine Objektantworten enthielten zuvor Sicherheits-/Zutrittsdaten. Diese Angaben liegen nun getrennt und benötigen eigene Les-/Schreibberechtigungen; Negativtests prüfen Antworttrennung und Scope. |
+| SEC-11 | Mittel | Im Personal-Feature-Branch umgesetzt, CI erfolgreich | Sensible Personalangaben und Abwesenheiten sind aus allgemeinen Personalantworten getrennt und durch eigene Rechte geschützt. Lokale Negativtests sowie PostgreSQL-Migrationen und -Tests in PR #17 CI bestätigen die Änderungen; weiterer Review bleibt offen. |
+| SEC-12 | Mittel | Im Personal-Feature-Branch umgesetzt; neue Änderungen benötigen erneute CI | Qualifikationsdateien haben separate Lese-/Schreibrechte, Größen-/Format-/Signaturprüfung und unveränderliche Versionen. Inhalte liegen als `BYTEA` in PostgreSQL; Anwendungsebene-Verschlüsselung und unabhängige private Objektspeicherung fehlen, daher müssen Datenbank- und Backupzugriffe entsprechend geschützt werden. |
 
 ## Geprüfte Schutzmaßnahmen
 
@@ -27,6 +29,10 @@ Diese Prüfung fasst den bisherigen statischen Review und den Objekt-Sicherheits
 - Objektzugriff wird zusätzlich zum Modulrecht global oder anhand einer Benutzerzuweisung autorisiert. Sensible Sicherheits- und Zutrittsdaten haben separate API-Routen und Berechtigungen.
 - Zuweisungsendpunkte akzeptieren ausschließlich aktive Mitarbeiter- oder Objektleitungskonten; die Zuordnung selbst wird mit eindeutiger Datenbankbedingung geschützt.
 - Objektänderungen werden transaktional mit Verlauf/Audit gespeichert. Historieneinträge listen geänderte Felder, nicht deren sensible Werte.
+- Personalanschrift, Notfallkontakt und interne Notizen werden in einer eigenen Tabelle geführt; Personalhistorie und Audit protokollieren nur Feldnamen. Abwesenheiten haben ebenfalls eigene Lese-/Schreibrechte.
+- Qualifikationsdateien werden nur über geschützte Dokument-Endpunkte bereitgestellt. Uploads sind auf PDF/PNG/JPEG und 10 MiB begrenzt; Dateiendung, Content-Type und Signatur werden geprüft. Die Dateiversionen sind unveränderlich und SHA-256-gekennzeichnet.
+- Anwendungsebene-Verschlüsselung für Qualifikationsdateien ist derzeit bewusst nicht ergänzt: Im Repository gibt es weder einen verwalteten Schlüssel-/KMS-Bezug noch einen Ablauf für Schlüsselrotation und Wiederherstellung verschlüsselter Backups. Eine lokale Schlüsseldatei oder ein Umgebungsgeheimnis ohne Rotation und Restore-Verfahren würde nur eine unvollständige Schutzmaßnahme schaffen. Vor produktiver Ablage ist ein überprüfbares Schlüsselmanagement samt Rotation, Backup und Wiederherstellung festzulegen; bis dahin sind Datenbank-, Volume- und Backupverschlüsselung sowie streng beschränkter Administrationszugriff Voraussetzung.
+- Qualifikationsmetadaten und Abwesenheiten sind über Fremdschlüssel mit `RESTRICT` an Personalakten gebunden; Archivierung erhält verbundene Datensätze, statt sie zu löschen.
 - ORM-Abfragen verwenden gebundene Parameter; React escaped Textausgaben standardmäßig. Keine Upload- oder Datei-Auslieferungsfunktion ist aktuell implementiert.
 - CORS stammt aus einer expliziten Origin-Konfiguration und erlaubt keine beliebigen Origins.
 - Compose verlangt ein gesetztes Datenbankpasswort; Anwendungskonfiguration enthält keinen Produktions-Standardwert.
@@ -39,11 +45,11 @@ Diese Prüfung fasst den bisherigen statischen Review und den Objekt-Sicherheits
 4. MFA, sicheren Passwort-Reset und Sitzungsanzeige/-widerruf mit Abuse- und Berechtigungstests umsetzen.
 5. CI um verwaltete SCA-/SAST-Prüfungen ergänzen und deren Pflege/Alarmierungsweg festlegen.
 6. Security-Header, TLS, Datenschutz-/Aufbewahrung und Incident-Abläufe für die konkrete Serverumgebung festlegen und prüfen.
-7. Objekt-ACL- und Datentrennungsänderungen dieses Feature-Branches durch PostgreSQL-CI und Review bestätigen, bevor sie als abgeschlossen gelten.
+7. Mitarbeiter-Objektzuweisungen nutzen die vorhandene Objektzuweisungstabelle; Zuweisung und Ende werden in der Personalhistorie erfasst, Archivierung und Beendigung des Arbeitsverhältnisses beenden aktive Zuweisungen. Die aktuellen Änderungen benötigen einen erneuten PostgreSQL-CI-Lauf und Review.
 
 ## Grenzen und Prüfbelege
 
-- Lokale Backend-API-Tests verwenden SQLite; aktuell bestehen 16 Tests. Ruff und Frontend-TypeScript-/Produktionsbuild sind lokal erfolgreich. Alembic-Upgrade bis 0007 und Downgrade 0007→0006 wurden offline in PostgreSQL-SQL gerendert.
-- Für den aktuellen Branch liegt noch kein echter PostgreSQL-Integrationslauf, Docker-Build oder externer Penetrationstest vor.
+- Lokale Backend-API-Tests verwenden SQLite; aktuell bestehen 20 Tests. Ruff-Lint und Frontend-TypeScript-/Produktionsbuild sind lokal erfolgreich. Migration 0009 ist für die aktuellen Änderungen noch nicht gegen PostgreSQL validiert.
+- Frühere PostgreSQL-Migrationen/-Tests und Docker-Builds des Personal-Branches waren in CI erfolgreich, jedoch für einen älteren Commit. Ein externer Penetrationstest liegt nicht vor. Die CI für PR #16 war nach den Objektkorrekturen ebenfalls erfolgreich.
 - Die Prüfung bewertet keinen konkreten Server, Reverse Proxy, Firewall, Secret Store, Backup-Speicher oder administrativen Datenbankzugang.
 - Die Anwendung ist derzeit ein Entwicklungsstand. Vor öffentlichem oder produktivem Betrieb sind die offenen Punkte sowie Datenschutz-, Arbeitszeit- und Abrechnungsanforderungen fachlich und sicherheitstechnisch zu prüfen.

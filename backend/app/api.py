@@ -7,6 +7,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
+from app.assignment_history import record_employee_object_assignment_event
 from app.auth import add_audit_entry, require_permission
 from app.database import get_db
 from app.models import (
@@ -14,6 +15,7 @@ from app.models import (
     CustomerAddress,
     CustomerContact,
     CustomerHistory,
+    Employee,
     ObjectAddress,
     ObjectAssignment,
     ObjectContact,
@@ -906,9 +908,29 @@ def update_object_assignments(
     ).all()
     existing_by_user = {assignment.user_id: assignment for assignment in existing_assignments}
     selected_by_id = {user.id: user for user in selected_users}
+    linked_employees = {}
+    affected_user_ids = existing_by_user.keys() | selected_by_id.keys()
+    if affected_user_ids:
+        linked_employees = {
+            employee.user_id: employee
+            for employee in db.scalars(
+                select(Employee).where(Employee.user_id.in_(affected_user_ids))
+            ).all()
+        }
     changed = False
 
     for user_id in existing_by_user.keys() - selected_by_id.keys():
+        employee = linked_employees.get(user_id)
+        if employee is not None:
+            record_employee_object_assignment_event(
+                db,
+                employee_id=employee.id,
+                object_id=obj.id,
+                user_id=user_id,
+                actor_id=principal.user.id,
+                action="ended",
+                ip_address=request.client.host if request.client else None,
+            )
         db.delete(existing_by_user[user_id])
         changed = True
     for user_id in selected_by_id.keys() - existing_by_user.keys():
@@ -919,6 +941,17 @@ def update_object_assignments(
                 assigned_by_id=principal.user.id,
             )
         )
+        employee = linked_employees.get(user_id)
+        if employee is not None:
+            record_employee_object_assignment_event(
+                db,
+                employee_id=employee.id,
+                object_id=obj.id,
+                user_id=user_id,
+                actor_id=principal.user.id,
+                action="assigned",
+                ip_address=request.client.host if request.client else None,
+            )
         changed = True
 
     if changed:

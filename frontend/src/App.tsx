@@ -16,6 +16,7 @@ import {
   updateCustomerContact,
 } from "./api";
 import ObjectManagement from "./ObjectManagement";
+import PersonnelManagement from "./PersonnelManagement";
 import type {
   AuthUser,
   Customer,
@@ -103,7 +104,7 @@ export default function App() {
   const [offset, setOffset] = useState(0);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [history, setHistory] = useState<CustomerHistory[]>([]);
-  const [activeModule, setActiveModule] = useState<"customers" | "objects">("customers");
+  const [activeModule, setActiveModule] = useState<"customers" | "objects" | "employees">("customers");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const canReadCustomers = user?.permissions.includes("customers.read") ?? false;
@@ -111,6 +112,7 @@ export default function App() {
   const canUpdateCustomers = user?.permissions.includes("customers.update") ?? false;
   const canArchiveCustomers = user?.permissions.includes("customers.archive") ?? false;
   const canReadObjects = user?.permissions.includes("objects.read") ?? false;
+  const canReadEmployees = user?.permissions.includes("employees.read") ?? false;
 
   useEffect(() => {
     getSession()
@@ -160,7 +162,10 @@ export default function App() {
 
   useEffect(() => {
     if (user && !canReadCustomers && canReadObjects) setActiveModule("objects");
-  }, [canReadCustomers, canReadObjects, user]);
+    else if (user && !canReadCustomers && !canReadObjects && canReadEmployees) {
+      setActiveModule("employees");
+    }
+  }, [canReadCustomers, canReadEmployees, canReadObjects, user]);
 
   async function submitLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -375,7 +380,7 @@ export default function App() {
       <section className="intro">
         <p className="eyebrow">SECURITYOPS VERWALTUNG</p>
         <h1>Guten Tag.</h1>
-        <p>Kunden- und Objektstammdaten zentral verwalten.</p>
+        <p>Kunden, Objekte und Personalstammdaten zentral verwalten.</p>
       </section>
 
       <nav className="module-tabs" aria-label="Verwaltungsmodule">
@@ -385,9 +390,14 @@ export default function App() {
         {canReadObjects && <button
           className={activeModule === "objects" ? "module-tab active" : "module-tab"}
           onClick={() => setActiveModule("objects")}>Objekte</button>}
+        {canReadEmployees && <button
+          className={activeModule === "employees" ? "module-tab active" : "module-tab"}
+          onClick={() => setActiveModule("employees")}>Personal</button>}
       </nav>
 
-      {activeModule === "objects" && canReadObjects ? <ObjectManagement user={user} /> : <>
+      {activeModule === "employees" && canReadEmployees
+        ? <PersonnelManagement user={user} />
+        : activeModule === "objects" && canReadObjects ? <ObjectManagement user={user} /> : <>
       {dashboard && <section className="stats" aria-label="Kundenübersicht">
         <article className="stat-card"><span>Kunden gesamt</span><strong>{dashboard.customers_total}</strong></article>
         <article className="stat-card"><span>Aktive Kunden</span><strong>{dashboard.customers_active}</strong></article>

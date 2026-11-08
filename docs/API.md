@@ -38,6 +38,28 @@ Die aktuelle API ist unter `/api/v1` versioniert. OpenAPI/Swagger ist während d
 | GET/PUT | `/api/v1/objects/{object_id}/assignments` | `objects.assign` und globales Verwaltungsrecht oder Objektzuweisung; PUT + CSRF |
 | GET | `/api/v1/objects/{object_id}/security` | `objects.sensitive.read` und globales Leserecht oder Objektzuweisung |
 | PATCH | `/api/v1/objects/{object_id}/security` | `objects.sensitive.manage` und globales Verwaltungsrecht oder Objektzuweisung + CSRF |
+| GET | `/api/v1/employees` | `employees.read`; `q`, `status`, `include_archived`, `sort_by`, `sort_order`, `limit`, `offset` |
+| POST | `/api/v1/employees` | `employees.manage` + CSRF |
+| GET | `/api/v1/employees/{employee_id}` | `employees.read` |
+| PATCH | `/api/v1/employees/{employee_id}` | `employees.manage` + CSRF |
+| POST | `/api/v1/employees/{employee_id}/archive` und `/reactivate` | `employees.manage` + CSRF |
+| GET | `/api/v1/employees/{employee_id}/history` | `employees.read`; `limit`, `offset` |
+| GET | `/api/v1/employees/linked-user-candidates` | `employees.manage`; `employee_id` optional for editing the current link |
+| GET | `/api/v1/employees/object-assignment-candidates` | `employees.manage` + `objects.assign`; only objects within the caller's write scope |
+| GET | `/api/v1/employees/{employee_id}/objects` | `employees.read`; active assignments through the linked user account |
+| GET | `/api/v1/employees/{employee_id}/object-assignment-history` | `employees.read`; `limit`, `offset` |
+| POST/DELETE | `/api/v1/employees/{employee_id}/objects/{object_id}` | `employees.manage` + `objects.assign` and object write scope; CSRF; POST assigns, DELETE ends |
+| GET/POST | `/api/v1/employees/{employee_id}/qualifications` | Lesen: `employees.read`; Schreiben: `employees.manage` + CSRF |
+| PATCH | `/api/v1/employees/{employee_id}/qualifications/{qualification_id}` | `employees.manage` + CSRF |
+| POST | `/api/v1/employees/{employee_id}/qualifications/{qualification_id}/archive` | `employees.manage` + CSRF |
+| GET | `/api/v1/employees/{employee_id}/qualification-documents` | `employees.documents.read` |
+| POST | `/api/v1/employees/{employee_id}/qualifications/{qualification_id}/documents` | `employees.documents.manage` + CSRF; PDF/PNG/JPEG, max. 10 MiB |
+| GET | `/api/v1/employees/{employee_id}/qualifications/{qualification_id}/documents/{document_id}` | `employees.documents.read`; `download=true` forces attachment |
+| GET | `/api/v1/employees/qualifications/expiring` | `employees.read`; `days` |
+| GET/POST | `/api/v1/employees/{employee_id}/absences` | Lesen: `employees.absences.read`; Schreiben: `employees.absences.manage` + CSRF |
+| PATCH | `/api/v1/employees/{employee_id}/absences/{absence_id}` | `employees.absences.manage` + CSRF |
+| GET | `/api/v1/employees/{employee_id}/sensitive` | `employees.sensitive.read` |
+| PATCH | `/api/v1/employees/{employee_id}/sensitive` | `employees.sensitive.manage` + CSRF |
 | GET | `/api/v1/dashboard` | `dashboard.read` |
 
 Kundenlisten blenden archivierte Datensätze standardmäßig aus. Die Sortierfelder sind `company_name`, `customer_number`, `created_at` und `status`; die Sortierrichtung ist `asc` oder `desc`. Die Suche berücksichtigt Kunden-, Kontakt- und Anschriftendaten.
@@ -45,5 +67,7 @@ Kundenlisten blenden archivierte Datensätze standardmäßig aus. Die Sortierfel
 Kunden können Geschäfts- und Rechnungsanschrift, Rechtsform, Umsatzsteuer-ID, Steuernummer und interne Notizen enthalten. Ansprechpartner werden separat verwaltet; pro Kunde kann höchstens einer als primär markiert sein. Kunden werden archiviert statt physisch gelöscht. Historieneinträge speichern Ereignis, Akteur, Zeitpunkt und geänderte Feldnamen, aber keine vorherigen/neuen Feldwerte.
 
 Objektlisten und normale Objektdetails enthalten keine Sicherheits-, Zutritts- oder Notfallangaben. Diese Felder werden ausschließlich über die getrennten `/security`-Endpunkte mit separaten Berechtigungen ausgeliefert. Objektlisten und Detail-Endpunkte wenden den Objektzugriff serverseitig an; Nutzer ohne globale Rechte sehen nur zugewiesene Objekte. Zuweisungen können derzeit aktive Konten mit Mitarbeiter- oder Objektleitungsrolle enthalten. Objektkontakte werden einzeln geändert oder gelöscht; ein allgemeines Objekt-PATCH ersetzt sie nicht.
+
+Personalantworten enthalten keine Anschrift, Notfallkontakt- oder internen Notizfelder; diese liegen getrennt und benötigen `employees.sensitive.read` beziehungsweise `employees.sensitive.manage`. Abwesenheiten und Qualifikationsdateien haben eigene Les-/Schreibrechte. Dateien werden mit Größenlimit, Dateiendung, gemeldetem MIME-Typ und Dateisignatur geprüft, als unveränderliche Versionen in PostgreSQL gespeichert und ausschließlich über autorisierte API-Endpunkte ausgeliefert. Mitarbeiterkonten verknüpfen Personalakten mit den bestehenden `object_assignments`; beide Verwaltungswege protokollieren Zuweisungen und Beendigungen in der Personal- und Objekthistorie. Archivierung und Beendigung des Arbeitsverhältnisses beenden aktive Objektzuweisungen.
 
 Schreibzugriffe nutzen den Session-Cookie und müssen `X-CSRF-Token` senden. Archivierte Kunden müssen vor Änderungen reaktiviert werden. Nicht aufgeführte Fachmodule und Endpunkte sind nicht implementiert.
