@@ -8,7 +8,9 @@ Die verbindliche Priorisierung, Abhängigkeiten und der aktuelle `main`-/PR-Stat
 2. Fachliche Abnahme der in `main` implementierten Module und Nachverfolgung offener Akzeptanzthemen (Issues #7–#10 offen; Issue #8 laut aktueller GitHub-Abfrage OPEN).
 3. OWKS (gemergter PR #23, Issue #3 geschlossen) auf Objekten, Personal und Zuweisungen fachlich weiter prüfen; statische QR/NFC-Kennungen sind kein physischer Präsenznachweis.
 4. Dokumenten-/Vertragsverwaltung (gemergter PR #24) sowie geschützte Dateiablage/Vertragsregeln anhand fachlicher Akzeptanz prüfen.
-5. Rechnungswesen (Issue #7) auf fachlich freigegebenen Verträgen und Leistungsnachweisen.
+5. Rechnungswesen (Issue #7, offener PR #27) auf fachlich freigegebenen Verträgen und Leistungsnachweisen; PR-Vorschlag ist nicht in `main`, Steuerrichtigkeit/Abnahme nicht belegt.
 6. E2E-/Last-/Sicherheits-/Restoretests und eine eigenständige Betriebsabnahme.
+
+PR #26 schlägt zusätzliche Dienstplan-Verfügbarkeiten/Vertretungen vor und ist offen; sein Backend-CI ist fehlgeschlagen. PR #26 und #27 fügen getrennte `0016_*`-Revisionen mit Vorgänger `0015_documents_contracts` hinzu; bei gemeinsamer Übernahme muss die Alembic-Kette explizit vereinheitlicht werden.
 
 Reihenfolge stellt keinen Implementierungs- oder Rechtsstatus dar. Keine Produktions-, Rechts- oder Steuerfreigabe wird behauptet.

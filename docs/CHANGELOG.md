@@ -2,13 +2,14 @@
 
 ## 2026-11-08 – Dokumentationssynchronisierung
 
-- Status von `main` (SHA `6c7679a646d30da0504d8990fefeefa351a29bfe`), Issues und PRs frisch abgeglichen. PR #23 (OWKS) und #24 (Dokumente/Verträge) sowie Migrationen 0014/0015 sind nun in `main`; nur PR #25 bleibt offen.
+- Status von `main` (SHA `6c7679a646d30da0504d8990fefeefa351a29bfe`), Issues und PRs frisch abgeglichen. PR #23 (OWKS) und #24 (Dokumente/Verträge) sowie Migrationen 0014/0015 sind in `main`.
 - API-Inventar auf 136 `/api/v1`-Operationen ergänzt; Datenbankkatalog, FK-/Constraint-/Indexreferenz, ER-Diagramm und Migrationkette auf 52 Tabellen und Revision 0015 synchronisiert.
 - Architektur-, Sicherheits-, Betriebs-, Audit-, Status- und Roadmap-Aussagen aktualisiert. Issue #8 bleibt laut aktueller GitHub-Abfrage offen; Merge/CI werden nicht als fachliche Abnahme gewertet.
 - Ausschließlich Dokumentationen und `AGENTS.md` geändert; keine Anwendung, Schema- oder Migrationsdatei.
 - Frühere Dokumentationssynchronisierung betraf `main` SHA `5f3530463e9531c1f825f43ae4c6a6e60b9974e3` und stellte PR #23/#24 damals korrekt als offen dar; dieser historische Stand ist durch die nun gemergten Änderungen überholt.
 - Ältere Entwicklungsnotizen weiter unten spiegeln den Status zum Zeitpunkt ihrer Erstellung wider; der aktuelle Issue-/PR-Status ist ausschließlich in [`PROJECT_STATUS.md`](PROJECT_STATUS.md) gepflegt.
 - Frühere Einträge darunter sind zeitgebundene Entwicklungsnotizen und beschreiben teilweise den damaligen Stand vor Merge oder Statuswechsel; für den heutigen Bestand gilt [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
+- Folgeprüfung: offen sind PR #25 (Dokumentation), #26 (Dienstplan-Verfügbarkeiten/Vertretungen; Backend-CI fehlgeschlagen) und #27 (Rechnungswesen; CI erfolgreich). Beide Feature-PRs zielen direkt auf `main`, tragen je eine parallele Migration `0016_*` mit Vorgänger `0015_documents_contracts` und sind nicht gestapelt. Issues #2–#6 geschlossen, #7–#10 offen; Issue #8 bleibt trotz PR #24 offen.
 - Ausschließlich Dokumentationen und `AGENTS.md` geändert; keine Anwendung, Schema- oder Migrationsdatei.
 
 ## 2026-11-08 – Gestapelte Ergänzung zu Zeiterfassung/Zuschlägen

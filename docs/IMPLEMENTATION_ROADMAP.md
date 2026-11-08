@@ -14,13 +14,13 @@ Diese Roadmap basiert auf dem tatsächlich gemergten `main`-Stand vom 08.11.2026
 
 ### P1 – Abnahme und Bestand konsolidieren
 
-1. Issue #10: Dienstplanung fachlich abnehmen. Die vorhandene Konflikt-/Ruhezeitprüfung ist keine arbeitsrechtliche Freigabe und bildet keine individuellen, wiederkehrenden Verfügbarkeitsfenster ab.
+1. Issue #10: Dienstplanung fachlich abnehmen. PR #26 schlägt dazu wöchentliche Verfügbarkeitsfenster, befristete Dienstwünsche/Sperrzeiten und Schichtvertretungen vor; PR ist offen, gegen `main` (nicht Teil davon) und sein aktueller Backend/PostgreSQL-CI-Job ist fehlgeschlagen. Die bestehende Konflikt-/Ruhezeitprüfung ist keine arbeitsrechtliche Freigabe.
 
 ### P2 – Fachliche Ausbau- und Abnahmeaufgaben
 
 1. OWKS ist in `main` (PR #23, Migration `0014`); Issue #3 ist geschlossen. Fachlich weiterhin prüfen: statische Kennungen sind keine physischen Präsenznachweise, und Uploads besitzen keinen Malware-Scan.
 2. Dokumenten-/Vertragsfunktionen sind in `main` (PR #24, Migration `0015`). Issue #8 ist laut aktueller GitHub-Abfrage offen; Vertragsregeln, Dateizugriff und fachliche Akzeptanz sind vor Erledigung konkret abzugleichen.
-3. Issue #7: Rechnungswesen erst auf fachlich bestätigten Verträgen und freigegebenen, nachvollziehbaren Leistungsnachweisen aufbauen. Steuer-/Buchhaltungsprüfung vor Exportbezeichnungen wie „DATEV-kompatibel“.
+3. Issue #7: PR #27 schlägt Rechnungswesen mit konfigurierbaren Preisen/Steuerwerten, Rechnungsentwürfen, Freigabe, unveränderlichen Snapshots, Korrekturbelegen, Zahlungen/Mahnstatus, PDF und Export `securityops-accounting-v1` vor. PR ist offen und nicht in `main`; Preise/Steuersätze bleiben Konfigurationen, keine steuerliche oder buchhalterische Abnahme ist nachgewiesen.
 
 ### P3 – Betriebsqualität und vollständiger Nachweis
 
@@ -31,8 +31,9 @@ Diese Roadmap basiert auf dem tatsächlich gemergten `main`-Stand vom 08.11.2026
 ## Bestätigte GitHub-Lage
 
 - In `main`: Identity, Kunden, Objekte, Personal/Qualifikationen, Dienstplanung, Zeiterfassung, OWKS und Dokumente/Verträge (Migrationen `0001`–`0015`).
-- PR #23/#24 sind gemergt. PR #25 ist offen und dokumentationsbezogen; sein aktualisierter CI-Stand wird nach Push geprüft.
-- Issues #2–#6 sind geschlossen. #7–#10 sind laut frischer GitHub-Abfrage offen; insbesondere Issue #8 aktuell nicht als geschlossen dokumentieren.
+- PR #23/#24 sind gemergt. Offen sind PR #25 (Dokumentation), #26 (Dienstplanung; Backend-CI fehlgeschlagen) und #27 (Rechnungswesen; CI erfolgreich).
+- PR #26 und #27 basieren beide auf `main`/Revision `0015_documents_contracts`, aber beide fügen eigene, unterschiedliche `0016_*`-Revisionen ein. Falls beide Änderungen zusammengeführt werden, muss die lineare Migrationenkette ausdrücklich durch Rebase/Umnummerierung oder Merge-Revision hergestellt werden; aktuell ist keine Reihenfolge vereinbart.
+- Issues #2–#6 sind geschlossen; #7–#10 sind laut frischer GitHub-Abfrage offen. Issue #8 wird trotz PR #24 weiterhin als offen geführt; zu Issue #9 wird ohne zugeordneten offenen PR kein Umsetzungsfortschritt behauptet.
 
 ## Abhängigkeiten und Abschlusskriterien
 

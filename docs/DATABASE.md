@@ -303,6 +303,10 @@ erDiagram
 
 Neue Schemaänderungen benötigen eine neue Alembic-Migration. Ein `Base.metadata.create_all` ist nur in Tests zulässig. Migrationen sollten vor Rollout in PostgreSQL geprüft werden; Daten-destruktive Downgrades sind keine sichere Rollbackstrategie. Restore- und produktive Migrationsverfahren sind nicht nachgewiesen.
 
+### Nicht gemergte Migrationsvorschläge
+
+PR #26 (`0016_scheduling_availability`) und PR #27 (`0016_billing`) zielen beide direkt auf `main` und deklarieren jeweils `0015_documents_contracts` als Vorgänger. Sie sind parallele, nicht gestapelte Zweige; weder Migration ist Teil des oben dokumentierten Schemas. Eine gleichzeitige Übernahme erzeugt zwei Alembic-Heads. Vor einer gemeinsamen Integration muss die gewünschte Reihenfolge durch Rebase/Anpassung der Revisions-IDs oder eine explizite Alembic-Merge-Revision festgelegt und in PostgreSQL validiert werden. PR #26s aktueller Backend-CI-Job ist fehlgeschlagen; PR #27s CI war zum Prüfzeitpunkt grün. Diese CI-Status ändern den Migrationsstand von `main` nicht.
+
 ## Datenhaltungsgrenzen
 
 - Kunden, Objekte, Personal und Qualifikationen werden überwiegend archiviert statt physisch gelöscht; referenzierte Daten nutzen meist `RESTRICT`.
