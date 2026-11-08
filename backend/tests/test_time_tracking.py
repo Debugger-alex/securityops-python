@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -240,7 +240,11 @@ def test_tracking_segments_permissions_approval_and_immutable_correction(
             .limit(1)
         )
         assert original_segment is not None
-        assert original_segment.started_at.isoformat() == original_start.removesuffix("Z")
+        original_stored_start = original_segment.started_at
+        if original_stored_start.tzinfo is None:
+            original_stored_start = original_stored_start.replace(tzinfo=UTC)
+        expected_original_start = datetime.fromisoformat(original_start)
+        assert original_stored_start == expected_original_start
         stored_entry = db.get(TimeEntry, UUID(entry["id"]))
         assert stored_entry is not None
         assert stored_entry.status == "approved"
