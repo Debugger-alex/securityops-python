@@ -18,7 +18,6 @@ PERMISSIONS = {
     "time_tracking.create": "Arbeitszeit erfassen",
     "time_tracking.correct_own": "Korrekturen eigener Arbeitszeiten beantragen",
     "time_tracking.correct_all": "Korrekturen zulässiger Arbeitszeiten beantragen",
-    "time_tracking.approve": "Arbeitszeiten und Korrekturen freigeben",
     "time_tracking.reject": "Arbeitszeiten und Korrekturen ablehnen",
     "time_tracking.export": "Arbeitszeitdaten exportieren",
     "time_tracking.manage": "Manuelle Arbeitszeiten verwalten",
@@ -207,7 +206,6 @@ def upgrade() -> None:
             "time_tracking.read_all",
             "time_tracking.create",
             "time_tracking.correct_all",
-            "time_tracking.approve",
             "time_tracking.reject",
             "time_tracking.export",
             "time_tracking.manage",
@@ -216,21 +214,12 @@ def upgrade() -> None:
             "time_tracking.read_all",
             "time_tracking.create",
             "time_tracking.correct_all",
-            "time_tracking.approve",
             "time_tracking.reject",
             "time_tracking.export",
             "time_tracking.manage",
         },
-        "operations": {
-            "time_tracking.read_all",
-            "time_tracking.approve",
-            "time_tracking.reject",
-        },
-        "object_manager": {
-            "time_tracking.read_all",
-            "time_tracking.approve",
-            "time_tracking.reject",
-        },
+        "operations": {"time_tracking.read_all", "time_tracking.reject"},
+        "object_manager": {"time_tracking.read_all", "time_tracking.reject"},
         "employee": {
             "time_tracking.read_own",
             "time_tracking.create",
@@ -247,6 +236,14 @@ def upgrade() -> None:
             }
             for permission_code in sorted(codes)
         )
+    existing_approval_permission_id = stable_id("permission", "time_tracking.approve")
+    role_rows.extend(
+        {
+            "role_id": stable_id("role", role_code),
+            "permission_id": existing_approval_permission_id,
+        }
+        for role_code in ("operations", "object_manager")
+    )
     op.bulk_insert(role_permissions, role_rows)
 
 
@@ -274,9 +271,18 @@ def downgrade() -> None:
     )
     role_permissions = sa.table(
         "role_permissions",
+        sa.column("role_id", postgresql.UUID(as_uuid=True)),
         sa.column("permission_id", postgresql.UUID(as_uuid=True)),
     )
     permission_ids = [stable_id("permission", code) for code in PERMISSIONS]
+    connection.execute(
+        sa.delete(role_permissions).where(
+            role_permissions.c.role_id.in_(
+                [stable_id("role", code) for code in ("operations", "object_manager")]
+            ),
+            role_permissions.c.permission_id == stable_id("permission", "time_tracking.approve"),
+        )
+    )
     connection.execute(
         sa.delete(role_permissions).where(role_permissions.c.permission_id.in_(permission_ids))
     )
