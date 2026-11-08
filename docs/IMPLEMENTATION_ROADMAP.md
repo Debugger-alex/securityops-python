@@ -33,7 +33,7 @@ Der offene PR #28 (gegen `main`, Issue #9) schlägt Teile dieser Arbeiten vor: N
 ## Bestätigte GitHub-Lage
 
 - In `main`: Identity, Kunden, Objekte, Personal/Qualifikationen, Dienstplanung, Zeiterfassung, OWKS und Dokumente/Verträge (Migrationen `0001`–`0015`).
-- PR #23/#24 sind gemergt. Offen sind PR #25 (Dokumentation; aktuelle Backend-CI scheitert im parallelen Dienstplan-Exclusion-Test), #26 (Dienstplanung; aktuelle CI grün), #27 (Rechnungswesen; auf #26 gestapelt, aktuelle CI grün) und #28 (Issue #9 Produktionshärtung; aktueller CI-Head einschließlich Restore grün).
+- PR #23/#24 sind gemergt. Offen sind PR #25 (Dokumentation; letzter geprüfter Head `dc040ce` mit Backend/PostgreSQL/Migrationen, Frontend und Docker grün), #26 (Dienstplanung; aktuelle CI grün), #27 (Rechnungswesen; auf #26 gestapelt, aktuelle CI grün) und #28 (Issue #9 Produktionshärtung; aktueller CI-Head einschließlich Restore grün).
 - PR #26 basiert auf `main`/Revision `0015_documents_contracts`; PR #27 ist darauf gestapelt und ergänzt `0017_billing` nach `0016_scheduling_availability`. Bei Integration ist diese Abhängigkeit zu erhalten; für eine unabhängige Übernahme von #27 wären Basis und Migrationskette ausdrücklich anzupassen.
 - Issues #2–#6 sind geschlossen; #7–#10 sind laut frischer GitHub-Abfrage offen. Issue #8 wird trotz PR #24 weiterhin als offen geführt. PR #28 ist Issue #9 zugeordnet, bleibt aber offen und ist nicht fachlich oder produktiv abgenommen.
 
