@@ -28,6 +28,19 @@ services:
       timeout: 3s
       retries: 10
 
+  clamav:
+    image: clamav/clamav-debian:1.4.3@sha256:1d261f9c83ef2bbeef3915c7792f125e5707500fde0019d53547461747b90374
+    restart: unless-stopped
+    environment:
+      CLAMD_CONF_TCPAddr: 0.0.0.0
+      CLAMD_CONF_TCPSocket: "3310"
+      CLAMD_CONF_StreamMaxLength: 100M
+      CLAMD_CONF_MaxFileSize: 100M
+      CLAMD_CONF_MaxScanSize: 200M
+      CLAMD_CONF_ReadTimeout: "120"
+    networks:
+      - data
+
   api:
     build: ./backend
     restart: unless-stopped
@@ -44,6 +57,10 @@ services:
       FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-172.28.0.10}
       DOCUMENT_STORAGE_PATH: /var/lib/securityops/documents
       DOCUMENT_MAX_UPLOAD_BYTES: ${DOCUMENT_MAX_UPLOAD_BYTES:-20971520}
+      MALWARE_SCANNER_HOST: clamav
+      MALWARE_SCANNER_PORT: 3310
+      MALWARE_SCANNER_TIMEOUT_SECONDS: ${MALWARE_SCANNER_TIMEOUT_SECONDS:-30}
+      MALWARE_SCAN_MAX_BYTES: ${MALWARE_SCAN_MAX_BYTES:-104857600}
     volumes:
       - document_storage:/var/lib/securityops/documents
     ports:
@@ -52,6 +69,8 @@ services:
       db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      clamav:
         condition: service_healthy
     networks:
       - app

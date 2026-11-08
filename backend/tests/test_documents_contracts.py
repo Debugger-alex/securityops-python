@@ -7,8 +7,10 @@ from conftest import ADMIN_PASSWORD, TestingSessionLocal
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
+from app import malware_scanner
 from app.config import get_settings
 from app.identity_api import password_hasher
+from app.malware_scanner import MalwareDetected, MalwareScannerError
 from app.models import (
     AuditLog,
     Contract,
@@ -195,6 +197,68 @@ def test_documents_scope_and_role_permissions(
         headers=restricted_headers,
     )
     assert denied_download.status_code == 404
+
+
+def test_document_and_version_uploads_fail_closed_on_scan_rejection(
+    client: TestClient, tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr(get_settings(), "document_storage_path", tmp_path)
+    headers = sign_in(client)
+
+    def infected(_content: bytes) -> None:
+        raise MalwareDetected
+
+    monkeypatch.setattr("app.upload_scanning.scan_upload", infected)
+    rejected = upload_pdf(client, headers)
+    assert rejected.status_code == 422
+    with TestingSessionLocal() as db:
+        assert db.scalar(select(func.count()).select_from(Document)) == 0
+        assert (
+            db.scalar(
+                select(func.count())
+                .select_from(AuditLog)
+                .where(AuditLog.action == "uploads.rejected")
+            )
+            == 1
+        )
+    assert list(tmp_path.iterdir()) == []
+
+    monkeypatch.setattr(get_settings(), "malware_scan_max_bytes", 5)
+    monkeypatch.setattr("app.upload_scanning.scan_upload", malware_scanner.scan_upload)
+    size_limited = upload_pdf(client, headers)
+    assert size_limited.status_code == 413
+    assert list(tmp_path.iterdir()) == []
+
+    def unavailable(_content: bytes) -> None:
+        raise MalwareScannerError("timeout")
+
+    monkeypatch.setattr("app.upload_scanning.scan_upload", unavailable)
+    failed = upload_pdf(client, headers)
+    assert failed.status_code == 503
+    assert list(tmp_path.iterdir()) == []
+
+    monkeypatch.setattr("app.upload_scanning.scan_upload", lambda _content: None)
+    created = upload_pdf(client, headers)
+    assert created.status_code == 201
+    document_id = created.json()["id"]
+
+    monkeypatch.setattr("app.upload_scanning.scan_upload", unavailable)
+    version = client.post(
+        f"/api/v1/documents/{document_id}/versions",
+        headers=headers,
+        files={"file": ("version-2.pdf", b"%PDF-1.7\nversion", "application/pdf")},
+    )
+    assert version.status_code == 503
+    with TestingSessionLocal() as db:
+        assert (
+            db.scalar(
+                select(func.count())
+                .select_from(DocumentVersion)
+                .where(DocumentVersion.document_id == UUID(document_id))
+            )
+            == 1
+        )
+    assert len(list(tmp_path.iterdir())) == 1
 
 
 def test_contract_history_and_idempotent_reminders(client: TestClient) -> None:

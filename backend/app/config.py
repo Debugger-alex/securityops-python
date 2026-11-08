@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     session_absolute_hours: int = 12
     document_storage_path: Path = Path("./.private-document-storage")
     document_max_upload_bytes: int = Field(default=20 * 1024 * 1024, gt=0, le=100 * 1024 * 1024)
+    malware_scanner_host: str = "clamav"
+    malware_scanner_port: int = Field(default=3310, ge=1, le=65535)
+    malware_scanner_timeout_seconds: float = Field(default=30, gt=0, le=300)
+    malware_scan_max_bytes: int = Field(default=100 * 1024 * 1024, gt=0, le=100 * 1024 * 1024)
 
     @model_validator(mode="after")
     def validate_production_security(self) -> "Settings":

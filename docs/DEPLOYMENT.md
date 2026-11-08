@@ -7,10 +7,13 @@ Das Produktions-Compose-Setup baut das Frontend als statische Vite-Dateien und l
 Für den ersten Start oder ein Release:
 
 ```sh
-docker compose up -d db redis
+docker compose up -d db redis clamav
+docker compose ps clamav
 docker compose --profile release run --rm migrate
 docker compose up --build -d api frontend
 ```
+
+Der ClamAV-Dienst benötigt beim ersten Start Zeit zum Laden seiner Signaturdatenbank. Die API startet erst, wenn der im Image enthaltene Scanner-Healthcheck erfolgreich ist. Der Dienst ist nur im internen Compose-Datennetz erreichbar und veröffentlicht keinen Host-Port. Das mehrplattformfähige ClamAV-Debian-Image ist auf Version und OCI-Manifest-Digest festgelegt; seine laufend aktualisierten Virendefinitionen können Erkennungsergebnisse trotz gleicher Container-Version zeitabhängig ändern. Digest-Aktualisierungen müssen geprüft und explizit übernommen werden. Details zu Grenzwerten, Fehlerverhalten und API-Ablehnungen stehen in [Upload-Prüfung](UPLOAD_SECURITY.md).
 
 Die Migration muss erfolgreich abgeschlossen sein, bevor API-Replikate aktualisiert oder skaliert werden. Bei einem Rollback darf ein destruktiver Downgrade nicht ungeprüft ausgeführt werden. Nach dem Start `GET /health/ready` prüfen; in Produktion umfasst die Readiness Datenbank und Redis. API-Prozesse führen keine Migration aus.
 
@@ -59,6 +62,7 @@ Uvicorn vertraut ausschließlich den in `FORWARDED_ALLOW_IPS` aufgelisteten Adre
 - Die Beispielkonfiguration nutzt eine lokale PostgreSQL-Rolle. Für Produktion eine dedizierte Rolle mit minimalen Datenbankrechten und getrennte Migrationsberechtigungen einrichten.
 - Redis ist nur im internen Compose-Netz erreichbar und speichert flüchtige Rate-Limit-Zähler. Für externe Redis-Installationen `rediss://` und die dafür erforderlichen Zugriffsdaten sicher bereitstellen.
 - Dokumente liegen im privaten Volume und niemals im statischen Webroot. Volume-Verschlüsselung, Zugriff, Aufbewahrung und Backup sind Betreiberaufgaben.
+- ClamAV läuft als interner Compose-Dienst `clamav` auf TCP 3310; dieser Port wird nicht nach außen veröffentlicht. `MALWARE_SCANNER_TIMEOUT_SECONDS` (Standard 30 Sekunden, maximal 300) und `MALWARE_SCAN_MAX_BYTES` (Standard/maximal 100 MiB) begrenzen die Backend-Prüfung; ClamAV erhält passende Stream-/Dateigrenzen. Ohne erreichbaren Scanner werden Uploads abgewiesen. Außerhalb dieses Compose-Stacks muss ein vertrauenswürdiger ClamAV-Dienst mit kompatiblen Grenzwerten konfiguriert werden.
 - Images, OS-Pakete und Abhängigkeiten regelmäßig aktualisieren; CI-Images bauen keine Images mit festgeschriebenem Digest. Für den produktiven Rollout geprüfte Images/Digests freigeben und einen Rollback-Ablauf erproben.
 - Monitoring, Protokollaufbewahrung ohne Tokens/Passwörter, Alarmierung, Datenbankrechte, Datenschutz und Incident-Verfahren vor öffentlichem Betrieb festlegen.
 
