@@ -45,8 +45,30 @@ docker compose exec -T db psql -v ON_ERROR_STOP=1 -U "$db_user" -d postgres \
 age --decrypt --identity "$BACKUP_AGE_IDENTITY_FILE" "$1/database.dump.age" \
     | docker compose exec -T db pg_restore --exit-on-error --no-owner --no-acl \
         -U "$db_user" -d "$target_database"
+
+docker compose --profile restore-test build --quiet restore-documents >/dev/null
+restore_container_id=$(
+    docker compose --profile restore-test run --detach --rm --no-deps \
+        --entrypoint sh restore-documents -c 'sleep infinity'
+)
+cleanup_restore_container() {
+    status=$?
+    trap - EXIT
+    if [[ -n "$restore_container_id" ]]; then
+        docker stop "$restore_container_id" >/dev/null || status=1
+    fi
+    exit "$status"
+}
+trap cleanup_restore_container EXIT
+
 age --decrypt --identity "$BACKUP_AGE_IDENTITY_FILE" "$1/documents.tar.age" \
-    | docker compose --profile restore-test run --rm --no-deps -T -i restore-documents
+    | docker exec -i "$restore_container_id" \
+        tar -C /var/lib/securityops/documents -tf - >/dev/null
+age --decrypt --identity "$BACKUP_AGE_IDENTITY_FILE" "$1/documents.tar.age" \
+    | docker exec -i "$restore_container_id" \
+        tar -C /var/lib/securityops/documents --no-same-owner -xf -
+docker stop "$restore_container_id" >/dev/null
+restore_container_id=""
 
 migration=$(docker compose exec -T db psql -v ON_ERROR_STOP=1 -U "$db_user" \
     -d "$target_database" -Atc "SELECT version_num FROM alembic_version")
