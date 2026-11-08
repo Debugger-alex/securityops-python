@@ -1,43 +1,43 @@
 # SecurityOps – Projektstatus
 
-**Geprüft:** 08.11.2026, 23:26 CET · **`main`:** `6c7679a646d30da0504d8990fefeefa351a29bfe`
+**Geprüft:** 09.11.2026 · **`main`:** `3deebd16e368733f9595cd39f7e38b6354c1a88d`
 
 Diese Momentaufnahme trennt gemergten Quellcode, offene PRs, CI und fachliche Abnahme. PR-Inhalt ist kein Bestandteil von `main`; grüne CI beweist weder fachliche Abnahme noch Datenschutz-, Rechts- oder Produktionsreife.
 
 ## Tatsächlich in `main`
 
-`main` enthält die lineare Alembic-Kette `0001_customers` bis `0015_documents_contracts` (Revision-Head `0015_documents_contracts`), 52 SQLAlchemy-Tabellen und 136 API-Operationen unter `/api/v1`:
+`main` enthält die lineare Alembic-Kette `0001_customers` bis `0016_scheduling_availability` (Revision-Head `0016_scheduling_availability`), 54 SQLAlchemy-Tabellen und 140 API-Operationen unter `/api/v1`:
 
-- FastAPI-Monolith mit SQLAlchemy/PostgreSQL, Alembic, React/TypeScript/Vite, Docker-Compose-Entwicklungsdiensten und GitHub Actions.
+- FastAPI-Monolith mit SQLAlchemy/PostgreSQL, Alembic, React/TypeScript/Vite, getrenntem Produktions-/Entwicklungs-Compose und GitHub Actions.
 - Anmeldung mit Argon2id, serverseitig widerrufbaren opaque Sitzungen, Idle-/Absolute-Timeout, CSRF-Schutz, Login-Limit und rollenbasierter serverseitiger Autorisierung. Benutzer, Rollen, Rechte und Anwendungs-Audit-Lesezugriff sind vorhanden.
 - Kunden mit Anschriften, Ansprechpartnern, Status, Vertragsstatus-Metadatum, Suche, Archivierung und Änderungshistorie. Vertragsmanagement und Dokumentakten sind als separate, unten aufgeführte Module vorhanden.
-- Objekte mit Kunden-FK, Ansprechpartnern/Adresse, Historie, Zuweisungen und separater Berechtigungsgrenze für Sicherheits-/Zutrittsdaten.
+- Objekte mit Kunden-FK, Ansprechpartnern/Adresse, Historie, Zuweisungen und separater Berechtigungsgrenze für Sicherheits-/Zutrittsdaten. Mitarbeiter-Objektzuweisungen berücksichtigen serverseitig den Objektzugriff.
 - Personalakten mit Qualifikationen, Abwesenheiten, sensiblen Personalangaben, Zuweisungsverlauf und versionierten Qualifikationsdateien in PostgreSQL (`BYTEA`).
-- Dienstplanung mit Schichten, UTC-Speicherung, konfigurierbarer IANA-Zeitzone/Ruhezeit, Konfliktprüfungen, Verlauf und PostgreSQL-Exclusion-Constraint.
+- Dienstplanung mit Schichten, UTC-Speicherung, konfigurierbarer IANA-Zeitzone/Ruhezeit, wöchentlichen Verfügbarkeitsfenstern, Dienstwünschen/Sperrzeiten, nachvollziehbaren Schichtvertretungen, Konfliktprüfungen, Verlauf und PostgreSQL-Exclusion-Constraint.
 - Zeiterfassung mit Arbeits-/Pausensegmenten, Korrekturanträgen, Freigaben, Berichten/CSV, Zuschlagszeit-Regeln und versionierten Zeitnachweisen sowie endgültigen Abrechnungsperiodensperren. Es werden keine Zuschlags-Geldbeträge berechnet; Lohnbasis, Prozentbasis, Festwert-Einheit und Rundung sind fachlich nicht festgelegt.
 - OWKS mit objektspezifischen Kontrollpunkten und Routen, Wachbuchereignissen, Offline-Synchronisation, Challenges für Scans, Statushistorie, Korrekturverweisen, Anhängen und Minutentakt-Monitoring. Statische QR-/NFC-Kennungen belegen keine physische Anwesenheit; Anhänge werden nicht auf Malware gescannt.
 - Geschützte Dokumenten- und Vertragsverwaltung mit Versionen, Freigaben, Lesebestätigungen, Historien und manuell generierbaren Erinnerungen. Dokumentdateien werden in einem konfigurierten privaten Dateispeicher abgelegt und über autorisierte API-Endpunkte ausgeliefert; Malware-Scan, E-Mail-/Push-Zustellung und automatische tägliche Erinnerungsplanung sind nicht enthalten.
+- Produktions-Compose enthält statische Nginx-Auslieferung, nicht privilegierten API-Prozess, Redis-Rate-Limit-Speicher und separaten Release-Migrationsdienst. Verschlüsselte Backup-/Restore-Skripte, PostgreSQL-Restore-CI und Security-Analyse sind vorhanden; keine davon weist einen produktiven Rollout oder eine betriebliche Abnahme nach.
 - Es gibt keine eigenständige Frontend-Router-/Feature-Paketarchitektur; die React-Oberfläche ist eine Vite-Anwendung. Das Dashboard liefert derzeit Kundenkennzahlen, keine vollständigen operativen Kennzahlen.
 
 ## Offene Pull Requests – nicht Bestandteil von `main`
 
 | PR | Status / CI (frisch geprüft) | Basis | Inhalt, Abhängigkeit und Abgrenzung |
 |---|---|---|---|
-| [#25](https://github.com/Xonni-star/securityops-python/pull/25) | Offen; zuletzt geprüfter Head `dc040ce58890ac340faed0479d5e1e3be98fe9b9`, Backend/PostgreSQL/Migrationen, Frontend und Docker erfolgreich (Lauf 42532062019) | `main` | Diese Dokumentationssynchronisierung. Nur Dokumentation und `AGENTS.md`; nicht gemergt. Der nachfolgende reine Doku-Update-Head wird nach Push erneut geprüft. |
-| [#26](https://github.com/Xonni-star/securityops-python/pull/26) | Offen; aktueller Head `7e15c71d539249a5888382ebb7e80ff46a7ebca2`; Backend/PostgreSQL/Migrationen, Frontend und Docker erfolgreich | `main` | Dienstplan-Verfügbarkeitsfenster, befristete Dienstwünsche/Sperrzeiten und nachvollziehbare Schichtvertretungen; Migration `0016_scheduling_availability`. Issue #10 bleibt offen. Ein vorheriger Head hatte einen fehlgeschlagenen Backend-Lauf (u. a. Deadlock/`401` in parallelen Scheduling-Tests); das ist nicht der Checkstatus des aktuellen Heads und kein Beleg fachlicher Abnahme. |
-| [#27](https://github.com/Xonni-star/securityops-python/pull/27) | Offen; aktueller gestapelter Head `ee81a6cf2560c415bb942c713d685b9d3a566e8b`; Backend/PostgreSQL/Migrationen, Frontend und Docker erfolgreich | [#26](https://github.com/Xonni-star/securityops-python/pull/26) | Rechnungswesen-Vorschlag: konfigurierbare Preise/Steuerwerte, Rechnungsentwürfe und unveränderliche Snapshots, Freigabe/Archivierung, Folge-/Stornobelege, Zahlungen/Mahnstatus, geschützte PDFs und idempotenter Export `securityops-accounting-v1`. Migration `0017_billing` folgt auf #26s `0016_scheduling_availability`. Issue #7 bleibt offen; CI-Grün ist weder fachliche noch steuerliche/buchhalterische Abnahme. |
-| [#28](https://github.com/Xonni-star/securityops-python/pull/28) | Offen; aktueller Head `57650bdb98e68a20f1a4ceb34064f0b8bd26665c`; Backend/PostgreSQL/Migrationen, Frontend, Docker, Restore und Security-Analyse erfolgreich | `main` | Produktionshärtungs-Vorschlag zu statischer Nginx-Auslieferung, nicht privilegiertem API-Container, Redis-Rate-Limit, getrenntem Alembic-Release-Schritt, verschlüsselten Backups/Restoretest sowie SCA/SAST. Keine Migration; Issue #9 bleibt offen. Ein vorheriger Head scheiterte beim Restore mit `tar: This does not look like a tar archive`; grünes CI ist keine Betriebs- oder Produktionsabnahme. |
+| [#25](https://github.com/Xonni-star/securityops-python/pull/25) | Offen; Checks gelten jeweils nur für den aktuellen GitHub-Head | `main` | Diese Dokumentationssynchronisierung. Ausschließlich Markdown und `AGENTS.md`; kein Merge, keine Issue-Änderung. |
+| [#27](https://github.com/Xonni-star/securityops-python/pull/27) | Offen; Head `a6a33851ab1ac8cdf06a55222ecf528227a5fa76`; Backend/PostgreSQL/Migrationen, Frontend, Docker, Restore und Security-Analyse erfolgreich | `main` | Rechnungswesen-Vorschlag: konfigurierbare Preise/Steuerwerte, Rechnungsentwürfe und unveränderliche Snapshots, Freigabe/Archivierung, Folge-/Stornobelege, Zahlungen/Mahnstatus, geschützte PDFs und idempotenter Export `securityops-accounting-v1`. Migration `0017_billing` folgt auf Main-Revision `0016_scheduling_availability`; nicht mehr auf einem offenen PR gestapelt. Issue #7 bleibt offen; CI-Grün ist weder fachliche noch steuerliche/buchhalterische Abnahme. |
 
-PR #23 (OWKS) und #24 (Dokumente/Verträge) sind gemergt und in `main` enthalten. Ihre Migrationen `0014` und `0015` sind Teil des aktuellen Quell-/Schema-Inventars. PR #26 zielt direkt auf `main`, PR #27 ist aktuell auf #26 gestapelt. Ihre Vorschläge bilden die lineare Kette `0015_documents_contracts` → `0016_scheduling_availability` → `0017_billing`; #27 hängt daher von #26 ab. Falls #27 unabhängig von #26 integriert werden soll, müssen Basis und Migration ausdrücklich angepasst und anschließend in PostgreSQL geprüft werden. PR #28 zielt separat auf `main` und schlägt Betriebs-/Sicherheitsänderungen ohne Migration vor; diese Änderungen sind ebenfalls nicht Teil des unten dokumentierten `main`-Stands.
+PR #23, #24, #26, #28 und #29 sind gemergt und in `main` enthalten. Die Main-Migrationskette endet bei `0016_scheduling_availability`. PR #27 zielt nach dem Merge von #26 direkt auf `main`; seine vorgeschlagene `0017_billing` folgt auf `0016`. Es besteht aktuell keine offene PR-Stapelabhängigkeit.
 
 ## Vollständiger PR- und Issue-Index
 
 | PR | Status am Prüftag | Titel |
 |---|---|---|
 | [#25](https://github.com/Xonni-star/securityops-python/pull/25) | Offen | Dokumentation mit aktuellem main- und PR-Stand synchronisieren |
-| [#28](https://github.com/Xonni-star/securityops-python/pull/28) | Offen | Produktionshärtung und PostgreSQL-Integrationsprüfungen |
-| [#27](https://github.com/Xonni-star/securityops-python/pull/27) | Offen, gestapelt auf #26 | Rechnungswesen, Freigaben und Buchhaltungsexport |
-| [#26](https://github.com/Xonni-star/securityops-python/pull/26) | Offen | Add missing scheduling availability and replacements |
+| [#27](https://github.com/Xonni-star/securityops-python/pull/27) | Offen, direkt gegen `main` | Rechnungswesen, Freigaben und Buchhaltungsexport |
+| [#29](https://github.com/Xonni-star/securityops-python/pull/29) | Gemergt | Beschränke Mitarbeiter-Objektzuweisungen auf Objektzugriff |
+| [#28](https://github.com/Xonni-star/securityops-python/pull/28) | Gemergt | Produktionshärtung und PostgreSQL-Integrationsprüfungen |
+| [#26](https://github.com/Xonni-star/securityops-python/pull/26) | Gemergt | Add missing scheduling availability and replacements |
 | [#24](https://github.com/Xonni-star/securityops-python/pull/24) | Gemergt | Geschützte Dokumenten- und Vertragsverwaltung |
 | [#23](https://github.com/Xonni-star/securityops-python/pull/23) | Gemergt | OWKS-Wachbuch und QR/NFC-Kontrollgänge integrieren |
 | [#22](https://github.com/Xonni-star/securityops-python/pull/22) | Gemergt | Complete time tracking surcharges and approval controls |
@@ -70,17 +70,18 @@ PR #23 (OWKS) und #24 (Dokumente/Verträge) sind gemergt und in `main` enthalten
 
 ## PR- und Issue-Verlauf
 
-- PR #23 und #24 sind gemergt. Offen sind #25 bis #28; #26 (Dienstplanung, Issue #10) und #28 (Produktionshärtung, Issue #9) zielen auf `main`, #27 (Rechnungswesen, Issue #7) ist auf #26 gestapelt.
+- PRs #26, #28 und #29 wurden nach #23/#24 ebenfalls gemergt. Offen sind PR #25 (Dokumentation) und #27 (Rechnungswesen); #27 basiert direkt auf dem aktualisierten `main`.
 - PR #21 ist geschlossen, nicht gemergt; die enthaltenen Änderungen sind laut Verlauf in #22/`main` enthalten.
 - Issues #2, #3, #4, #5 und #6 sind geschlossen; #7, #8, #9 und #10 sind laut frischer GitHub-Abfrage offen. Issue #8 wird trotz des gemergten PR #24 als OPEN geführt und bleibt bis zur Bestätigung offen. Keine Issue wurde durch diese Dokumentationsänderung verändert.
-- Issue #9 Produktionshärtung bleibt offen; PR #28 schlägt dazu Betriebs- und Sicherheitsänderungen sowie CI- und Restoreprüfungen vor, ist aber nicht gemergt und sein verschlüsselter Restore-Job schlägt fehl. Daraus wird keine Produktionsreife oder fachliche Abnahme abgeleitet.
-- Ein älterer PR-#25-Head (`71203e7`, Lauf 42530994418) scheiterte wiederholt im parallelen PostgreSQL-Dienstplan-Exclusion-Test; der folgende Head `dc040ce` bestand alle drei CI-Jobs (Lauf 42532062019). Checkresultate gelten jeweils nur für den bezeichneten Head. CI ist kein fachlicher Abnahmenachweis.
+- Issue #9 bleibt trotz des gemergten PR #28 offen. Der Merge enthält Betriebswerkzeuge und CI-Prüfungen, aber keinen Nachweis eines realen produktiven Rollouts, Restore-Drills, Monitorings oder Incident-Prozesses.
+- Issue #10 bleibt trotz des gemergten PR #26 offen; eine fachliche Abnahme der Dienstplanergänzungen ist nicht belegt. Issue #8 bleibt nach aktueller Abfrage offen und wird nicht durch diese Dokumentationsänderung geschlossen.
+- PR #27s zuletzt geprüfter Head `a6a3385` hatte erfolgreiche Backend/PostgreSQL/Migrations-, Frontend-, Docker-, Restore- und Security-Checks. Checkresultate gelten nur für den bezeichneten Head und sind keine fachliche oder steuerliche Abnahme.
 
 ## Tests, Betrieb und Abnahme
 
-Im `main`-Stand vorhanden sind Backendtests für Konfiguration, Kunden, Identität, Objekte, Personal, Planung, Zeiterfassung, OWKS sowie Dokumente/Verträge und Frontendtests; die Main-GitHub-CI prüft zusätzlich Python-Lint/Format, Migrationen und Tests auf temporärem PostgreSQL 17, Frontend-Build/-Tests und Backend-/Frontend-Docker-Images. Für `main` sind keine E2E-, Last-, Restore-, externen Penetrations- oder unabhängigen Datenschutz-/Rechts-/Steuerprüfungen nachgewiesen. PR #28 schlägt Restore- und Sicherheitsprüfungen vor, ist aber offen und sein aktueller verschlüsselter Restore-Job fehlgeschlagen.
+Im `main`-Stand vorhanden sind Backendtests für Konfiguration, Kunden, Identität, Objekte, Personal, Planung, Zeiterfassung, OWKS sowie Dokumente/Verträge und Frontendtests. Die GitHub-CI prüft Python-Lint/Format, Migrationen und Tests auf temporärem PostgreSQL 17, Frontend-Build/-Tests, Backend-/Frontend-Docker-Images, Security-Analyse sowie einen isolierten synthetischen Backup-/Restorelauf. Nicht nachgewiesen sind E2E-/Lastprüfungen, externe Penetrationstests, produktive Restoreübungen oder unabhängige Datenschutz-/Rechts-/Steuerprüfungen.
 
-Compose bindet API und Vite an Loopback, stellt aber kein Produktionsdeployment bereit. Nicht umgesetzt bzw. nicht nachgewiesen sind unter anderem MFA, Passwortzurücksetzung, Sitzungsübersicht, zentral verteilter Rate-Limit-Speicher, TLS-Reverse-Proxy, produktive statische Frontendauslieferung, Malware-Scan, Anwendungsebene-Verschlüsselung, automatisierte verschlüsselte Backups mit Restore-Nachweis, Monitoring und Incident-Prozess. Auditdaten sind nicht gegen direkte Änderungen privilegierter Datenbankrollen geschützt.
+Das Produktions-Compose enthält Nginx für statische Dateien, Redis-gestütztes Rate-Limiting, separate Release-Migrationen und verschlüsselte Backup-/Restore-Skripte. TLS, vertrauenswürdige Proxykonfiguration, Secrets, Rollen, Backupaufbewahrung und Restoreübungen bleiben für die konkrete Betriebsumgebung einzurichten und nachzuweisen. Nicht umgesetzt bzw. nicht nachgewiesen sind unter anderem MFA, Passwortzurücksetzung, Sitzungsübersicht, Upload-Malware-Scan, Anwendungsebene-Verschlüsselung, produktives Monitoring und Incident-Prozess. Auditdaten sind nicht gegen direkte Änderungen privilegierter Datenbankrollen geschützt.
 
 **Gesamturteil:** ein fortgeschrittener Entwicklungsstand mit CI-geprüften Funktionsbereichen, keine Produktionsfreigabe. Arbeitszeit-/Dienstplanungskonfiguration ist keine Rechtskonformitätsgarantie; Geldbeträge werden nicht berechnet. Datenschutz, Aufbewahrung und Betrieb müssen für eine reale Umgebung eigenständig geprüft und umgesetzt werden.
 

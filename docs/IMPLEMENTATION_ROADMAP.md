@@ -1,28 +1,28 @@
 # Priorisierte Implementierungs-Roadmap
 
-Diese Roadmap basiert auf dem tatsächlich gemergten `main`-Stand vom 08.11.2026 (SHA `6c7679a646d30da0504d8990fefeefa351a29bfe`) und der aktuellen GitHub-Abfrage. Statusdetails stehen in [`PROJECT_STATUS.md`](PROJECT_STATUS.md). Priorität folgt Sicherheits- und Datenabhängigkeiten, nicht der Nummer offener Issues.
+Diese Roadmap basiert auf dem tatsächlich gemergten `main`-Stand vom 09.11.2026 (SHA `3deebd16e368733f9595cd39f7e38b6354c1a88d`) und der aktuellen GitHub-Abfrage. Statusdetails stehen in [`PROJECT_STATUS.md`](PROJECT_STATUS.md). Priorität folgt Sicherheits- und Datenabhängigkeiten, nicht der Nummer offener Issues.
 
 ## Prioritäten
 
 ### P0 – Betriebs- und Sicherheitsrisiken vor realen Daten schließen
 
-1. Issue #9: Produktionsumgebung, TLS/Reverse Proxy, sichere Header/Cookies, Secrets, getrennte Datenbankrollen, gemeinsames Rate-Limiting, Monitoring/Alerting sowie kontrollierte Migrationen planen und testen.
-2. Backup/Restore mit Verschlüsselung, getesteter Wiederherstellung, Aufbewahrungs-/Löschregeln und Wiederanlaufplan einführen.
+1. Issue #9: vorhandenes Produktions-Compose, TLS/Reverse Proxy, sichere Header/Cookies, Secrets, getrennte Datenbankrollen, Redis-Rate-Limiting, Monitoring/Alerting und Release-Migrationen für die Zielumgebung konfigurieren, testen und betreiben.
+2. Verschlüsselte Backups mit getrenntem Ziel, Aufbewahrungs-/Löschregeln, dokumentiertem Wiederanlaufplan und regelmäßigen Betreiber-Restoreübungen einrichten; vorhandene Werkzeuge und der CI-Test sind kein Betriebsnachweis.
 3. Authentifizierung mit MFA, sicherer Passwortwiederherstellung und aktiver Sitzungsübersicht fachlich definieren und umsetzen.
 4. Sensible Daten-/Objektbereiche, Uploads, Auditgrenzen und Datenschutz unabhängig prüfen. Der derzeitige Upload hat keinen Malware-Scan; Hashing ist keine Verschlüsselung.
-5. Security-/Dependency-Scanning und Incident-Prozess ergänzen, sobald Pflege/Alarmierungsweg festgelegt sind.
+5. Security-/Dependency-Scanbefunde triagieren und einen Incident-Prozess mit Verantwortlichkeiten/Alarmierungsweg festlegen.
 
-Der offene PR #28 (gegen `main`, Issue #9) schlägt Teile dieser Arbeiten vor: Nginx-Auslieferung, nicht privilegierten API-Container, Redis-Rate-Limiting, getrennte Migrationen sowie verschlüsselte Backups/Restore und Security-Scanning. Sein aktueller Head hat grüne CI einschließlich Restore; ein vorheriger Head scheiterte beim Restore. Der PR ist nicht gemergt und CI ist keine Produktionsfreigabe.
+PR #28 ist gemergt und enthält Nginx-Auslieferung, einen nicht privilegierten API-Container, Redis-Rate-Limiting, getrennte Migrationen, verschlüsselte Backups/Restore und Security-Scanning. Issue #9 bleibt offen. Diese Bausteine und CI-Restoreläufe ersetzen weder eine Umgebungskonfiguration noch regelmäßige produktive Restoreübungen, Monitoring, Incident-Abläufe oder eine Betriebsfreigabe.
 
 ### P1 – Abnahme und Bestand konsolidieren
 
-1. Issue #10: Dienstplanung fachlich abnehmen. PR #26 schlägt dazu wöchentliche Verfügbarkeitsfenster, befristete Dienstwünsche/Sperrzeiten und Schichtvertretungen vor; PR ist offen, gegen `main` (nicht Teil davon). Sein aktueller Head `7e15c71` hat grüne Backend/PostgreSQL/Migrations-, Frontend- und Docker-CI; frühere Checkfehler an einem vorherigen Head sind nicht der aktuelle Checkstatus. Die bestehende Konflikt-/Ruhezeitprüfung ist keine arbeitsrechtliche Freigabe.
+1. Issue #10: Dienstplanung fachlich abnehmen. PR #26 ist gemergt und ergänzt wöchentliche Verfügbarkeitsfenster, befristete Dienstwünsche/Sperrzeiten und nachvollziehbare Schichtvertretungen. Issue #10 bleibt offen; die Konflikt-/Ruhezeitprüfung ist keine arbeitsrechtliche Freigabe.
 
 ### P2 – Fachliche Ausbau- und Abnahmeaufgaben
 
 1. OWKS ist in `main` (PR #23, Migration `0014`); Issue #3 ist geschlossen. Fachlich weiterhin prüfen: statische Kennungen sind keine physischen Präsenznachweise, und Uploads besitzen keinen Malware-Scan.
-2. Dokumenten-/Vertragsfunktionen sind in `main` (PR #24, Migration `0015`). Issue #8 ist laut aktueller GitHub-Abfrage offen; Vertragsregeln, Dateizugriff und fachliche Akzeptanz sind vor Erledigung konkret abzugleichen.
-3. Issue #7: PR #27 schlägt Rechnungswesen mit konfigurierbaren Preisen/Steuerwerten, Rechnungsentwürfen, Freigabe, unveränderlichen Snapshots, Korrekturbelegen, Zahlungen/Mahnstatus, PDF und Export `securityops-accounting-v1` vor. PR ist offen, auf PR #26 gestapelt und nicht in `main`; seine Migration `0017_billing` folgt auf `0016_scheduling_availability`. Preise/Steuersätze bleiben Konfigurationen, keine steuerliche oder buchhalterische Abnahme ist nachgewiesen.
+2. Dokumenten-/Vertragsfunktionen sind in `main` (PR #24, Migration `0015`). Issue #8 ist laut aktueller GitHub-Abfrage offen; Vertragsregeln, Dateizugriff und fachliche Akzeptanz sind vor Erledigung konkret abzugleichen. Nicht gescannte Uploads dürfen nicht als malwarefrei gelten.
+3. Issue #7: PR #27 schlägt Rechnungswesen mit konfigurierbaren Preisen/Steuerwerten, Rechnungsentwürfen, Freigabe, unveränderlichen Snapshots, Korrekturbelegen, Zahlungen/Mahnstatus, PDF und Export `securityops-accounting-v1` vor. PR ist offen und basiert aktuell direkt auf `main`; Migration `0017_billing` folgt auf den gemergten Main-Head `0016_scheduling_availability`. Die frühere PR-Stapelabhängigkeit zu #26 ist durch dessen Merge aufgehoben. Preise/Steuersätze bleiben Konfigurationen, keine steuerliche oder buchhalterische Abnahme ist nachgewiesen.
 
 ### P3 – Betriebsqualität und vollständiger Nachweis
 
@@ -32,10 +32,10 @@ Der offene PR #28 (gegen `main`, Issue #9) schlägt Teile dieser Arbeiten vor: N
 
 ## Bestätigte GitHub-Lage
 
-- In `main`: Identity, Kunden, Objekte, Personal/Qualifikationen, Dienstplanung, Zeiterfassung, OWKS und Dokumente/Verträge (Migrationen `0001`–`0015`).
-- PR #23/#24 sind gemergt. Offen sind PR #25 (Dokumentation; letzter geprüfter Head `dc040ce` mit Backend/PostgreSQL/Migrationen, Frontend und Docker grün), #26 (Dienstplanung; aktuelle CI grün), #27 (Rechnungswesen; auf #26 gestapelt, aktuelle CI grün) und #28 (Issue #9 Produktionshärtung; aktueller CI-Head einschließlich Restore grün).
-- PR #26 basiert auf `main`/Revision `0015_documents_contracts`; PR #27 ist darauf gestapelt und ergänzt `0017_billing` nach `0016_scheduling_availability`. Bei Integration ist diese Abhängigkeit zu erhalten; für eine unabhängige Übernahme von #27 wären Basis und Migrationskette ausdrücklich anzupassen.
-- Issues #2–#6 sind geschlossen; #7–#10 sind laut frischer GitHub-Abfrage offen. Issue #8 wird trotz PR #24 weiterhin als offen geführt. PR #28 ist Issue #9 zugeordnet, bleibt aber offen und ist nicht fachlich oder produktiv abgenommen.
+- In `main`: Identity, Kunden, Objekte, Personal/Qualifikationen, Dienstplanung einschließlich Verfügbarkeiten/Vertretungen, Zeiterfassung, OWKS und Dokumente/Verträge (Migrationen `0001`–`0016`); PRs #23, #24, #26, #28 und #29 sind gemergt.
+- Offen sind PR #25 (Dokumentation) und #27 (Rechnungswesen). PR #27s zuletzt geprüfter Head `a6a3385` hatte erfolgreiche Backend/PostgreSQL/Migrations-, Frontend-, Docker-, Restore- und Security-Checks.
+- PR #27 basiert direkt auf dem aktuellen `main`; Migration `0017_billing` folgt auf `0016_scheduling_availability`. Es gibt keine offene PR-Stapelabhängigkeit zu #26.
+- Issues #2–#6 sind geschlossen; #7–#10 sind laut frischer GitHub-Abfrage offen. Issue #8 bleibt trotz PR #24 offen; Issue #9 bleibt trotz PR #28 offen; Issue #10 bleibt trotz PR #26 offen. Offene Issues sind keine Aussage, dass die gemergte Funktion nicht vorhanden ist, und werden hier nicht geschlossen.
 
 ## Abhängigkeiten und Abschlusskriterien
 

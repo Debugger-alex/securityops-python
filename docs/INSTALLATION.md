@@ -1,7 +1,5 @@
 # Lokale Installation
 
-Diese Anleitung gilt für lokale Entwicklung auf dem `main`-Stand; sie stellt keine Produktionsinstallation dar. Den aktuellen Inhalt von `main` und offene, nicht integrierte Module siehe [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
-
 ## Docker Compose (Entwicklung)
 
 1. Docker Engine und Compose installieren.

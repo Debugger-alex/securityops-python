@@ -11,8 +11,8 @@ Die verbindliche Priorisierung, Abhängigkeiten und der aktuelle `main`-/PR-Stat
 5. Rechnungswesen (Issue #7, offener PR #27) auf fachlich freigegebenen Verträgen und Leistungsnachweisen; PR-Vorschlag ist nicht in `main`, Steuerrichtigkeit/Abnahme nicht belegt.
 6. E2E-/Last-/Sicherheits-/Restoretests und eine eigenständige Betriebsabnahme.
 
-PR #26 schlägt zusätzliche Dienstplan-Verfügbarkeiten/Vertretungen vor und ist offen; sein aktueller CI-Lauf ist grün. PR #27 ist auf #26 gestapelt und ergänzt Rechnungswesen nachgelagert mit `0017_billing` nach `0016_scheduling_availability`; die gestapelte Migrationenkette ist linear, die Abhängigkeit muss bei Integration erhalten bleiben.
+PR #26 ist gemergt und hat wöchentliche Verfügbarkeiten, Dienstwünsche/Sperrzeiten und Vertretungen in `main` ergänzt; Issue #10 bleibt für fachliche Abnahme offen. PR #27 ist offen und direkt gegen `main` gerichtet. Seine vorgeschlagene Migration `0017_billing` folgt auf den gemergten Head `0016_scheduling_availability`; eine offene Stapelabhängigkeit zu #26 besteht nicht.
 
-PR #28 ist ein offener, direkt auf `main` basierter Vorschlag für Produktionshärtung (Issue #9), einschließlich verschlüsseltem Backup-/Restore-Test und Security-Scanning. Der aktuelle Head hat grüne CI einschließlich Restore; ein vorheriger Head hatte dort einen Fehler. Das ist weder Teil von `main` noch eine fachliche oder produktive Abnahme.
+PR #28 ist gemergt und hat Produktions-Compose, Redis-Rate-Limiting, separate Release-Migrationen, verschlüsselte Backup-/Restorewerkzeuge und Security-Scanning ergänzt. Issue #9 bleibt offen. CI- und synthetische Restoreprüfungen sind keine produktive Betriebsabnahme oder regelmäßige Restoreübung.
 
 Reihenfolge stellt keinen Implementierungs- oder Rechtsstatus dar. Keine Produktions-, Rechts- oder Steuerfreigabe wird behauptet.

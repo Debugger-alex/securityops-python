@@ -1,16 +1,12 @@
 # Änderungsprotokoll
 
-## 2026-11-08 – Dokumentationssynchronisierung
+## 2026-11-09 – Dokumentation mit aktuellem `main` synchronisiert
 
-- Status von `main` (SHA `6c7679a646d30da0504d8990fefeefa351a29bfe`), Issues und PRs frisch abgeglichen. PR #23 (OWKS) und #24 (Dokumente/Verträge) sowie Migrationen 0014/0015 sind in `main`.
-- API-Inventar auf 136 `/api/v1`-Operationen ergänzt; Datenbankkatalog, FK-/Constraint-/Indexreferenz, ER-Diagramm und Migrationkette auf 52 Tabellen und Revision 0015 synchronisiert.
-- Architektur-, Sicherheits-, Betriebs-, Audit-, Status- und Roadmap-Aussagen aktualisiert. Issue #8 bleibt laut aktueller GitHub-Abfrage offen; Merge/CI werden nicht als fachliche Abnahme gewertet.
-- Ausschließlich Dokumentationen und `AGENTS.md` geändert; keine Anwendung, Schema- oder Migrationsdatei.
-- Frühere Dokumentationssynchronisierung betraf `main` SHA `5f3530463e9531c1f825f43ae4c6a6e60b9974e3` und stellte PR #23/#24 damals korrekt als offen dar; dieser historische Stand ist durch die nun gemergten Änderungen überholt.
-- Ältere Entwicklungsnotizen weiter unten spiegeln den Status zum Zeitpunkt ihrer Erstellung wider; der aktuelle Issue-/PR-Status ist ausschließlich in [`PROJECT_STATUS.md`](PROJECT_STATUS.md) gepflegt.
-- Frühere Einträge darunter sind zeitgebundene Entwicklungsnotizen und beschreiben teilweise den damaligen Stand vor Merge oder Statuswechsel; für den heutigen Bestand gilt [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
-- Folgeprüfung: offen sind PR #25 (Dokumentation; letzter geprüfter Head `dc040ce` mit Backend/PostgreSQL/Migrationen, Frontend und Docker grün), #26 (Dienstplan-Verfügbarkeiten/Vertretungen; CI grün), #27 (Rechnungswesen; auf #26 gestapelt, CI grün) und #28 (Produktionshärtung; aktueller Head einschließlich Restore-CI grün, ein vorheriger Restore-Job schlug fehl). Die Feature-PRs #26/#27 bilden `0015_documents_contracts` → `0016_scheduling_availability` → `0017_billing`; #27 hängt von #26 ab. Issues #2–#6 geschlossen, #7–#10 offen; Issue #8 bleibt trotz PR #24 offen.
-- Ausschließlich Dokumentationen und `AGENTS.md` geändert; keine Anwendung, Schema- oder Migrationsdatei.
+- `main` auf SHA `3deebd16e368733f9595cd39f7e38b6354c1a88d`, Alembic-Head `0016_scheduling_availability`, 54 Tabellen und 140 `/api/v1`-Operationen aktualisiert; Verfügbarkeitsfenster, Anträge und Schichtvertretungen in API-/Datenbankinventar ergänzt.
+- PRs #26, #28 und #29 als gemergt und in `main` aufgenommen dokumentiert. PR #27 bleibt offen und zielt nach dem Merge von #26 direkt auf `main`; `0017_billing` folgt eindeutig auf `0016_scheduling_availability`.
+- Frischer GitHub-Status: PRs #25 und #27 offen; Issues #7–#10 offen. Issue #8 bleibt offen bis zur fachlichen Bestätigung; Issue #9 bleibt trotz Merge von #28 offen, ebenso Issue #10 trotz Merge von #26.
+- Produktions-Compose, Redis-Rate-Limiting, getrennte Release-Migrationen, verschlüsselte Backup-/Restorewerkzeuge, Security-Analyse und synthetischen CI-Restore als vorhanden dokumentiert, ohne daraus Produktionsfreigabe abzuleiten.
+- Ausschließlich Dokumentationen und `AGENTS.md` geändert; keine Anwendung, Schema- oder Migrationsdatei. Ältere Einträge weiter unten sind zeitgebundene Entwicklungsnotizen; die aktuelle Momentaufnahme steht in [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
 
 ## 2026-11-08 – Gestapelte Ergänzung zu Zeiterfassung/Zuschlägen
 
