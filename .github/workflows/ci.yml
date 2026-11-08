@@ -153,7 +153,16 @@ jobs:
             fi
             sleep 2
           done
-          curl --fail --silent --show-error http://127.0.0.1:5173/health/ready >/dev/null
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:5173/health/ready >/dev/null; then
+              break
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              docker compose logs api frontend
+              exit 1
+            fi
+            sleep 2
+          done
           curl --fail --silent --show-error --head http://127.0.0.1:5173/ \
             | grep --ignore-case --quiet '^Content-Security-Policy:'
           docker compose exec -T \
