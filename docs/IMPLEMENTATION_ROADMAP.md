@@ -8,7 +8,7 @@ Diese Roadmap beschreibt `main` nach dem Merge von PR #17 sowie den aktuellen Ar
 |---|---|---|
 | Einzelmandanten-Grundgerüst | Teilweise | FastAPI, React/TypeScript, PostgreSQL, Alembic und Compose sind vorhanden; keine Mandantenstrukturen. |
 | Anmeldung und Rollen | Teilweise | Argon2id, serverseitige Sitzungen, CSRF, RBAC und Admin-Bootstrap vorhanden. MFA, Passwortzurücksetzung und Sitzungsverwaltung fehlen. Objektbezogene Rechte sind im aktuellen Branch ergänzt. |
-| Kunden | Teilweise umgesetzt; Vervollständigung in diesem Branch | Bestehende Kundenverwaltung in `main`; dieser Branch ergänzt Website, Vertragsstatus, Filter/Sortierung nach Vertragsstatus und berechtigungsgefilterte Objektzuordnungen. Vertrags- und Dokumentenmodule fehlen weiterhin ([#6](https://github.com/Xonni-star/securityops-python/issues/6)). |
+| Kunden | Teilweise umgesetzt; PR #18 offen | Bestehende Kundenverwaltung in `main`; PR #18 ergänzt Website, Vertragsstatus, Filter/Sortierung nach Vertragsstatus und berechtigungsgefilterte Objektzuordnungen. Backend/PostgreSQL-, Frontend- und Docker-CI sind grün. Vertrags- und Dokumentenmodule fehlen weiterhin ([#6](https://github.com/Xonni-star/securityops-python/issues/6)). |
 | Objekte | In `main` umgesetzt; Abnahme offen | Backend/API/UI und Migrationen 0005–0007; PR #16 gemergt und CI erfolgreich. Akzeptanzkriterien von Issue #2 sind noch formal zu bestätigen ([#2](https://github.com/Xonni-star/securityops-python/issues/2)). |
 | Personal und Qualifikationen | In `main` umgesetzt | Migrationen 0008–0009, Personalakten, Qualifikationen, Abwesenheiten, sensible Daten, Historie, Objektzuweisungen und versionierte Qualifikationsdateien. PR #17 ist gemergt, CI erfolgreich; Issue #5 ist geschlossen. |
 | Dienstplanung | Nicht implementiert | Schichten, Besetzung, Konflikt- und Qualifikationsprüfung fehlen ([#10](https://github.com/Xonni-star/securityops-python/issues/10)). |
@@ -29,7 +29,7 @@ Diese Roadmap beschreibt `main` nach dem Merge von PR #17 sowie den aktuellen Ar
 
 ### P1 – Kunden und Objekte
 
-1. Issue #6 mit den noch fehlenden Kundenfeldern und der Verknüpfung vorhandener Objekte vervollständigen; Vertrags-/Dokumentzuordnungen erst mit den noch nicht vorhandenen Modulen ergänzen ([#6](https://github.com/Xonni-star/securityops-python/issues/6)).
+1. PR #18 zu Issue #6 reviewen und abnehmen; Vertrags-/Dokumentzuordnungen erst mit den noch nicht vorhandenen Modulen ergänzen ([#6](https://github.com/Xonni-star/securityops-python/issues/6)).
 2. Akzeptanzkriterien von Issue #2 nach dem Merge von PR #16 formal bewerten; Issue bis zur bestätigten Abnahme offen halten.
 
 ### P2 – Personal und Einsatzbetrieb

@@ -15,7 +15,7 @@ Arbeitsstand: Issue-#6-Branch `satan1800de-eng-issue-6-customer-completion`, auf
 - Additive Rollen-/Rechtemigration `0003_role_permissions`; Administratorrollenvergabe erfordert `users.manage_admin`.
 - Compose-Standard für Secure-Cookie ist `true`; `.env.example` setzt für lokale HTTP-Entwicklung ausdrücklich `false`.
 - Das Datenbankpasswort hat keinen Standardwert in der Anwendung mehr: `POSTGRES_PASSWORD` muss gesetzt sein.
-- GitHub Actions führt Python-Lint/Format, Backendtests auf SQLite und einer temporären PostgreSQL-Testdatenbank, Migrationen, Frontendtests/-build und Docker-Image-Builds aus. PR #17 bestand Backend/PostgreSQL, Frontend und Docker; der CI-Lauf für Issue #6 steht noch aus.
+- GitHub Actions führt Python-Lint/Format, Backendtests auf SQLite und einer temporären PostgreSQL-Testdatenbank, Migrationen, Frontendtests/-build und Docker-Image-Builds aus. PR #17 und der Issue-#6-PR #18 bestanden Backend/PostgreSQL, Frontend und Docker.
 
 ## Teilweise implementiert oder offen
 
@@ -40,18 +40,18 @@ Arbeitsstand: Issue-#6-Branch `satan1800de-eng-issue-6-customer-completion`, auf
 - Sicherheitsbefunde und offene Maßnahmen: [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md).
 - Architektur, Betrieb und weitere Unterlagen sind im [`README.md`](../README.md) verlinkt.
 - PR #17: GitHub-CI für Backend/PostgreSQL, Frontend und Docker erfolgreich; Issue #5 geschlossen.
-- Issue #6: 23 Backendtests, Ruff-Lint/Format, 2 Frontendtests und Frontend-TypeScript-/Produktionsbuild bestanden. Alembic-Upgrade bis 0010 und Downgrade 0010→0009 wurden für PostgreSQL offline gerendert. PostgreSQL-Integrations- und Docker-Build-CI stehen nach Erstellung des PRs aus.
+- Issue #6 / PR #18: 23 Backendtests, Ruff-Lint/Format, 2 Frontendtests, Frontend-TypeScript-/Produktionsbuild, PostgreSQL-Migrations-/Backend-CI und beide Docker-Image-Builds bestanden. Alembic-Upgrade bis 0010 und Downgrade 0010→0009 wurden lokal zusätzlich offline gerendert.
 - Lokales PostgreSQL und Docker sind in der Entwicklungsumgebung nicht verfügbar; die tatsächliche PostgreSQL- und Docker-Prüfung erfolgt in CI.
 - Derzeit keine E2E-, Last-, Restore-, externe Penetrations- oder unabhängige Datenschutz-/Steuerprüfung.
 
 ## Nächste Schritte
 
-1. Issue #6 lokal validieren, PR erstellen und PostgreSQL-/Docker-CI prüfen.
+1. Review und Merge von PR #18 zu Issue #6 abwarten; Issue #6 bleibt bis zur fachlichen Abnahme offen.
 2. Danach Dienstplanung [#10](https://github.com/Xonni-star/securityops-python/issues/10), Zeiterfassung [#4](https://github.com/Xonni-star/securityops-python/issues/4) und weitere Module gemäß Roadmap angehen.
 3. Produktionshärtung, Monitoring und Backup/Restore aus [Issue #9](https://github.com/Xonni-star/securityops-python/issues/9) bleiben separat offen.
 
 ## Repository-Arbeitsstand
 
-- Der aktuelle Arbeitsbranch ist `satan1800de-eng-issue-6-customer-completion`; er enthält nur die Folgearbeiten zu Issue #6 auf dem aktuellen `main`.
+- Der aktuelle Arbeitsbranch ist `satan1800de-eng-issue-6-customer-completion`; PR #18 ist offen und enthält nur die Folgearbeiten zu Issue #6 auf dem aktuellen `main`.
 - PR #17 ist gemergt; Issue #5 ist geschlossen.
 - Die bereits in `main` gemergte Objektverwaltung wurde nicht neu entwickelt; Personalakten greifen über ihr verknüpftes Benutzerkonto auf die bestehende Zuweisungstabelle zu.
