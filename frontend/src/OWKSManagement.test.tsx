@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import OWKSManagement from "./OWKSManagement";
 import * as api from "./api";
-import type { AuthUser } from "./types";
+import type { AuthUser, OWKSEvent } from "./types";
 
 const qrScanner = vi.hoisted(() => ({
   callback: undefined as
@@ -119,6 +119,32 @@ describe("OWKS-NFC-Fallback", () => {
       .toBe(false);
   });
 
+  it("kennzeichnet statische Kontrollkennungen als physisch unbestätigt", async () => {
+    const scanEvent: OWKSEvent = {
+      id: "scan-1",
+      object_id: "object-1",
+      route_id: null,
+      control_point_id: "point-1",
+      corrects_event_id: null,
+      employee_id: "employee-1",
+      actor_id: "user-1",
+      client_event_id: "scan-client-1",
+      event_type: "control",
+      severity: "info",
+      title: "Kennung erkannt: Haupteingang",
+      description: "Kennung am Kontrollpunkt abgeglichen.",
+      occurred_at: "2026-11-08T20:00:00Z",
+      sync_status: "synced",
+      presence_verified: false,
+      status: "open",
+      created_at: "2026-11-08T20:00:00Z",
+    };
+    vi.mocked(api.getOWKSEvents).mockResolvedValue([scanEvent]);
+    render(<OWKSManagement user={user} />);
+
+    expect(await screen.findByText("Physische Anwesenheit nicht bestätigt")).toBeTruthy();
+  });
+
   it("sendet einen Kamera-QR-Treffer mit der aktiven Server-Challenge zur Verifikation", async () => {
     Object.defineProperty(window, "isSecureContext", { configurable: true, value: true });
     Object.defineProperty(navigator, "mediaDevices", {
@@ -141,7 +167,7 @@ describe("OWKS-NFC-Fallback", () => {
         client_event_id: expect.any(String),
       }),
     ));
-    expect(await screen.findByText(/statischer QR-\/NFC-Tag beweist keine physische Anwesenheit/))
+    expect(await screen.findByText(/Die physische Anwesenheit bleibt unbestätigt/))
       .toBeTruthy();
     expect(qrScanner.stop).toHaveBeenCalled();
   });

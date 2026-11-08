@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     CheckConstraint,
     Column,
     DateTime,
@@ -1251,6 +1252,7 @@ class OWKSEvent(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     sync_status: Mapped[str] = mapped_column(String(20), default="synced", nullable=False)
+    presence_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )

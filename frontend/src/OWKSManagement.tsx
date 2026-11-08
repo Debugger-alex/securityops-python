@@ -259,7 +259,7 @@ export default function OWKSManagement({ user }: { user: AuthUser }) {
       });
       setChallenge(null);
       setScanCredential("");
-      setNotice("Kennung geprüft und im Wachbuch protokolliert. Ein statischer QR-/NFC-Tag beweist keine physische Anwesenheit.");
+      setNotice("Kennung vom Server abgeglichen und protokolliert. Die physische Anwesenheit bleibt unbestätigt.");
       await loadObjectData(selectedObjectId);
     } catch (reason) {
       setError(messageFrom(reason));
@@ -500,10 +500,11 @@ export default function OWKSManagement({ user }: { user: AuthUser }) {
             <p>{item.description || "Keine zusätzliche Beschreibung."}</p>
             <div className="owks-event-meta">
               <span>{item.event_type}</span><span>Status: {item.status}</span>
+              {item.event_type === "control" && !item.presence_verified && <span className="owks-conflict-label">Physische Anwesenheit nicht bestätigt</span>}
               {item.sync_status === "conflict" && <span className="owks-conflict-label">Synchronisierungskonflikt</span>}
               {item.corrects_event_id && <span>Korrektur eines älteren Eintrags</span>}
             </div>
-            {canManage && item.event_type !== "control" && <div className="time-action-row">
+            {canManage && <div className="time-action-row">
               {item.status !== "in_progress" && <button className="text-button" onClick={() => void updateStatus(item.id, "in_progress")}>In Bearbeitung</button>}
               {item.status !== "resolved" && <button className="text-button" onClick={() => void updateStatus(item.id, "resolved")}>Als erledigt markieren</button>}
             </div>}

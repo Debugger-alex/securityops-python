@@ -103,6 +103,7 @@ def upgrade() -> None:
         sa.Column("description", sa.Text(), server_default="", nullable=False),
         sa.Column("occurred_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("sync_status", sa.String(length=20), server_default="synced", nullable=False),
+        sa.Column("presence_verified", sa.Boolean(), server_default=sa.false(), nullable=False),
         sa.Column(
             "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
         ),

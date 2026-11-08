@@ -193,7 +193,16 @@ def test_object_scoping_scan_replay_route_monitor_and_timestamp(client: TestClie
     )
     assert scan.status_code == 201
     assert scan.json()["event_type"] == "control"
+    assert scan.json()["presence_verified"] is False
+    assert scan.json()["status"] == "open"
+    assert "physische Anwesenheit ist nicht bestätigt" in scan.json()["description"]
     assert scan.json()["employee_id"]
+    with TestingSessionLocal() as db:
+        still_missed = monitor_due_routes(db, current_time=datetime.now(UTC))
+        db.commit()
+    assert any(
+        event.route_id == UUID(route_id) and event.event_type == "missed" for event in still_missed
+    )
     repeated_scan = client.post(
         "/api/v1/owks/scans",
         headers=user_headers,

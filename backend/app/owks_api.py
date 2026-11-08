@@ -158,6 +158,7 @@ def event_read(db: Session, event: OWKSEvent) -> OWKSEventRead:
         description=event.description,
         occurred_at=as_utc(event.occurred_at),
         sync_status=event.sync_status,
+        presence_verified=event.presence_verified,
         status=latest_status(db, event.id),  # type: ignore[arg-type]
         created_at=as_utc(event.created_at),
     )
@@ -174,6 +175,7 @@ def create_event(
     description: str,
     severity: str,
     occurred_at: datetime,
+    presence_verified: bool = False,
     client_event_id: UUID | None = None,
     sync_status: str = "synced",
     route_id: UUID | None = None,
@@ -197,6 +199,7 @@ def create_event(
         description=description,
         occurred_at=occurred_at.astimezone(UTC),
         sync_status=sync_status,
+        presence_verified=presence_verified,
     )
     db.add(event)
     db.flush()
@@ -204,7 +207,7 @@ def create_event(
         OWKSEventStatus(
             event_id=event.id,
             sequence_no=1,
-            status="resolved" if event_type == "control" and sync_status == "synced" else "open",
+            status="resolved" if presence_verified else "open",
             note="",
             actor_id=actor_id,
         )
@@ -279,6 +282,7 @@ def monitor_due_routes(
                     OWKSEvent.control_point_id == point_id,
                     OWKSEvent.event_type == "control",
                     OWKSEvent.sync_status == "synced",
+                    OWKSEvent.presence_verified.is_(True),
                 )
                 .order_by(OWKSEvent.occurred_at.desc())
                 .limit(1)
@@ -673,6 +677,7 @@ def record_scan(
                 OWKSEvent.control_point_id == point.id,
                 OWKSEvent.event_type == "control",
                 OWKSEvent.sync_status == "synced",
+                OWKSEvent.presence_verified.is_(True),
             )
             .order_by(OWKSEvent.occurred_at.desc())
             .limit(1)
@@ -691,10 +696,11 @@ def record_scan(
         employee_id=employee.id,
         actor_id=principal.user.id,
         event_type="control",
-        title=f"{'Verspätete Kontrolle' if late else 'Kontrolle'}: {point.name}",
+        title=f"{'Verspätete Kennung' if late else 'Kennung erkannt'}: {point.name}",
         description=(
-            f"{point.identifier_type.upper()}-Kontrollpunkt verifiziert. "
-            f"{'Die Kontrolle erfolgte nach dem vorgesehenen Zeitfenster.' if late else ''}"
+            f"{point.identifier_type.upper()}-Kennung wurde vom Server mit der aktiven Challenge abgeglichen. "
+            "Die physische Anwesenheit ist nicht bestätigt. "
+            f"{'Die Kennung wurde nach dem vorgesehenen Zeitfenster eingereicht.' if late else ''}"
         ),
         severity="warning" if late else "info",
         occurred_at=occurred_at,
@@ -702,6 +708,7 @@ def record_scan(
         route_id=payload.route_id,
         control_point_id=point.id,
         challenge_id=challenge.id,
+        presence_verified=False,
         request=request,
     )
     commit_or_conflict(db)

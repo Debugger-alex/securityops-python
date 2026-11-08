@@ -71,6 +71,7 @@ export interface OWKSEvent {
   description: string;
   occurred_at: string;
   sync_status: "synced" | "conflict";
+  presence_verified: boolean;
   status: OWKSEventStatus;
   created_at: string;
 }

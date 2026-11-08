@@ -1456,6 +1456,7 @@ class OWKSEventRead(BaseModel):
     description: str
     occurred_at: datetime
     sync_status: str
+    presence_verified: bool
     status: OWKSEventState
     created_at: datetime
 

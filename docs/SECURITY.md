@@ -13,6 +13,7 @@
 - OWKS-Endpunkte prüfen das OWKS-Recht und zusätzlich den Objekt-Scope; Anhangabruf ist nicht öffentlich und der Upload validiert Dateiendung, MIME-Typ, Signatur und 10-MiB-Grenze.
 - OWKS-Ereignisse, Statusverläufe und Anhänge sind in PostgreSQL append-only. Statusänderungen und Korrekturen werden als neue Datensätze protokolliert.
 - Kontrollscans benötigen eine kurzlebige, benutzer- und objektgebundene Einmal-Challenge; PostgreSQL koordiniert den Versäumnis-Monitor zwischen Instanzen und verhindert doppelte generierte Meldungen.
+- Statische QR-/NFC-Kennungstreffer werden als `presence_verified=false` protokolliert, bleiben offen und zählen nicht als erledigter Besuch. Sie belegen keine physische Anwesenheit.
 - `POSTGRES_PASSWORD` ist als Umgebungsvariable erforderlich; es gibt keinen impliziten Datenbankpasswort-Standardwert.
 
 ## Vor jedem produktiven Betrieb
