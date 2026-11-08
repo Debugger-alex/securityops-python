@@ -94,6 +94,60 @@ export interface OWKSSyncResult {
   detail: string | null;
 }
 
+export type BillingRateKind = "hourly" | "flat" | "surcharge";
+export type BillingInvoiceStatus = "draft" | "approved" | "archived";
+
+export interface BillingRate {
+  id: string;
+  code: string;
+  name: string;
+  kind: BillingRateKind;
+  unit: string;
+  unit_price: string;
+  tax_code: string;
+  tax_rate: string;
+  currency: string;
+  is_active: boolean;
+}
+
+export interface BillingInvoiceLine {
+  id: string;
+  position: number;
+  description: string;
+  kind: BillingRateKind;
+  quantity: string;
+  unit: string;
+  unit_price: string;
+  tax_code: string;
+  tax_rate: string;
+  net_amount: string;
+  tax_amount: string;
+  gross_amount: string;
+}
+
+export interface BillingInvoice {
+  id: string;
+  invoice_number: string;
+  customer_id: string;
+  contract_id: string | null;
+  kind: "invoice" | "correction" | "cancellation";
+  status: BillingInvoiceStatus;
+  payment_status: "open" | "partial" | "paid";
+  dunning_status: "none" | "reminder_1" | "reminder_2" | "final";
+  currency: string;
+  issued_on: string;
+  due_on: string;
+  correction_of_id: string | null;
+  correction_reason: string | null;
+  net_amount: string;
+  tax_amount: string;
+  gross_amount: string;
+  approved_at: string | null;
+  archived_at: string | null;
+  created_at: string;
+  lines: BillingInvoiceLine[];
+}
+
 export interface CustomerAddress {
   id: string;
   street: string;

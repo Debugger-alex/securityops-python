@@ -86,6 +86,13 @@ Das Passwort muss mindestens 12 Zeichen lang sein. Der Bootstrapping-Befehl erst
 - `/api/v1/time-tracking/entries/{id}/surcharge-calculations` – getrennte, versionierte Zuschlagszeit-Nachweise
 - `/api/v1/time-tracking/reports/surcharges` und `/export-surcharges.csv` – Auswertung und CSV historisierter Zuschlagszeiten
 - `/api/v1/time-tracking/periods/lock` – geprüfte, endgültige Abrechnungsperiodensperre
+- `/api/v1/billing/rates` – Abrechnungspreise mit Einheit, konfiguriertem Steuerkennzeichen und -satz (`billing.rates.manage`)
+- `/api/v1/billing/invoices` – Rechnungsentwürfe aus Preiskonfigurationen, Vertragsreferenzen und freigegebenen Zeitbuchungen (`billing.invoices.create`)
+- `/api/v1/billing/invoices/{id}/approve|archive` – Statusmaschine und unveränderliche Freigabe mit Audit-Eintrag
+- `/api/v1/billing/invoices/{id}/corrections` – Folgebeleg mit Storno der Originalpositionen und optionalen Ersatzpositionen
+- `/api/v1/billing/invoices/{id}/payments` und `/dunning` – idempotente Zahlungen und nachvollziehbarer Mahnstatus
+- `/api/v1/billing/invoices/{id}/pdf` – serverseitig erzeugtes PDF ausschließlich für freigegebene Rechnungen
+- `/api/v1/billing/invoices/{id}/exports` – idempotenter Buchhaltungsexport `securityops-accounting-v1`
 
 Statuswerte: `active`, `inactive`, `lead`. Kundennummern werden serverseitig eindeutig als `K-<UUID>` erzeugt. Kunden werden in dieser Ausbaustufe nicht physisch gelöscht.
 
@@ -122,3 +129,9 @@ Die Anwendung ist weiterhin keine Produktionsfreigabe. Produktions-Compose liefe
 Dieser Branch ergänzt Issue #8 um private, serverseitig geschützte Dokumentablage, geprüfte Uploads (PDF, PNG, JPG/JPEG, DOCX und XLSX), unveränderliche Datei-Versionen, Historie, Freigaben, Lesebestätigungen, Vertragsverwaltung und konfigurierbare Erinnerungsdatensätze. Die additive Alembic-Kette verläuft von `0013_time_tracking_surcharges` über PR #23 (`0014_owks_wachbuch`) zu PR #24 (`0015_documents_contracts`). Dateien liegen in einem privaten, persistenten Docker-Volume und nicht im öffentlichen Frontend-Verzeichnis. Die Uploadgröße ist über `DOCUMENT_MAX_UPLOAD_BYTES` konfigurierbar (Standard 20 MiB, maximal 100 MiB).
 
 Die Erinnerungen werden über die geschützte Erinnerungsfunktion idempotent erzeugt und hier in der Oberfläche angezeigt. Es gibt keinen eingebauten Scheduler und keinen E-Mail-/Push-Versand; die Generierung muss von einer berechtigten Person oder einem externen, authentifizierten Prozess ausgelöst werden. Ein Malware-/Virenscanner und eine qualifizierte elektronische Signatur sind ebenfalls nicht enthalten. PR #24 ist auf PR #23 gestapelt und bleibt ungemergt; Issue #8 bleibt bis zur fachlichen Abnahme offen. Die kombinierte CI validiert Migrationen und Backendtests auf PostgreSQL 17 sowie Frontend und Docker-Images.
+
+## Rechnungswesen
+
+Migration `0017_billing` ergänzt nach der Dienstplan-Erweiterung `0016_scheduling_availability` Preisstammdaten, Rechnungen mit unveränderlichen Positionen und Snapshots, Zahlungen und versionierte Buchhaltungsexporte. Preis-, Steuerkennzeichen- und Steuersatzwerte sind explizite Konfigurationen und werden zusammen mit Kunden-, Vertrags- und verwendeten Zeiterfassungs-/Zuschlagssnapshots gespeichert; es wird keine steuerliche oder buchhalterische Konformität behauptet. Geldwerte werden mit `Decimal`/`NUMERIC` berechnet; jede Position wird mit `ROUND_HALF_UP` auf zwei Nachkommastellen gerundet, danach werden Summen aus den gespeicherten Positionswerten gebildet. Freigegebene Rechnungen sind schreibgeschützt. Korrekturen erzeugen einen neuen Folgebeleg, der die Ursprungspositionen storniert und optional Ersatzpositionen enthält.
+
+Rechnungsnummern und Idempotenzschlüssel sind datenbankseitig eindeutig. Freigabe, Archivierung, Preisanlage, Zahlungen, Mahnstatus und Exporte werden serverseitig berechtigt und im Audit-Protokoll vermerkt. PDF-Dateien werden erst nach Freigabe aus dem gespeicherten Snapshot serverseitig erzeugt und mit privaten/no-store-Headern ausgeliefert; es gibt keinen öffentlichen Dateiablagepfad. Der Export ist eine versionierte JSON-Schnittstelle (`securityops-accounting-v1`), keine zertifizierte Buchhaltungsintegration.

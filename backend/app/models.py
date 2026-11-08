@@ -1432,6 +1432,186 @@ class ContractHistory(Base):
     )
 
 
+class BillingRate(Base):
+    __tablename__ = "billing_rates"
+    __table_args__ = (
+        CheckConstraint("kind IN ('hourly', 'flat', 'surcharge')", name="ck_billing_rates_kind"),
+        CheckConstraint("unit_price >= 0", name="ck_billing_rates_unit_price"),
+        CheckConstraint("tax_rate >= 0 AND tax_rate <= 100", name="ck_billing_rates_tax_rate"),
+        UniqueConstraint("code", name="uq_billing_rates_code"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    code: Mapped[str] = mapped_column(String(80), nullable=False)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    unit: Mapped[str] = mapped_column(String(40), nullable=False)
+    unit_price: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
+    tax_code: Mapped[str] = mapped_column(String(40), nullable=False)
+    tax_rate: Mapped[Decimal] = mapped_column(Numeric(7, 4), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="EUR")
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class BillingInvoice(Base):
+    __tablename__ = "billing_invoices"
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN ('invoice', 'correction', 'cancellation')", name="ck_billing_invoices_kind"
+        ),
+        CheckConstraint(
+            "(kind = 'invoice' AND correction_of_id IS NULL) OR "
+            "(kind IN ('correction', 'cancellation') AND correction_of_id IS NOT NULL)",
+            name="ck_billing_invoices_correction_link",
+        ),
+        CheckConstraint(
+            "status IN ('draft', 'approved', 'archived')", name="ck_billing_invoices_status"
+        ),
+        CheckConstraint(
+            "payment_status IN ('open', 'partial', 'paid')",
+            name="ck_billing_invoices_payment_status",
+        ),
+        CheckConstraint(
+            "dunning_status IN ('none', 'reminder_1', 'reminder_2', 'final')",
+            name="ck_billing_invoices_dunning_status",
+        ),
+        CheckConstraint("due_on >= issued_on", name="ck_billing_invoices_due_date"),
+        CheckConstraint(
+            "length(currency) = 3 AND currency = upper(currency)",
+            name="ck_billing_invoices_currency",
+        ),
+        Index("ix_billing_invoices_customer_date", "customer_id", "issued_on"),
+        Index("ix_billing_invoices_status_due", "status", "payment_status", "due_on"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    invoice_number: Mapped[str] = mapped_column(String(40), nullable=False, unique=True)
+    idempotency_key: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    customer_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("customers.id", ondelete="RESTRICT"), nullable=False
+    )
+    contract_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("contracts.id", ondelete="RESTRICT"), nullable=True
+    )
+    kind: Mapped[str] = mapped_column(String(20), nullable=False, default="invoice")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
+    payment_status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")
+    dunning_status: Mapped[str] = mapped_column(String(20), nullable=False, default="none")
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    issued_on: Mapped[date] = mapped_column(nullable=False)
+    due_on: Mapped[date] = mapped_column(nullable=False)
+    correction_of_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("billing_invoices.id", ondelete="RESTRICT"), nullable=True
+    )
+    correction_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    customer_snapshot: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    inputs_snapshot: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    net_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    tax_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    gross_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    created_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    approved_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    lines: Mapped[list["BillingInvoiceLine"]] = relationship(
+        back_populates="invoice",
+        cascade="all, delete-orphan",
+        order_by="BillingInvoiceLine.position",
+    )
+
+
+class BillingInvoiceLine(Base):
+    __tablename__ = "billing_invoice_lines"
+    __table_args__ = (
+        CheckConstraint("position > 0", name="ck_billing_invoice_lines_position"),
+        CheckConstraint(
+            "tax_rate >= 0 AND tax_rate <= 100", name="ck_billing_invoice_lines_tax_rate"
+        ),
+        UniqueConstraint("invoice_id", "position", name="uq_billing_invoice_lines_position"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    invoice_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("billing_invoices.id", ondelete="RESTRICT"), nullable=False
+    )
+    rate_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("billing_rates.id", ondelete="SET NULL"), nullable=True
+    )
+    position: Mapped[int] = mapped_column(nullable=False)
+    description: Mapped[str] = mapped_column(String(240), nullable=False)
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
+    unit: Mapped[str] = mapped_column(String(40), nullable=False)
+    unit_price: Mapped[Decimal] = mapped_column(Numeric(14, 4), nullable=False)
+    tax_code: Mapped[str] = mapped_column(String(40), nullable=False)
+    tax_rate: Mapped[Decimal] = mapped_column(Numeric(7, 4), nullable=False)
+    net_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    tax_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    gross_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    inputs_snapshot: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    invoice: Mapped[BillingInvoice] = relationship(back_populates="lines")
+
+
+class BillingPayment(Base):
+    __tablename__ = "billing_payments"
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="ck_billing_payments_amount"),
+        UniqueConstraint("invoice_id", "idempotency_key", name="uq_billing_payments_idempotency"),
+        Index("ix_billing_payments_invoice_date", "invoice_id", "paid_on"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    invoice_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("billing_invoices.id", ondelete="RESTRICT"), nullable=False
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(100), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    paid_on: Mapped[date] = mapped_column(nullable=False)
+    reference: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    created_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class BillingExport(Base):
+    __tablename__ = "billing_exports"
+    __table_args__ = (
+        UniqueConstraint("invoice_id", "format_version", name="uq_billing_exports_invoice_version"),
+        UniqueConstraint("idempotency_key", name="uq_billing_exports_idempotency"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    invoice_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("billing_invoices.id", ondelete="RESTRICT"), nullable=False
+    )
+    format_version: Mapped[str] = mapped_column(String(30), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(100), nullable=False)
+    payload: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    payload_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
 class DocumentContractReminderSettings(Base):
     __tablename__ = "document_contract_reminder_settings"
     __table_args__ = (

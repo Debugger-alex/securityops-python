@@ -16,6 +16,11 @@ from app.main import app
 from app.models import (
     AuditLog,
     Base,
+    BillingExport,
+    BillingInvoice,
+    BillingInvoiceLine,
+    BillingPayment,
+    BillingRate,
     Contract,
     ContractHistory,
     Customer,
@@ -120,6 +125,12 @@ def client() -> Generator[TestClient, None, None]:
         db.execute(delete(TimeEntryCorrection))
         db.execute(delete(TimeEntryHistory))
         db.execute(delete(DocumentContractReminder))
+        db.execute(delete(BillingExport))
+        db.execute(delete(BillingPayment))
+        db.execute(delete(BillingInvoiceLine))
+        db.execute(delete(BillingInvoice).where(BillingInvoice.kind != "invoice"))
+        db.execute(delete(BillingInvoice))
+        db.execute(delete(BillingRate))
         db.execute(delete(ContractHistory))
         db.execute(delete(DocumentReadReceipt))
         db.execute(delete(DocumentApproval))
@@ -218,6 +229,13 @@ def client() -> Generator[TestClient, None, None]:
             "contracts.update",
             "contracts.archive",
             "contracts.manage_reminders",
+            "billing.invoices.read",
+            "billing.invoices.create",
+            "billing.invoices.approve",
+            "billing.invoices.archive",
+            "billing.rates.manage",
+            "billing.payments.manage",
+            "billing.exports.create",
         )
         permissions = {}
         for code in permission_codes:
