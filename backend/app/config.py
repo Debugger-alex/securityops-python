@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     postgres_port: int = 5432
     postgres_db: str = "securityops"
     postgres_user: str = "securityops"
-    postgres_password: SecretStr = SecretStr("local-only-change-me")
+    postgres_password: SecretStr
     cors_origins: str = "http://localhost:5173"
     session_cookie_secure: bool = True
     session_idle_minutes: int = 30

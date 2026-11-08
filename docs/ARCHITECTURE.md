@@ -14,6 +14,7 @@ SecurityOps ist als modularer Monolith mit Python/FastAPI, SQLAlchemy, PostgreSQ
 - `backend/migrations`: Alembic-Schemaänderungen.
 - `frontend/src`: React-Anwendung und zentrale API-Aufrufe.
 - `docker-compose.yml`: lokale Entwicklungsdienste PostgreSQL, API und Vite.
+- `.github/workflows/ci.yml`: Backendtests, Migrationen auf einem temporären PostgreSQL-Dienst und Frontend-Build bei Pull Requests und Änderungen an `main`.
 
 ## Request- und Sicherheitsfluss
 
@@ -25,4 +26,4 @@ Kunden → Objekte → Verträge und Dienste → Personal und Qualifikationen �
 
 ## Betrieb
 
-Compose dient derzeit der lokalen Entwicklung. Das Frontend läuft über Vite; Produktionsauslieferung, TLS-Reverse-Proxy und gemeinsamer Rate-Limit-Speicher sind noch offen. Migrationen werden derzeit beim API-Containerstart ausgeführt und sollen für Mehrfachreplikate in einen kontrollierten Deploy-Schritt verlagert werden.
+Compose dient derzeit der lokalen Entwicklung. Das Frontend läuft über Vite; Produktionsauslieferung, TLS-Reverse-Proxy und gemeinsamer Rate-Limit-Speicher sind noch offen. Migrationen werden derzeit beim API-Containerstart ausgeführt und sollen für Mehrfachreplikate in einen kontrollierten Deploy-Schritt verlagert werden. CI führt die Migrationen unabhängig davon auf einem kurzlebigen PostgreSQL-17-Dienst aus; dies ersetzt keine Prüfung in der Zielbetriebsumgebung.

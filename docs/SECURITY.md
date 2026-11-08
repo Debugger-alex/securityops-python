@@ -9,6 +9,7 @@
 - Login-Rate-Limit, derzeit nur im In-Memory-Speicher eines Prozesses.
 - Keine Passworthashes in API-Antworten.
 - Audit-Einträge für implementierte Anmelde-, Benutzer- und Kundenänderungen.
+- `POSTGRES_PASSWORD` ist als Umgebungsvariable erforderlich; es gibt keinen impliziten Datenbankpasswort-Standardwert.
 
 ## Vor jedem produktiven Betrieb
 
@@ -23,4 +24,4 @@
 
 ## Offene Sicherheitsfunktionen
 
-MFA, Passwortzurücksetzung per geprüftem Einmalprozess, aktive Sitzungsverwaltung, objektbezogene Rechte, zentrale Rate-Limits, Postgres-Integrationstests sowie revisionsfester Auditbetrieb fehlen. Das implementierte System ist nicht sicherheitszertifiziert und noch kein vollständiges Produkt.
+MFA, Passwortzurücksetzung per geprüftem Einmalprozess, aktive Sitzungsverwaltung, objektbezogene Rechte, zentrale Rate-Limits und revisionsfester Auditbetrieb fehlen. CI ist für PostgreSQL-Migrationen und API-Tests auf einer kurzlebigen Testdatenbank eingerichtet; der erste gehostete Lauf ist noch auszuwerten. Das implementierte System ist nicht sicherheitszertifiziert und noch kein vollständiges Produkt.

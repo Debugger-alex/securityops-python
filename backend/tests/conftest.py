@@ -1,8 +1,12 @@
 from collections.abc import Generator
+import os
+
+os.environ.setdefault("POSTGRES_PASSWORD", "test-only-not-for-production")
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -13,11 +17,24 @@ from app.models import Base, Permission, Role, User
 from app.rate_limit import limiter
 
 ADMIN_PASSWORD = "sicheres-test-passwort-2026"
-test_engine = create_engine(
-    "sqlite://",
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
+test_database_url = os.environ.get("SECURITYOPS_TEST_DATABASE_URL", "sqlite://")
+engine_options = {}
+if test_database_url == "sqlite://":
+    engine_options = {
+        "connect_args": {"check_same_thread": False},
+        "poolclass": StaticPool,
+    }
+else:
+    parsed_test_url = make_url(test_database_url)
+    if (
+        parsed_test_url.drivername != "postgresql+psycopg"
+        or parsed_test_url.host not in {"localhost", "127.0.0.1"}
+        or parsed_test_url.database != "securityops_test"
+    ):
+        raise RuntimeError(
+            "PostgreSQL-Tests sind nur für localhost/securityops_test zulässig."
+        )
+test_engine = create_engine(test_database_url, **engine_options)
 TestingSessionLocal = sessionmaker(bind=test_engine, autoflush=False, expire_on_commit=False)
 
 

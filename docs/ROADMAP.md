@@ -1,5 +1,7 @@
 # Roadmap
 
+Die priorisierte und mit Status versehene Umsetzungsliste steht in [`IMPLEMENTATION_ROADMAP.md`](IMPLEMENTATION_ROADMAP.md). Die Phasen unten sind langfristige Zielbereiche, keine Behauptung, dass diese Funktionen bereits existieren.
+
 Die folgenden Stufen sind geplant, nicht als implementiert zu verstehen:
 
 1. **Phase 1 – Sicherheit und Grundlagen:** RBAC-Rechteausweitung schließen, sichere Cookie-Standards, vollständiger Ist-Audit und Dokumentation; PostgreSQL-/Betriebsprüfungen [#9](https://github.com/Xonni-star/securityops-python/issues/9).
