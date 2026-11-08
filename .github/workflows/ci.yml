@@ -12,7 +12,7 @@ permissions:
 jobs:
   backend:
     name: Backend, Migrationen und PostgreSQL
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:17-alpine
@@ -55,7 +55,7 @@ jobs:
 
   frontend:
     name: Frontend-Typprüfung und Build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: frontend
@@ -75,7 +75,7 @@ jobs:
 
   container-build:
     name: Docker-Images bauen
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Quellcode auschecken
         uses: actions/checkout@v7.0.1
