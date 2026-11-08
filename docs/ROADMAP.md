@@ -13,6 +13,6 @@ Die verbindliche Priorisierung, Abhängigkeiten und der aktuelle `main`-/PR-Stat
 
 PR #26 schlägt zusätzliche Dienstplan-Verfügbarkeiten/Vertretungen vor und ist offen; sein aktueller CI-Lauf ist grün. PR #27 ist auf #26 gestapelt und ergänzt Rechnungswesen nachgelagert mit `0017_billing` nach `0016_scheduling_availability`; die gestapelte Migrationenkette ist linear, die Abhängigkeit muss bei Integration erhalten bleiben.
 
-PR #28 ist ein offener, direkt auf `main` basierter Vorschlag für Produktionshärtung (Issue #9), einschließlich verschlüsseltem Backup-/Restore-Test und Security-Scanning. Der aktuelle Restore-CI-Job ist fehlgeschlagen; das ist weder Teil von `main` noch ein nachgewiesener Restore-/Produktionsstatus.
+PR #28 ist ein offener, direkt auf `main` basierter Vorschlag für Produktionshärtung (Issue #9), einschließlich verschlüsseltem Backup-/Restore-Test und Security-Scanning. Der aktuelle Head hat grüne CI einschließlich Restore; ein vorheriger Head hatte dort einen Fehler. Das ist weder Teil von `main` noch eine fachliche oder produktive Abnahme.
 
 Reihenfolge stellt keinen Implementierungs- oder Rechtsstatus dar. Keine Produktions-, Rechts- oder Steuerfreigabe wird behauptet.
