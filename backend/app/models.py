@@ -1213,6 +1213,13 @@ class OWKSEvent(Base):
         UniqueConstraint("actor_id", "client_event_id", name="uq_owks_events_idempotency"),
         Index("ix_owks_events_object_occurred", "object_id", "occurred_at"),
         Index("ix_owks_events_object_created", "object_id", "created_at"),
+        Index(
+            "uq_owks_missed_event_client_id",
+            "client_event_id",
+            unique=True,
+            postgresql_where=text("event_type = 'missed'"),
+            sqlite_where=text("event_type = 'missed'"),
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)

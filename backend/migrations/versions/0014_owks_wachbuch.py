@@ -129,6 +129,13 @@ def upgrade() -> None:
     )
     op.create_index("ix_owks_events_object_occurred", "owks_events", ["object_id", "occurred_at"])
     op.create_index("ix_owks_events_object_created", "owks_events", ["object_id", "created_at"])
+    op.create_index(
+        "uq_owks_missed_event_client_id",
+        "owks_events",
+        ["client_event_id"],
+        unique=True,
+        postgresql_where=sa.text("event_type = 'missed'"),
+    )
     op.create_table(
         "owks_event_statuses",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
@@ -225,7 +232,13 @@ def upgrade() -> None:
                 "role_id": stable_id("role", role_code),
                 "permission_id": permission_id,
             }
-            for role_code in ("administrator", "management", "operations", "employee")
+            for role_code in (
+                "administrator",
+                "management",
+                "operations",
+                "object_manager",
+                "employee",
+            )
         ],
     )
 
@@ -254,6 +267,7 @@ def downgrade() -> None:
     op.drop_table("owks_event_statuses")
     op.drop_index("ix_owks_events_object_created", table_name="owks_events")
     op.drop_index("ix_owks_events_object_occurred", table_name="owks_events")
+    op.drop_index("uq_owks_missed_event_client_id", table_name="owks_events")
     op.drop_table("owks_events")
     op.drop_index("ix_owks_challenges_expires", table_name="owks_challenges")
     op.drop_table("owks_challenges")

@@ -60,8 +60,12 @@ export default function OWKSManagement({ user }: { user: AuthUser }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [isOnline, setIsOnline] = useState(
+    () => typeof navigator === "undefined" || navigator.onLine,
+  );
   const canWrite = user.permissions.includes("owks.write") || user.permissions.includes("owks.manage");
   const canManage = user.permissions.includes("owks.manage");
+  const supportsWebNfc = typeof window !== "undefined" && "NDEFReader" in window;
 
   const loadObjectData = useCallback(async (objectId: string) => {
     if (!objectId) return;
@@ -103,6 +107,17 @@ export default function OWKSManagement({ user }: { user: AuthUser }) {
     if (selectedObjectId) void loadObjectData(selectedObjectId);
   }, [loadObjectData, selectedObjectId]);
 
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
   const selectedObject = useMemo(
     () => objects.find((item) => item.id === selectedObjectId),
     [objects, selectedObjectId],
@@ -129,7 +144,7 @@ export default function OWKSManagement({ user }: { user: AuthUser }) {
     };
     setBusy(true);
     try {
-      if (!navigator.onLine) {
+      if (!isOnline) {
         saveQueue([...queue, item]);
         setNotice("Ereignis lokal gespeichert und wartet auf Synchronisierung.");
       } else {
@@ -363,6 +378,11 @@ export default function OWKSManagement({ user }: { user: AuthUser }) {
 
         {canWrite && <section className="panel owks-panel">
           <div className="panel-heading"><div><p className="eyebrow">QR / NFC</p><h2>Kontrollgang</h2></div></div>
+          <p className="muted" role="note">
+            {supportsWebNfc
+              ? "Web-NFC wird in dieser Version nicht automatisch ausgelesen. Bitte QR-Code mit einer Scanner-App auslesen und die Kennung einfügen oder manuell eingeben."
+              : "Dieser Browser unterstützt kein Web-NFC. Bitte QR-Code mit einer Scanner-App auslesen und die Kennung einfügen oder manuell eingeben."}
+          </p>
           {!challenge
             ? <button className="secondary-button" disabled={busy} onClick={() => void beginScan()}>Kontrollanforderung starten</button>
             : <form className="owks-event-form" onSubmit={(event) => void submitScan(event)}>
@@ -380,7 +400,7 @@ export default function OWKSManagement({ user }: { user: AuthUser }) {
           </div>}
           <div className="owks-offline">
             <div><strong>Offline-Warteschlange</strong><span>{queue.length} ausstehend</span></div>
-            <button className="secondary-button" disabled={busy || !queue.length || !navigator.onLine} onClick={() => void synchronizeQueue()}>
+            <button className="secondary-button" disabled={busy || !queue.length || !isOnline} onClick={() => void synchronizeQueue()}>
               Warteschlange synchronisieren
             </button>
             {syncResults.filter((item) => item.status === "conflict").map((item) =>

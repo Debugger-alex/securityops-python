@@ -1,22 +1,27 @@
+import asyncio
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID, uuid4
+from zoneinfo import ZoneInfo
 
 import pytest
 from conftest import ADMIN_PASSWORD, TestingSessionLocal, test_engine
 from fastapi.testclient import TestClient
-from sqlalchemy import select, update
-from sqlalchemy.exc import DBAPIError
+from sqlalchemy import select, text, update
+from sqlalchemy.exc import DBAPIError, IntegrityError
 
+from app import owks_scheduler
 from app.identity_api import password_hasher
 from app.models import (
     Employee,
     ObjectAssignment,
     OWKSEvent,
     OWKSRoute,
+    Permission,
     Role,
     SecurityObject,
     User,
 )
+from app.owks_api import MONITOR_ADVISORY_LOCK_KEY, as_utc, monitor_due_routes
 
 
 def sign_in(client: TestClient, username: str = "admin", password: str = ADMIN_PASSWORD) -> str:
@@ -71,8 +76,16 @@ def create_assigned_employee(object_id: str, username: str = "wachkraft") -> Non
 def create_object_manager(object_id: str, username: str) -> None:
     with TestingSessionLocal() as db:
         role = db.scalar(select(Role).where(Role.code == "object_manager"))
+        manage_permission = db.scalar(select(Permission).where(Permission.code == "owks.manage"))
+        read_permission = db.scalar(select(Permission).where(Permission.code == "owks.read"))
         obj = db.get(SecurityObject, UUID(object_id))
-        assert role is not None and obj is not None
+        assert (
+            role is not None
+            and manage_permission is not None
+            and read_permission is not None
+            and obj is not None
+        )
+        role.permissions = [*role.permissions, manage_permission, read_permission]
         user = User(
             username=username,
             email=f"{username}@example.com",
@@ -131,9 +144,10 @@ def test_object_scoping_scan_replay_route_monitor_and_timestamp(client: TestClie
     assert missed.status_code == 200
     assert len(missed.json()) == 1
     assert missed.json()[0]["event_type"] == "missed"
-    assert (
-        client.post(f"/api/v1/owks/routes/{route_id}/monitor", headers=admin_headers).json() == []
-    )
+    catch_up = client.post(f"/api/v1/owks/routes/{route_id}/monitor", headers=admin_headers)
+    assert catch_up.status_code == 200
+    assert len(catch_up.json()) == 1
+    assert catch_up.json()[0]["id"] != missed.json()[0]["id"]
 
     user_headers = {"X-CSRF-Token": sign_in(client, "wachkraft", "wachkraft-test-passwort-2026")}
     visible_objects = client.get("/api/v1/owks/objects")
@@ -331,9 +345,10 @@ def test_offline_sync_conflicts_status_corrections_and_secure_attachments(
     uploaded = client.post(
         f"/api/v1/owks/events/{critical_id}/attachments",
         headers=admin_headers,
-        files={"document": ("bericht.pdf", valid_pdf, "application/pdf")},
+        files={"document": ("../../bericht.pdf", valid_pdf, "application/pdf")},
     )
     assert uploaded.status_code == 201
+    assert uploaded.json()["file_name"] == "bericht.pdf"
     attachment_id = uploaded.json()["id"]
     downloaded = client.get(
         f"/api/v1/owks/events/{critical_id}/attachments/{attachment_id}",
@@ -349,6 +364,18 @@ def test_offline_sync_conflicts_status_corrections_and_secure_attachments(
         files={"document": ("fake.pdf", b"not a PDF", "application/pdf")},
     )
     assert invalid.status_code == 415
+    oversized = client.post(
+        f"/api/v1/owks/events/{critical_id}/attachments",
+        headers=admin_headers,
+        files={
+            "document": (
+                "zu-gross.pdf",
+                b"%PDF-1.4\n" + b"x" * (10 * 1024 * 1024),
+                "application/pdf",
+            )
+        },
+    )
+    assert oversized.status_code == 413
 
 
 def test_owks_permission_and_foreign_object_attachment_are_denied(client: TestClient) -> None:
@@ -386,6 +413,15 @@ def test_owks_permission_and_foreign_object_attachment_are_denied(client: TestCl
         f"/api/v1/owks/events/{event.json()['id']}/attachments/{uploaded.json()['id']}"
     )
     assert foreign_download.status_code == 404
+    assert client.get(f"/api/v1/owks/events/{event.json()['id']}/attachments").status_code == 404
+    assert (
+        client.post(
+            f"/api/v1/owks/events/{event.json()['id']}/attachments",
+            headers=foreign_headers,
+            files={"document": ("bericht.pdf", b"%PDF-1.4\nprivat\n", "application/pdf")},
+        ).status_code
+        == 404
+    )
     assert (
         client.post(
             f"/api/v1/owks/objects/{object_id}/challenges",
@@ -395,8 +431,183 @@ def test_owks_permission_and_foreign_object_attachment_are_denied(client: TestCl
     )
 
     create_object_manager(object_id, "leitung-ohne-owks")
-    sign_in(client, "leitung-ohne-owks", "objektleitung-test-passwort-2026")
-    assert client.get(f"/api/v1/owks/objects/{object_id}/events").status_code == 403
+    manager_headers = {
+        "X-CSRF-Token": sign_in(client, "leitung-ohne-owks", "objektleitung-test-passwort-2026")
+    }
+    assert client.get(f"/api/v1/owks/objects/{object_id}/events").status_code == 200
+    managed_event = client.post(
+        "/api/v1/owks/events",
+        headers=manager_headers,
+        json={
+            "object_id": object_id,
+            "event_type": "entry",
+            "title": "Eintrag durch Objektleitung",
+            "description": "",
+            "severity": "info",
+            "client_event_id": str(uuid4()),
+        },
+    )
+    assert managed_event.status_code == 201
+
+
+def test_missed_monitor_is_idempotent_and_uses_elapsed_utc_intervals(client: TestClient) -> None:
+    headers = {"X-CSRF-Token": sign_in(client)}
+    object_id = create_object(client, headers, "OWKS-DST-001")
+    point = client.post(
+        f"/api/v1/owks/objects/{object_id}/control-points",
+        headers=headers,
+        json={"name": "Eingang", "identifier_type": "qr"},
+    ).json()
+    route = client.post(
+        f"/api/v1/owks/objects/{object_id}/routes",
+        headers=headers,
+        json={
+            "name": "DST-Prüfroute",
+            "interval_minutes": 60,
+            "control_point_ids": [point["id"]],
+        },
+    ).json()
+    created_at = datetime(2026, 3, 29, 0, 30, tzinfo=UTC)
+    due_at = datetime(2026, 3, 29, 1, 30, tzinfo=UTC)
+    with TestingSessionLocal() as db:
+        stored_route = db.get(OWKSRoute, UUID(route["id"]))
+        assert stored_route is not None
+        stored_route.created_at = created_at
+        db.commit()
+        generated = monitor_due_routes(db, current_time=due_at)
+        db.commit()
+        assert len(generated) == 1
+        assert as_utc(generated[0].occurred_at) == due_at
+        assert generated[0].client_event_id is not None
+        client_event_id = generated[0].client_event_id
+
+    local_due = due_at.astimezone(ZoneInfo("Europe/Berlin"))
+    assert local_due.hour == 3
+    with TestingSessionLocal() as db:
+        assert monitor_due_routes(db, current_time=due_at) == []
+        duplicate = OWKSEvent(
+            object_id=UUID(object_id),
+            route_id=UUID(route["id"]),
+            control_point_id=UUID(point["id"]),
+            event_type="missed",
+            severity="warning",
+            title="Doppeltes Versäumnis",
+            description="",
+            occurred_at=due_at,
+            client_event_id=client_event_id,
+            actor_id=None,
+        )
+        db.add(duplicate)
+        with pytest.raises(IntegrityError):
+            db.flush()
+        db.rollback()
+
+
+@pytest.mark.skipif(
+    test_engine.dialect.name != "postgresql",
+    reason="Der laufende Hintergrundzyklus wird in PostgreSQL geprüft",
+)
+def test_postgresql_scheduler_cycle_persists_system_monitor_event(client: TestClient) -> None:
+    if owks_scheduler.engine.url.database != test_engine.url.database:
+        pytest.skip("Anwendungs- und Testdatenbank sind nicht identisch")
+    headers = {"X-CSRF-Token": sign_in(client)}
+    object_id = create_object(client, headers, "OWKS-SCHEDULER-001")
+    point = client.post(
+        f"/api/v1/owks/objects/{object_id}/control-points",
+        headers=headers,
+        json={"name": "Seiteneingang", "identifier_type": "nfc"},
+    ).json()
+    route = client.post(
+        f"/api/v1/owks/objects/{object_id}/routes",
+        headers=headers,
+        json={
+            "name": "Hintergrundprüfung",
+            "interval_minutes": 1,
+            "control_point_ids": [point["id"]],
+        },
+    ).json()
+    with TestingSessionLocal() as db:
+        stored_route = db.get(OWKSRoute, UUID(route["id"]))
+        assert stored_route is not None
+        stored_route.created_at = datetime.now(UTC) - timedelta(hours=2)
+        db.commit()
+
+    assert owks_scheduler.run_monitoring_cycle() == 1
+    with TestingSessionLocal() as db:
+        generated = db.scalar(
+            select(OWKSEvent).where(
+                OWKSEvent.route_id == UUID(route["id"]),
+                OWKSEvent.event_type == "missed",
+            )
+        )
+        assert generated is not None
+        assert generated.actor_id is None
+        assert generated.control_point_id == UUID(point["id"])
+
+
+@pytest.mark.skipif(
+    test_engine.dialect.name != "postgresql",
+    reason="Advisory Locks werden gegen PostgreSQL geprüft",
+)
+def test_missed_monitor_lock_serializes_database_processes() -> None:
+    first = TestingSessionLocal()
+    second = TestingSessionLocal()
+    try:
+        assert (
+            first.scalar(
+                text("SELECT pg_try_advisory_xact_lock(:lock_key)"),
+                {"lock_key": MONITOR_ADVISORY_LOCK_KEY},
+            )
+            is True
+        )
+        assert (
+            second.scalar(
+                text("SELECT pg_try_advisory_xact_lock(:lock_key)"),
+                {"lock_key": MONITOR_ADVISORY_LOCK_KEY},
+            )
+            is False
+        )
+        first.rollback()
+        assert (
+            second.scalar(
+                text("SELECT pg_try_advisory_xact_lock(:lock_key)"),
+                {"lock_key": MONITOR_ADVISORY_LOCK_KEY},
+            )
+            is True
+        )
+    finally:
+        first.close()
+        second.rollback()
+        second.close()
+
+
+def test_monitoring_scheduler_retries_each_interval(monkeypatch: pytest.MonkeyPatch) -> None:
+    class PostgresDialect:
+        name = "postgresql"
+
+    class PostgresEngine:
+        dialect = PostgresDialect()
+
+    monkeypatch.setattr(owks_scheduler, "engine", PostgresEngine())
+    stop = asyncio.Event()
+    calls = 0
+
+    def run_cycle() -> int:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise RuntimeError("temporärer Testfehler")
+        stop.set()
+        return 0
+
+    asyncio.run(
+        owks_scheduler.run_monitoring_scheduler(
+            stop,
+            run_cycle=run_cycle,
+            interval_seconds=0.001,
+        )
+    )
+    assert calls == 2
 
 
 @pytest.mark.skipif(

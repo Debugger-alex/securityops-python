@@ -16,11 +16,11 @@ from fastapi import (
     UploadFile,
     status,
 )
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.auth import add_audit_entry, require_permission
+from app.auth import AuthPrincipal, add_audit_entry, get_auth_principal, require_permission
 from app.database import get_db
 from app.models import (
     Employee,
@@ -59,6 +59,7 @@ ATTACHMENT_TYPES = {
     ".jpeg": ("image/jpeg", b"\xff\xd8\xff"),
 }
 READ_PERMISSION = Depends(require_permission("owks.read"))
+MONITOR_ADVISORY_LOCK_KEY = 731942681
 
 
 def now_utc() -> datetime:
@@ -95,6 +96,11 @@ def require_write_access(principal) -> None:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN, "Keine Berechtigung für OWKS-Schreibzugriffe"
         )
+
+
+def require_owks_write(principal=Depends(get_auth_principal)) -> AuthPrincipal:
+    require_write_access(principal)
+    return principal
 
 
 def get_active_employee(db: Session, user_id: UUID) -> Employee:
@@ -162,7 +168,7 @@ def create_event(
     *,
     object_id: UUID,
     employee_id: UUID | None,
-    actor_id: UUID,
+    actor_id: UUID | None,
     event_type: str,
     title: str,
     description: str,
@@ -236,6 +242,100 @@ def log_manipulation(
         request=request,
     )
     commit_or_conflict(db)
+
+
+def monitor_due_routes(
+    db: Session,
+    *,
+    current_time: datetime | None = None,
+    route_id: UUID | None = None,
+    actor_id: UUID | None = None,
+    request: Request | None = None,
+    acquire_lock: bool = False,
+) -> list[OWKSEvent]:
+    if acquire_lock and db.get_bind().dialect.name == "postgresql":
+        db.execute(
+            text("SELECT pg_advisory_xact_lock(:lock_key)"),
+            {"lock_key": MONITOR_ADVISORY_LOCK_KEY},
+        )
+    checked_at = as_utc(current_time or now_utc())
+    query = select(OWKSRoute).where(OWKSRoute.is_active.is_(True))
+    if route_id is not None:
+        query = query.where(OWKSRoute.id == route_id)
+    routes = db.scalars(query.order_by(OWKSRoute.id)).all()
+    generated: list[OWKSEvent] = []
+    for route in routes:
+        interval = timedelta(minutes=route.interval_minutes)
+        point_ids = db.scalars(
+            select(OWKSRoutePoint.control_point_id)
+            .where(OWKSRoutePoint.route_id == route.id)
+            .order_by(OWKSRoutePoint.position)
+        ).all()
+        for point_id in point_ids:
+            latest_control = db.scalar(
+                select(OWKSEvent)
+                .where(
+                    OWKSEvent.route_id == route.id,
+                    OWKSEvent.control_point_id == point_id,
+                    OWKSEvent.event_type == "control",
+                    OWKSEvent.sync_status == "synced",
+                )
+                .order_by(OWKSEvent.occurred_at.desc())
+                .limit(1)
+            )
+            latest_missed = db.scalar(
+                select(OWKSEvent)
+                .where(
+                    OWKSEvent.route_id == route.id,
+                    OWKSEvent.control_point_id == point_id,
+                    OWKSEvent.event_type == "missed",
+                )
+                .order_by(OWKSEvent.occurred_at.desc())
+                .limit(1)
+            )
+            recorded_times = [as_utc(route.created_at)]
+            recorded_times.extend(
+                as_utc(event.occurred_at)
+                for event in (latest_control, latest_missed)
+                if event is not None
+            )
+            last_recorded_at = max(recorded_times)
+            due_at = last_recorded_at + interval
+            if due_at > checked_at:
+                continue
+            client_event_id = uuid5(
+                NAMESPACE_URL,
+                f"securityops:owks:missed:{route.id}:{point_id}:{due_at.isoformat()}",
+            )
+            if db.scalar(
+                select(OWKSEvent.id).where(
+                    OWKSEvent.client_event_id == client_event_id,
+                    OWKSEvent.event_type == "missed",
+                )
+            ):
+                continue
+            point = db.get(OWKSControlPoint, point_id)
+            generated.append(
+                create_event(
+                    db,
+                    object_id=route.object_id,
+                    employee_id=None,
+                    actor_id=actor_id,
+                    event_type="missed",
+                    title=f"Versäumte Kontrolle: {point.name if point else 'Kontrollpunkt'}",
+                    description=(
+                        f"Die Route „{route.name}“ wurde bis {due_at.isoformat()} "
+                        "nicht kontrolliert."
+                    ),
+                    severity="warning",
+                    occurred_at=due_at,
+                    client_event_id=client_event_id,
+                    route_id=route.id,
+                    control_point_id=point_id,
+                    request=request,
+                )
+            )
+    return generated
 
 
 @router.get("/objects")
@@ -417,7 +517,7 @@ def create_challenge(
     object_id: UUID,
     request: Request,
     db: Session = Depends(get_db),
-    principal=Depends(require_permission("owks.write")),
+    principal=Depends(require_owks_write),
 ) -> OWKSChallengeRead:
     get_object_or_404(db, object_id, principal)
     challenge = OWKSChallenge(
@@ -449,7 +549,7 @@ def record_scan(
     payload: OWKSScanCreate,
     request: Request,
     db: Session = Depends(get_db),
-    principal=Depends(require_permission("owks.write")),
+    principal=Depends(require_owks_write),
 ) -> OWKSEventRead:
     employee = get_active_employee(db, principal.user.id)
     existing = db.scalar(
@@ -638,62 +738,13 @@ def monitor_route(
     if route is None or not route.is_active:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Kontrollroute nicht gefunden")
     get_object_or_404(db, route.object_id, principal, for_write=True)
-    current_time = now_utc()
-    interval = timedelta(minutes=route.interval_minutes)
-    point_ids = db.scalars(
-        select(OWKSRoutePoint.control_point_id)
-        .where(OWKSRoutePoint.route_id == route.id)
-        .order_by(OWKSRoutePoint.position)
-    ).all()
-    generated: list[OWKSEvent] = []
-    for point_id in point_ids:
-        previous = db.scalar(
-            select(OWKSEvent)
-            .where(
-                OWKSEvent.route_id == route.id,
-                OWKSEvent.control_point_id == point_id,
-                OWKSEvent.event_type == "control",
-                OWKSEvent.sync_status == "synced",
-            )
-            .order_by(OWKSEvent.occurred_at.desc())
-            .limit(1)
-        )
-        due_at = (
-            as_utc(previous.occurred_at) + interval
-            if previous is not None
-            else as_utc(route.created_at) + interval
-        )
-        if due_at > current_time:
-            continue
-        bucket = int(due_at.timestamp() // interval.total_seconds())
-        client_event_id = uuid5(
-            NAMESPACE_URL, f"securityops:owks:missed:{route.id}:{point_id}:{bucket}"
-        )
-        already_reported = db.scalar(
-            select(OWKSEvent.id).where(
-                OWKSEvent.client_event_id == client_event_id,
-            )
-        )
-        if already_reported is not None:
-            continue
-        point = db.get(OWKSControlPoint, point_id)
-        generated.append(
-            create_event(
-                db,
-                object_id=route.object_id,
-                employee_id=None,
-                actor_id=principal.user.id,
-                event_type="missed",
-                title=f"Versäumte Kontrolle: {point.name if point else 'Kontrollpunkt'}",
-                description=f"Die Route „{route.name}“ wurde bis {due_at.isoformat()} nicht kontrolliert.",
-                severity="warning",
-                occurred_at=due_at,
-                client_event_id=client_event_id,
-                route_id=route.id,
-                control_point_id=point_id,
-                request=request,
-            )
-        )
+    generated = monitor_due_routes(
+        db,
+        route_id=route.id,
+        actor_id=principal.user.id,
+        request=request,
+        acquire_lock=True,
+    )
     commit_or_conflict(db)
     return [event_read(db, event) for event in generated]
 
@@ -717,7 +768,7 @@ def create_log_event(
     payload: OWKSEventCreate,
     request: Request,
     db: Session = Depends(get_db),
-    principal=Depends(require_permission("owks.write")),
+    principal=Depends(require_owks_write),
 ) -> OWKSEventRead:
     employee = validate_event_writer(db, payload.object_id, principal)
     existing = db.scalar(
@@ -762,7 +813,7 @@ def sync_offline_events(
     payload: list[OWKSSyncEventCreate],
     request: Request,
     db: Session = Depends(get_db),
-    principal=Depends(require_permission("owks.write")),
+    principal=Depends(require_owks_write),
 ) -> list[OWKSSyncResult]:
     if len(payload) > 100:
         raise HTTPException(
@@ -945,7 +996,7 @@ def upload_attachment(
     request: Request,
     document: UploadFile = File(),
     db: Session = Depends(get_db),
-    principal=Depends(require_permission("owks.write")),
+    principal=Depends(require_owks_write),
 ) -> OWKSAttachmentRead:
     event = db.scalar(select(OWKSEvent).where(OWKSEvent.id == event_id))
     if event is None:
