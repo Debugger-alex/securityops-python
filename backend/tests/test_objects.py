@@ -110,7 +110,10 @@ def test_object_validation_and_customer_requirement(client: TestClient) -> None:
         json={"customer_id": customer["id"], "name": "Prüfobjekt", "code": "OBJ-003"},
     )
     assert created.status_code == 201
-    assert client.post(
-        f"/api/v1/objects/{created.json()['id']}/reactivate",
-        headers=headers,
-    ).status_code == 409
+    assert (
+        client.post(
+            f"/api/v1/objects/{created.json()['id']}/reactivate",
+            headers=headers,
+        ).status_code
+        == 409
+    )
