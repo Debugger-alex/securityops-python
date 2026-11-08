@@ -17,6 +17,9 @@ from app.models import (
     AuditLog,
     Base,
     Customer,
+    CustomerAddress,
+    CustomerContact,
+    CustomerHistory,
     Permission,
     Role,
     User,
@@ -60,6 +63,9 @@ def client() -> Generator[TestClient, None, None]:
     with TestingSessionLocal() as db:
         db.execute(delete(UserSession))
         db.execute(delete(AuditLog))
+        db.execute(delete(CustomerHistory))
+        db.execute(delete(CustomerContact))
+        db.execute(delete(CustomerAddress))
         db.execute(delete(Customer))
         db.execute(delete(user_roles))
         db.execute(delete(User))
