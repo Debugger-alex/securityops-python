@@ -23,7 +23,7 @@ Arbeitsstand: Feature-Branch `feature/personnel-management`, aufgebaut auf dem a
 |---|---|
 | Kunden | Kernverwaltung vorhanden: Backend, Migration 0004, API, Filter-/Detail-/Kontakt-/Archivierungsoberflächen und Regressionstests. Vertrags- und Dokumentenzuordnung fehlen ([#6](https://github.com/Xonni-star/securityops-python/issues/6)). |
 | Objekte | Backend/API/UI und Migrationen 0005–0007 implementiert. Objektzuweisungen sind Benutzerkonten, keine Personalakten. Lokale Tests/Ruff/Frontendbuild bestanden; echter PostgreSQL-Lauf, Docker-Builds, CI und Review für diesen Branch stehen aus. Issue #2 daher noch nicht abschließen. |
-| Personal/Qualifikationen | Teilweise implementiert: Migration 0008, Modelle, API, getrennte sensible Daten-/Abwesenheitsrechte, React-Oberfläche und Backendtests sind im aktuellen Branch vorhanden. Qualifikationsdateien, Mitarbeiter-Objektzuweisungen und Produktiv-/CI-Prüfung fehlen; Issue #5 bleibt offen ([#5](https://github.com/Xonni-star/securityops-python/issues/5)). |
+| Personal/Qualifikationen | Teilweise implementiert: Migration 0008, Modelle, API, getrennte sensible Daten-/Abwesenheitsrechte, React-Oberfläche und Backendtests sind vorhanden. Lokale Tests/Ruff/Frontendbuild sowie CI mit PostgreSQL-Migrationen/-Tests und Docker-Builds bestanden. Qualifikationsdateien und Mitarbeiter-Objektzuweisungen fehlen; Issue #5 bleibt offen ([#5](https://github.com/Xonni-star/securityops-python/issues/5)). |
 | Dienstplanung | Nicht implementiert ([#10](https://github.com/Xonni-star/securityops-python/issues/10)). |
 | Zeiterfassung | Nicht implementiert ([#4](https://github.com/Xonni-star/securityops-python/issues/4)). |
 | OWKS/Kontrollgänge | Nicht implementiert ([#3](https://github.com/Xonni-star/securityops-python/issues/3)). |
@@ -39,8 +39,8 @@ Arbeitsstand: Feature-Branch `feature/personnel-management`, aufgebaut auf dem a
 - Prioritäten und Abhängigkeiten: [`IMPLEMENTATION_ROADMAP.md`](IMPLEMENTATION_ROADMAP.md).
 - Sicherheitsbefunde und offene Maßnahmen: [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md).
 - Architektur, Betrieb und weitere Unterlagen sind im [`README.md`](../README.md) verlinkt.
-- Personalverwaltungs-Branch: **18 Backendtests bestanden**; Ruff-Lint/Format, Frontend-TypeScript-Prüfung und Produktionsbuild bestanden. Alembic-Upgrade bis Revision 0008 und Downgrade 0008→0007 wurden als PostgreSQL-SQL offline gerendert.
-- Kein lokaler PostgreSQL- oder Docker-Dienst wurde für diesen Branch bestätigt; echte PostgreSQL-Integration und Docker-Builds sind nicht belegt. Vorherige CI-Ergebnisse für andere Branches ersetzen diese Prüfung nicht.
+- Personalverwaltungs-Branch: **18 lokale Backendtests bestanden**; Ruff-Lint/Format, Frontend-TypeScript-Prüfung und Produktionsbuild bestanden. Alembic-Upgrade bis Revision 0008 und Downgrade 0008→0007 wurden offline gerendert. GitHub-CI für PR #17 hat PostgreSQL-Migrationen/-Tests sowie Frontend- und Docker-Builds erfolgreich ausgeführt.
+- Lokales PostgreSQL und Docker sind in der Entwicklungsumgebung nicht verfügbar; die tatsächliche PostgreSQL- und Docker-Prüfung erfolgte in CI.
 - Derzeit keine E2E-, Last-, Restore-, externe Penetrations- oder unabhängige Datenschutz-/Steuerprüfung.
 
 ## Nächste Schritte

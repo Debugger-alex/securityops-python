@@ -16,7 +16,7 @@ Diese Prüfung fasst die bisherigen Reviews für `main` nach PR #16 und den aktu
 | SEC-08 | Hoch | In `main` behoben | Administratorrollenvergabe/-änderung ist serverseitig zusätzlich an `users.manage_admin` gebunden und durch Regressionstest abgedeckt. |
 | SEC-09 | Hoch | In `main` behoben, PR #16 CI erfolgreich | Objektendpunkte erzwangen zuvor keine Zuweisung und erlaubten mit Modulrechten Zugriff auf fremde Objekte. Lesen, Ändern, Archivieren, Kontakte, Historie, Zuweisungen und sensible Details prüfen jetzt den Objekt-Scope serverseitig. |
 | SEC-10 | Hoch | In `main` behoben, PR #16 CI erfolgreich | Allgemeine Objektantworten enthielten zuvor Sicherheits-/Zutrittsdaten. Diese Angaben liegen nun getrennt und benötigen eigene Les-/Schreibberechtigungen; Negativtests prüfen Antworttrennung und Scope. |
-| SEC-11 | Mittel | Im Personal-Feature-Branch umgesetzt, CI ausstehend | Sensible Personalangaben und Abwesenheiten sind aus allgemeinen Personalantworten getrennt und durch eigene Rechte geschützt. Lokale Negativtests prüfen Zugriffstrennung; Migration und Berechtigungsmatrix müssen noch in CI/PostgreSQL bestätigt werden. |
+| SEC-11 | Mittel | Im Personal-Feature-Branch umgesetzt, CI erfolgreich | Sensible Personalangaben und Abwesenheiten sind aus allgemeinen Personalantworten getrennt und durch eigene Rechte geschützt. Lokale Negativtests sowie PostgreSQL-Migrationen und -Tests in PR #17 CI bestätigen die Änderungen; weiterer Review bleibt offen. |
 
 ## Geprüfte Schutzmaßnahmen
 
@@ -42,11 +42,11 @@ Diese Prüfung fasst die bisherigen Reviews für `main` nach PR #16 und den aktu
 4. MFA, sicheren Passwort-Reset und Sitzungsanzeige/-widerruf mit Abuse- und Berechtigungstests umsetzen.
 5. CI um verwaltete SCA-/SAST-Prüfungen ergänzen und deren Pflege/Alarmierungsweg festlegen.
 6. Security-Header, TLS, Datenschutz-/Aufbewahrung und Incident-Abläufe für die konkrete Serverumgebung festlegen und prüfen.
-7. Mitarbeiterdaten-Trennung und Berechtigungsprüfungen des aktuellen Feature-Branches durch PostgreSQL-CI und Review bestätigen, bevor sie als abgeschlossen gelten.
+7. Mitarbeiterdaten-Trennung und Berechtigungsprüfungen des aktuellen Feature-Branches sind in PostgreSQL-CI bestätigt; Review und fehlende Verknüpfung zu Objektzuweisungen bleiben offen.
 
 ## Grenzen und Prüfbelege
 
 - Lokale Backend-API-Tests verwenden SQLite; aktuell bestehen 18 Tests. Ruff-Lint und Frontend-TypeScript-/Produktionsbuild sind lokal erfolgreich. Migration 0008 ist noch nicht gegen PostgreSQL validiert.
-- Für den aktuellen Personal-Branch liegt noch kein echter PostgreSQL-Integrationslauf, Docker-Build oder externer Penetrationstest vor. Die CI für PR #16 war nach den Objektkorrekturen erfolgreich.
+- Die PostgreSQL-Migrationen/-Tests und Docker-Builds für den Personal-Branch waren in CI erfolgreich. Ein externer Penetrationstest liegt nicht vor. Die CI für PR #16 war nach den Objektkorrekturen ebenfalls erfolgreich.
 - Die Prüfung bewertet keinen konkreten Server, Reverse Proxy, Firewall, Secret Store, Backup-Speicher oder administrativen Datenbankzugang.
 - Die Anwendung ist derzeit ein Entwicklungsstand. Vor öffentlichem oder produktivem Betrieb sind die offenen Punkte sowie Datenschutz-, Arbeitszeit- und Abrechnungsanforderungen fachlich und sicherheitstechnisch zu prüfen.

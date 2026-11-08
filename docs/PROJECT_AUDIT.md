@@ -1,6 +1,6 @@
 # SecurityOps – Repository-Audit
 
-Grundlage ist `main` nach dem Merge von PR #16 sowie der ungemergte Feature-Branch `feature/personnel-management`. Die Objektverwaltung ist in `main`; die unten beschriebene Personalverwaltung ist noch nicht durch CI/PostgreSQL/Docker geprüft.
+Grundlage ist `main` nach dem Merge von PR #16 sowie der Feature-Branch `feature/personnel-management` mit Draft-PR #17. Die Objektverwaltung ist in `main`; Personaländerungen wurden durch CI mit PostgreSQL-Migrationen/-Tests sowie Frontend- und Docker-Builds geprüft.
 
 ## Bestand
 
@@ -8,7 +8,7 @@ Grundlage ist `main` nach dem Merge von PR #16 sowie der ungemergte Feature-Bran
 |---|---|---|
 | Backend-Struktur | TEILWEISE | Ein FastAPI-Monolith mit `api.py`, `identity_api.py`, `auth.py`, zentralen SQLAlchemy-Modellen und Konfiguration. Noch keine fachlichen Modulgrenzen für Objekte, Personal, Planung, OWKS, Dokumente oder Abrechnung. |
 | Frontend | TEILWEISE | React-Anmeldung, Kunden- und Objektverwaltung sowie Personaloberfläche mit Navigation, Listen, Suche, Filtern, Details und Formularen. Personal-Frontend-Produktionsbuild bestanden; keine E2E- oder Komponententests. |
-| PostgreSQL/ORM | TEILWEISE | SQLAlchemy-Modelle und acht Migrationen. Migrationen 0005–0007 ergänzen Objekte; Migration 0008 ergänzt Personal, Qualifikationen, Abwesenheiten, sensible Daten und Historie. Aktuelle API-Tests laufen lokal auf SQLite; Upgrade bis 0008 und Downgrade 0008→0007 wurden offline für PostgreSQL gerendert, aber nicht an einem laufenden PostgreSQL ausgeführt. |
+| PostgreSQL/ORM | TEILWEISE | SQLAlchemy-Modelle und acht Migrationen. Migrationen 0005–0007 ergänzen Objekte; Migration 0008 ergänzt Personal, Qualifikationen, Abwesenheiten, sensible Daten und Historie. Lokale API-Tests laufen auf SQLite; CI führt Migrationen und Tests gegen PostgreSQL erfolgreich aus. |
 | Alembic | TEILWEISE | Explizite Migrationen vorhanden. Upgrade bis 0008 und Downgrade 0008→0007 lokal offline generiert; echter PostgreSQL-Lauf für diesen Branch steht aus. |
 | Anmeldung | TEILWEISE | Benutzername/Passwort, Argon2id, serverseitig widerrufbare opaque Sitzung, generische Fehlermeldung. MFA und Passwortzurücksetzung fehlen. |
 | Sitzungen/CSRF | TEILWEISE | HttpOnly-Sitzungscookie, CSRF-Cookie/Header-Abgleich, SameSite=Strict, Idle-/Absolute-Timeout, Logout und Widerruf beim Passwortwechsel. Keine Sitzungsübersicht oder gezielte Einzelwiderruf-UI. |
@@ -25,7 +25,7 @@ Grundlage ist `main` nach dem Merge von PR #16 sowie der ungemergte Feature-Bran
 | Dokumente/Verträge/Rechnungen | FEHLT | Kein Dateiablage-, Vertrags- oder Rechnungsmodell. |
 | Dashboard | TEILWEISE | Kundenanzahl, aktive Kunden und Interessenten werden aus der Datenbank gezählt; operative Kennzahlen fehlen. |
 | Docker/Deployment | TEILWEISE | Compose startet PostgreSQL, API und Vite-Entwicklungsserver. Es gibt keinen produktionsfähigen React-Static-Build, Reverse Proxy, TLS- oder Backup-Aufbau. Docker wurde in der Umgebung nicht ausgeführt. |
-| Tests | TEILWEISE | 18 Backendtests bestanden lokal auf SQLite; Ruff-Lint besteht, Formatierung wurde angewendet, Frontend-TypeScript/Produktionsbuild bestanden. Offline-Prüfung von Upgrade/Downgrade für Migration 0008 sowie PostgreSQL- und Docker-Läufe stehen noch aus. Keine E2E-, Last-, Backup-/Restore- oder Frontend-Komponententests. |
+| Tests | TEILWEISE | 18 Backendtests bestanden lokal auf SQLite; Ruff-Lint/Format, Frontend-TypeScript/Produktionsbuild bestanden. CI bestätigt PostgreSQL-Migrationen/-Tests und Docker-Builds. Keine E2E-, Last-, Backup-/Restore- oder Frontend-Komponententests. |
 
 ## Fehler und Risiken
 
@@ -79,6 +79,6 @@ Grundlage ist `main` nach dem Merge von PR #16 sowie der ungemergte Feature-Bran
 ## Prüfbelege
 
 - Objektverwaltung PR #16: in `main` gemergt; die CI nach den Korrekturen war erfolgreich.
-- Personalverwaltungs-Branch: 18 Backendtests, Ruff-Lint/Format und Frontend-TypeScript-/Produktionsbuild lokal bestanden; Migration 0008 wurde offline gerendert, aber nicht an einem laufenden PostgreSQL ausgeführt.
-- PostgreSQL und Docker waren für die aktuelle Personalverwaltungsarbeit in der Entwicklungsumgebung nicht verifiziert; gehostete CI liegt noch nicht vor.
+- Personalverwaltungs-Branch: 18 Backendtests, Ruff-Lint/Format und Frontend-TypeScript-/Produktionsbuild lokal bestanden; PR #17 CI bestätigt PostgreSQL-Migrationen/-Tests und Docker-Builds.
+- Lokales PostgreSQL und Docker waren in der Entwicklungsumgebung nicht verfügbar; gehostete CI für den aktuellen Branch ist erfolgreich.
 - Der GitHub-Actions-Lauf mit kurzlebigem PostgreSQL, Frontend-Build und Docker-Images war nach Behebung der Test-Fixture erfolgreich.
