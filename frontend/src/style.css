@@ -43,6 +43,11 @@ h1 { font-size: clamp(2rem, 4vw, 2.8rem); }
 .stat-card { display: flex; justify-content: space-between; align-items: center; min-height: 84px; padding: 18px 22px; color: #6b7985; }
 .stat-card strong { color: #172635; font-size: 1.65rem; font-weight: 700; }
 .content-grid { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(280px, .8fr); gap: 18px; margin-top: 20px; align-items: start; }
+.module-tabs { display: flex; gap: 8px; margin: -5px 0 20px; border-bottom: 1px solid #e1e7eb; }
+.module-tab { padding: 10px 14px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #64727e; cursor: pointer; font-weight: 650; }
+.module-tab.active { border-bottom-color: #177d79; color: #177d79; }
+.object-module { padding-bottom: 10px; }
+.object-intro { padding-top: 20px; }
 .panel { padding: 24px; min-width: 0; }
 .panel-heading { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
 h2 { font-size: 1.35rem; }
@@ -115,7 +120,14 @@ footer span { padding: 0 5px; }
 .contact-form h4 { margin: 0; font-size: .9rem; }
 .contact-form label { display: grid; gap: 6px; color: #43515c; font-size: .82rem; font-weight: 600; }
 .contact-form input:not([type="checkbox"]) { width: 100%; height: 40px; border: 1px solid #dfe6ea; border-radius: 7px; padding: 0 10px; }
+.contact-form select[multiple] { min-height: 120px; border: 1px solid #dfe6ea; border-radius: 7px; background: white; padding: 8px; }
 .contact-form button { justify-self: start; }
+.assignment-list { display: grid; gap: 7px; margin: 12px 0 0; padding: 0; list-style: none; }
+.assignment-list li { display: flex; justify-content: space-between; gap: 12px; color: #43515c; font-size: .82rem; }
+.assignment-list small { color: #74818d; }
+.assignment-section, .security-section { padding-top: 18px; border-top: 1px solid #e5eaed; }
+.assignment-section h3, .security-section h3 { margin: 0 0 12px; font-size: 1rem; }
+.sensitive-summary { padding: 12px; border-radius: 8px; background: #fff8e9; }
 .history-section { margin-top: 28px; padding-top: 22px; border-top: 1px solid #e5eaed; }
 .history-list { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
 .history-list li { display: grid; grid-template-columns: minmax(150px, 1fr) auto; gap: 4px 14px; padding: 12px; border-radius: 7px; background: #f7f9fa; font-size: .84rem; }
@@ -129,6 +141,7 @@ footer span { padding: 0 5px; }
 @media (max-width: 560px) {
   .shell { padding: 0 18px; }
   .topbar-label { display: none; }
+  .module-tabs { margin-top: 6px; }
   .account { gap: 8px; }
   .stats { grid-template-columns: 1fr; gap: 9px; }
   .stat-card { min-height: 67px; padding: 13px 17px; }
