@@ -1,42 +1,20 @@
-from collections.abc import Generator
-
-import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
 
-from app.database import get_db
-from app.main import app
-from app.models import Base
-
-test_engine = create_engine(
-    "sqlite://",
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSessionLocal = sessionmaker(bind=test_engine, autoflush=False, expire_on_commit=False)
+from conftest import ADMIN_PASSWORD
 
 
-def override_get_db() -> Generator[Session, None, None]:
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-@pytest.fixture()
-def client() -> Generator[TestClient, None, None]:
-    Base.metadata.create_all(bind=test_engine)
-    app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as test_client:
-        yield test_client
-    app.dependency_overrides.clear()
-    Base.metadata.drop_all(bind=test_engine)
+def sign_in(client: TestClient) -> str:
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"username": "admin", "password": ADMIN_PASSWORD},
+    )
+    assert response.status_code == 200
+    return client.cookies.get("securityops_csrf", "")
 
 
 def test_customer_lifecycle_and_search(client: TestClient) -> None:
+    csrf_token = sign_in(client)
+    headers = {"X-CSRF-Token": csrf_token}
     created = client.post(
         "/api/v1/customers",
         json={
@@ -44,6 +22,7 @@ def test_customer_lifecycle_and_search(client: TestClient) -> None:
             "email": "kontakt@example.de",
             "phone": "+49 30 123456",
         },
+        headers=headers,
     )
     assert created.status_code == 201
     customer = created.json()
@@ -56,7 +35,9 @@ def test_customer_lifecycle_and_search(client: TestClient) -> None:
     assert page.json()["items"][0]["id"] == customer["id"]
 
     updated = client.patch(
-        f"/api/v1/customers/{customer['id']}", json={"status": "inactive"}
+        f"/api/v1/customers/{customer['id']}",
+        json={"status": "inactive"},
+        headers=headers,
     )
     assert updated.status_code == 200
     assert updated.json()["status"] == "inactive"
@@ -67,11 +48,21 @@ def test_customer_lifecycle_and_search(client: TestClient) -> None:
         "customers_active": 0,
         "customers_leads": 0,
     }
+    audit_actions = {
+        row["action"] for row in client.get("/api/v1/audit-logs").json()
+    }
+    assert {"customers.created", "customers.updated"} <= audit_actions
 
 
 def test_customer_validation_and_missing_record(client: TestClient) -> None:
-    assert client.post("/api/v1/customers", json={"company_name": ""}).status_code == 422
-    assert client.post("/api/v1/customers", json={"company_name": "   "}).status_code == 422
+    csrf_token = sign_in(client)
+    headers = {"X-CSRF-Token": csrf_token}
+    assert client.post(
+        "/api/v1/customers", json={"company_name": ""}, headers=headers
+    ).status_code == 422
+    assert client.post(
+        "/api/v1/customers", json={"company_name": "   "}, headers=headers
+    ).status_code == 422
     assert (
         client.get("/api/v1/customers/00000000-0000-0000-0000-000000000000").status_code
         == 404

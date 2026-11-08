@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     postgres_user: str = "securityops"
     postgres_password: SecretStr = SecretStr("local-only-change-me")
     cors_origins: str = "http://localhost:5173"
+    session_cookie_secure: bool = True
+    session_idle_minutes: int = 30
+    session_absolute_hours: int = 12
 
     @property
     def database_url(self) -> URL:

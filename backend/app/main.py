@@ -2,24 +2,33 @@ import logging
 
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi.extension import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api import router
 from app.config import get_settings
 from app.database import engine
+from app.identity_api import router as identity_router
+from app.rate_limit import limiter
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
 app = FastAPI(title=settings.app_name, version="0.1.0")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH"],
-    allow_headers=["Content-Type", "Authorization"],
+    allow_headers=["Content-Type", "Authorization", "X-CSRF-Token"],
 )
 app.include_router(router, prefix=settings.api_prefix)
+app.include_router(identity_router, prefix=settings.api_prefix)
 
 
 @app.get("/health/live", tags=["System"])

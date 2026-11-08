@@ -21,6 +21,18 @@ a:hover { text-decoration: underline; }
 .brand-mark { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; background: #177d79; color: white; }
 .brand-light { color: #177d79; }
 .topbar-label, .muted, .result-count { color: #74818d; font-size: .88rem; }
+.account { display: flex; align-items: center; gap: 16px; }
+.sign-out { border: 1px solid #dfe6ea; border-radius: 6px; background: white; color: #42515d; padding: 8px 12px; cursor: pointer; }
+.sign-out:hover { border-color: #177d79; color: #177d79; }
+.auth-shell { min-height: 100vh; }
+.login-panel { max-width: 430px; margin: 9vh auto; }
+.login-panel h1 { font-size: 2rem; }
+.login-panel > p:not(.eyebrow, .alert) { margin: 8px 0 22px; }
+.login-panel form { display: grid; gap: 16px; margin-top: 20px; }
+.login-panel label { display: grid; gap: 7px; font-size: .88rem; font-weight: 600; }
+.login-panel input { height: 44px; border: 1px solid #dfe6ea; border-radius: 7px; padding: 0 11px; outline-color: #177d79; }
+.login-panel button { border: 0; border-radius: 7px; background: #177d79; color: white; font-weight: 600; padding: 12px; cursor: pointer; }
+.login-panel button:disabled { opacity: .65; cursor: wait; }
 .intro { padding: 48px 0 28px; }
 .eyebrow { color: #177d79; font-size: .7rem; font-weight: 700; letter-spacing: .13em; margin: 0 0 9px; }
 h1, h2 { font-family: inherit; margin: 0; letter-spacing: -.035em; }
@@ -44,6 +56,10 @@ td strong, td small { display: block; }
 td small { margin-top: 4px; color: #87939d; font-size: .78rem; }
 td select { border: 1px solid #e1e7eb; border-radius: 20px; background: #f6f8f9; padding: 6px 9px; color: #42515d; font-size: .78rem; }
 .empty { text-align: center; color: #87939d; padding: 34px 10px; }
+.status { border-radius: 20px; padding: 6px 9px; font-size: .78rem; }
+.status-active { color: #177d79; background: #e8f5f2; }
+.status-inactive { color: #71808c; background: #f0f2f4; }
+.status-lead { color: #8a6413; background: #fff5d9; }
 .form-panel form { display: grid; gap: 15px; }
 .form-panel label { display: grid; gap: 7px; font-size: .84rem; font-weight: 600; }
 .form-panel label span { color: #c24d42; }
@@ -61,6 +77,7 @@ footer span { padding: 0 5px; }
 @media (max-width: 560px) {
   .shell { padding: 0 18px; }
   .topbar-label { display: none; }
+  .account { gap: 8px; }
   .stats { grid-template-columns: 1fr; gap: 9px; }
   .stat-card { min-height: 67px; padding: 13px 17px; }
   .panel { padding: 18px 14px; }

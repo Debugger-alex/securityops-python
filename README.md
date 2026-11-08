@@ -1,6 +1,6 @@
-# SecurityOps – erste Ausbaustufe
+# SecurityOps – Entwicklungsstand
 
-Ein lokal startbares Grundgerüst für die Verwaltungsplattform eines Sicherheitsdienstes. Enthalten sind ein FastAPI-Backend, PostgreSQL, Datenbankmigrationen, eine versionierte Kunden-API und eine React-Oberfläche für Kundenstammdaten.
+Modularer Start für die Verwaltungsplattform eines Sicherheitsdienstes. Enthalten sind FastAPI, PostgreSQL, Alembic, eine React-Oberfläche, Kundenstammdaten sowie Benutzeranmeldung, Rollen-/Rechteprüfung und Audit-Protokoll.
 
 ## Start mit Docker Compose
 
@@ -18,11 +18,40 @@ docker compose up --build
 
 Die Anwendung ist danach unter <http://localhost:5173> erreichbar. Die API-Dokumentation befindet sich unter <http://localhost:8000/docs>. Die Ports sind standardmäßig nur an `localhost` gebunden.
 
+Die `SESSION_COOKIE_SECURE`-Einstellung ist im lokalen HTTP-Beispiel deaktiviert. Für jeden Betrieb hinter HTTPS muss sie auf `true` gesetzt werden.
+
+## Erstes Administratorkonto
+
+Nach dem Start legt Alembic die Systemrollen und Berechtigungen an. Erstelle danach ein erstes Administratorkonto. Setze die vier Variablen in deiner lokalen Shell (nicht in Git) und führe aus:
+
+```sh
+export BOOTSTRAP_ADMIN_USERNAME=admin
+export BOOTSTRAP_ADMIN_EMAIL=admin@deine-domain.de
+export BOOTSTRAP_ADMIN_NAME="System Administration"
+export BOOTSTRAP_ADMIN_PASSWORD='ein-einmaliges-lang-passwort'
+docker compose exec \
+  -e BOOTSTRAP_ADMIN_USERNAME \
+  -e BOOTSTRAP_ADMIN_EMAIL \
+  -e BOOTSTRAP_ADMIN_NAME \
+  -e BOOTSTRAP_ADMIN_PASSWORD \
+  api python -m app.bootstrap_admin
+unset BOOTSTRAP_ADMIN_USERNAME BOOTSTRAP_ADMIN_EMAIL BOOTSTRAP_ADMIN_NAME BOOTSTRAP_ADMIN_PASSWORD
+```
+
+Das Passwort muss mindestens 12 Zeichen lang sein. Der Bootstrapping-Befehl erstellt kein Standardpasswort und verweigert doppelte Benutzernamen oder E-Mail-Adressen. Melde dich anschließend an und erstelle weitere Benutzer über `POST /api/v1/users`.
+
 ## API
 
 - `GET /health/live` – Prozessstatus
 - `GET /health/ready` – Datenbankverbindung prüfen
 - `GET /api/v1/dashboard` – Kundenkennzahlen
+- `POST /api/v1/auth/login` – Anmeldung und sichere Sitzung starten
+- `GET /api/v1/auth/me` – angemeldeten Benutzer und Berechtigungen abrufen
+- `POST /api/v1/auth/logout` – Sitzung beenden (CSRF-Token erforderlich)
+- `POST /api/v1/auth/change-password` – Passwort ändern und Sitzungen widerrufen
+- `GET /api/v1/users` / `POST /api/v1/users` – Benutzerverwaltung (entsprechende Berechtigung erforderlich)
+- `GET /api/v1/roles` – Standardrollen und Rechte einsehen
+- `GET /api/v1/audit-logs` – jüngste Audit-Einträge einsehen
 - `GET /api/v1/customers?q=...&limit=25&offset=0` – Kunden suchen und paginieren
 - `POST /api/v1/customers` – Kunde anlegen
 - `GET /api/v1/customers/{id}` – Kundendetails abrufen
@@ -32,9 +61,9 @@ Statuswerte: `active`, `inactive`, `lead`. Kundennummern werden serverseitig ein
 
 ## Datenbankserver konfigurieren
 
-Das Backend liest `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER` und `POSTGRES_PASSWORD` aus der Umgebung. Compose setzt `POSTGRES_HOST=db` für den enthaltenen PostgreSQL-Dienst. Für einen externen PostgreSQL-Server können diese Werte in der `.env` auf dessen Verbindungsdaten gesetzt werden. `CORS_ORIGINS` steuert die erlaubte Browser-Origin. Der Datenbankport wird absichtlich nicht öffentlich freigegeben.
+Das Backend liest `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER` und `POSTGRES_PASSWORD` aus der Umgebung. Compose setzt `POSTGRES_HOST=db` für den enthaltenen PostgreSQL-Dienst. Für einen externen PostgreSQL-Server können diese Werte in der `.env` auf dessen Verbindungsdaten gesetzt werden. `CORS_ORIGINS` steuert die erlaubte Browser-Origin. Der Datenbankport wird absichtlich nicht öffentlich freigegeben. Sitzungen verwenden zufällige opaque Cookies; der Datenbankeintrag speichert nur den Token-Hash. Schreibzugriffe erfordern einen CSRF-Header. Passwort-Hashes werden mit Argon2id erzeugt.
 
-Bei direktem Backend-Start außerhalb von Docker: Python 3.12+, `cd backend`, `pip install '.[test]'`, die PostgreSQL-Variablen setzen, `alembic upgrade head` und danach `uvicorn app.main:app --reload`. `POSTGRES_PASSWORD` sollte nicht in Quellcode oder Versionsverwaltung abgelegt werden.
+Bei direktem Backend-Start außerhalb von Docker: Python 3.12+, `cd backend`, `pip install '.[test]'`, die PostgreSQL-Variablen setzen, für lokale HTTP-Entwicklung `SESSION_COOKIE_SECURE=false` einstellen, `alembic upgrade head` und danach `uvicorn app.main:app --reload`. `POSTGRES_PASSWORD` sollte nicht in Quellcode oder Versionsverwaltung abgelegt werden.
 
 ## Tests
 
@@ -46,6 +75,8 @@ pytest
 
 Die API-Tests verwenden eine isolierte SQLite-Testdatenbank; der Produktivbetrieb verwendet PostgreSQL.
 
-## Umfang und Sicherheit
+## Projektstatus und Sicherheit
 
-Dies ist ein lauffähiger Startpunkt, kein produktionsreifes Gesamtsystem. Benutzeranmeldung, Rollen-/Objektberechtigungen, MFA, Audit-Protokoll, OWKS, Personal, Verträge und Abrechnung sind noch nicht implementiert. Deshalb darf diese Version nicht öffentlich oder mit echten schutzbedürftigen Kunden- oder Personaldaten betrieben werden. Vor einem Serverbetrieb müssen insbesondere Authentifizierung, Autorisierung, Auditierung, TLS/Reverse-Proxy, Geheimnisverwaltung, Backups und Wiederherstellung ergänzt und geprüft werden.
+Die vorhandenen Funktionen und offenen Module sind in [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) dokumentiert. Noch nicht implementiert sind insbesondere MFA, E-Mail-gestützte Passwortzurücksetzung, objektspezifische Zuweisungen, Personal, Dienstplanung, Zeiterfassung, OWKS, Dokumente und Rechnungswesen. Das Audit-Protokoll ist über die Anwendung schreibgeschützt, aber noch nicht durch getrennte Datenbankrollen gegen privilegierte Datenbankänderungen abgesichert.
+
+Die Anmeldung und Rechteprüfung sind ein Entwicklungsstand, keine abgeschlossene Produktionssicherheitszertifizierung. Die Rate-Limits werden derzeit pro Backend-Prozess im Speicher geführt und benötigen für mehrere Worker oder Instanzen einen gemeinsamen Speicher. Vor öffentlichem Betrieb müssen unter anderem HTTPS/Reverse-Proxy, `SESSION_COOKIE_SECURE=true`, zentralisiertes Rate-Limiting, Backup/Wiederherstellung, Sicherheitsprüfung und die Datenschutz-/Aufbewahrungsvorgaben für den konkreten Betrieb eingerichtet sein. Das System enthält noch nicht den vollständigen Funktionsumfang aus dem Master-Prompt.
