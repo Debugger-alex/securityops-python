@@ -18,6 +18,7 @@ import {
 } from "./api";
 import ObjectManagement from "./ObjectManagement";
 import PersonnelManagement from "./PersonnelManagement";
+import SchedulingManagement from "./SchedulingManagement";
 import type {
   AuthUser,
   Customer,
@@ -122,7 +123,9 @@ export default function App() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [history, setHistory] = useState<CustomerHistory[]>([]);
   const [customerObjects, setCustomerObjects] = useState<SecurityObject[]>([]);
-  const [activeModule, setActiveModule] = useState<"customers" | "objects" | "employees">("customers");
+  const [activeModule, setActiveModule] = useState<
+    "customers" | "objects" | "employees" | "scheduling"
+  >("customers");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const canReadCustomers = user?.permissions.includes("customers.read") ?? false;
@@ -131,6 +134,7 @@ export default function App() {
   const canArchiveCustomers = user?.permissions.includes("customers.archive") ?? false;
   const canReadObjects = user?.permissions.includes("objects.read") ?? false;
   const canReadEmployees = user?.permissions.includes("employees.read") ?? false;
+  const canReadScheduling = user?.permissions.includes("scheduling.read") ?? false;
 
   useEffect(() => {
     getSession()
@@ -187,8 +191,10 @@ export default function App() {
     if (user && !canReadCustomers && canReadObjects) setActiveModule("objects");
     else if (user && !canReadCustomers && !canReadObjects && canReadEmployees) {
       setActiveModule("employees");
+    } else if (user && !canReadCustomers && !canReadObjects && !canReadEmployees && canReadScheduling) {
+      setActiveModule("scheduling");
     }
-  }, [canReadCustomers, canReadEmployees, canReadObjects, user]);
+  }, [canReadCustomers, canReadEmployees, canReadObjects, canReadScheduling, user]);
 
   async function submitLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -408,7 +414,7 @@ export default function App() {
       <section className="intro">
         <p className="eyebrow">SECURITYOPS VERWALTUNG</p>
         <h1>Guten Tag.</h1>
-        <p>Kunden, Objekte und Personalstammdaten zentral verwalten.</p>
+        <p>Kunden, Objekte, Personal und Dienste zentral verwalten.</p>
       </section>
 
       <nav className="module-tabs" aria-label="Verwaltungsmodule">
@@ -421,9 +427,14 @@ export default function App() {
         {canReadEmployees && <button
           className={activeModule === "employees" ? "module-tab active" : "module-tab"}
           onClick={() => setActiveModule("employees")}>Personal</button>}
+        {canReadScheduling && <button
+          className={activeModule === "scheduling" ? "module-tab active" : "module-tab"}
+          onClick={() => setActiveModule("scheduling")}>Dienstplanung</button>}
       </nav>
 
-      {activeModule === "employees" && canReadEmployees
+      {activeModule === "scheduling" && canReadScheduling
+        ? <SchedulingManagement user={user} />
+        : activeModule === "employees" && canReadEmployees
         ? <PersonnelManagement user={user} />
         : activeModule === "objects" && canReadObjects ? <ObjectManagement user={user} /> : <>
       {dashboard && <section className="stats" aria-label="Kundenübersicht">

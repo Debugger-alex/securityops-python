@@ -791,6 +791,146 @@ class EmployeeAbsenceRead(BaseModel):
     updated_at: datetime
 
 
+class ScheduleSettingsRead(BaseModel):
+    time_zone: str
+    minimum_rest_hours: int
+    updated_at: datetime
+
+
+class ScheduleSettingsUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    time_zone: str = Field(min_length=1, max_length=80)
+    minimum_rest_hours: int = Field(ge=0, le=168)
+
+    @field_validator("time_zone")
+    @classmethod
+    def time_zone_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Die Zeitzone darf nicht leer sein.")
+        return value
+
+
+class ScheduleShiftCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    employee_id: UUID
+    object_id: UUID
+    starts_at_local: datetime
+    ends_at_local: datetime
+    starts_at_fold: int = Field(default=0, ge=0, le=1)
+    ends_at_fold: int = Field(default=0, ge=0, le=1)
+    break_minutes: int = Field(default=0, ge=0, le=1440)
+    required_qualification: str | None = Field(default=None, max_length=160)
+
+    @field_validator("starts_at_local", "ends_at_local")
+    @classmethod
+    def local_times_must_not_have_an_offset(cls, value: datetime) -> datetime:
+        if value.tzinfo is not None and value.utcoffset() is not None:
+            raise ValueError("Lokale Dienstzeiten dürfen keinen UTC-Offset enthalten.")
+        return value
+
+    @field_validator("required_qualification")
+    @classmethod
+    def optional_text_must_not_be_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip() or None
+
+    @model_validator(mode="after")
+    def end_must_follow_start(self):
+        if self.ends_at_local <= self.starts_at_local:
+            raise ValueError("Das Dienstende muss nach dem Dienstbeginn liegen.")
+        return self
+
+
+class ScheduleShiftUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    employee_id: UUID | None = None
+    object_id: UUID | None = None
+    starts_at_local: datetime | None = None
+    ends_at_local: datetime | None = None
+    starts_at_fold: int | None = Field(default=None, ge=0, le=1)
+    ends_at_fold: int | None = Field(default=None, ge=0, le=1)
+    break_minutes: int | None = Field(default=None, ge=0, le=1440)
+    required_qualification: str | None = Field(default=None, max_length=160)
+
+    @field_validator(
+        "employee_id",
+        "object_id",
+        "starts_at_local",
+        "ends_at_local",
+        "starts_at_fold",
+        "ends_at_fold",
+        "break_minutes",
+    )
+    @classmethod
+    def supplied_update_values_must_not_be_null(cls, value):
+        if value is None:
+            raise ValueError("Ein gesetzter Änderungswert darf nicht null sein.")
+        return value
+
+    @field_validator("starts_at_local", "ends_at_local")
+    @classmethod
+    def local_times_must_not_have_an_offset(cls, value: datetime | None):
+        if value is not None and value.tzinfo is not None and value.utcoffset() is not None:
+            raise ValueError("Lokale Dienstzeiten dürfen keinen UTC-Offset enthalten.")
+        return value
+
+    @field_validator("required_qualification")
+    @classmethod
+    def optional_text_must_not_be_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip() or None
+
+    @model_validator(mode="after")
+    def supplied_end_must_follow_start(self):
+        if (
+            self.starts_at_local is not None
+            and self.ends_at_local is not None
+            and self.ends_at_local <= self.starts_at_local
+        ):
+            raise ValueError("Das Dienstende muss nach dem Dienstbeginn liegen.")
+        return self
+
+
+class ScheduleShiftRead(BaseModel):
+    id: UUID
+    employee_id: UUID
+    employee_number: str
+    employee_name: str
+    object_id: UUID
+    object_code: str
+    object_name: str
+    starts_at: datetime
+    ends_at: datetime
+    time_zone: str
+    break_minutes: int
+    required_qualification: str | None
+    status: Literal["draft", "published", "cancelled"]
+    created_by_id: UUID | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ScheduleConflictRead(BaseModel):
+    code: str
+    message: str
+
+
+class ScheduleShiftHistoryRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    actor_id: UUID | None
+    action: str
+    changed_fields: list[str]
+    created_at: datetime
+
+
 CustomerCreate.model_rebuild()
 CustomerUpdate.model_rebuild()
 CustomerRead.model_rebuild()

@@ -722,3 +722,96 @@ class EmployeeHistory(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
     employee: Mapped[Employee] = relationship(back_populates="history")
+
+
+class ScheduleSettings(Base):
+    __tablename__ = "schedule_settings"
+    __table_args__ = (
+        CheckConstraint("id = 1", name="ck_schedule_settings_singleton"),
+        CheckConstraint(
+            "minimum_rest_hours >= 0 AND minimum_rest_hours <= 168",
+            name="ck_schedule_settings_rest_hours",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, default=1)
+    time_zone: Mapped[str] = mapped_column(String(80), nullable=False, default="Europe/Berlin")
+    minimum_rest_hours: Mapped[int] = mapped_column(default=11, nullable=False)
+    updated_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
+class ScheduleShift(Base):
+    __tablename__ = "schedule_shifts"
+    __table_args__ = (
+        CheckConstraint(
+            "ends_at > starts_at",
+            name="ck_schedule_shifts_time_order",
+        ),
+        CheckConstraint(
+            "break_minutes >= 0",
+            name="ck_schedule_shifts_break_minutes",
+        ),
+        CheckConstraint(
+            "status IN ('draft', 'published', 'cancelled')",
+            name="ck_schedule_shifts_status",
+        ),
+        Index("ix_schedule_shifts_employee_time", "employee_id", "starts_at", "ends_at"),
+        Index("ix_schedule_shifts_object_time", "object_id", "starts_at", "ends_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    employee_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("employees.id", ondelete="RESTRICT"), nullable=False
+    )
+    object_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("objects.id", ondelete="RESTRICT"), nullable=False
+    )
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    break_minutes: Mapped[int] = mapped_column(default=0, nullable=False)
+    required_qualification: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="draft", nullable=False)
+    created_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    employee: Mapped[Employee] = relationship()
+    object: Mapped[SecurityObject] = relationship()
+    history: Mapped[list["ScheduleShiftHistory"]] = relationship(
+        back_populates="shift", cascade="all, delete-orphan"
+    )
+
+
+class ScheduleShiftHistory(Base):
+    __tablename__ = "schedule_shift_history"
+    __table_args__ = (Index("ix_schedule_shift_history_shift_created", "shift_id", "created_at"),)
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    shift_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("schedule_shifts.id", ondelete="RESTRICT"), nullable=False
+    )
+    actor_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    action: Mapped[str] = mapped_column(String(50), nullable=False)
+    changed_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    shift: Mapped[ScheduleShift] = relationship(back_populates="history")

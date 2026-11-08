@@ -1,14 +1,15 @@
 # SecurityOps – Projektstatus
 
-Arbeitsstand: Issue-#6-Branch `satan1800de-eng-issue-6-customer-completion`, aufgebaut auf `main` nach Merge von PR #17. PR #17 ist gemergt, seine PostgreSQL-/Backend-, Frontend- und Docker-CI war erfolgreich; Issue #5 ist geschlossen. Issue #6 wird in diesem Branch vervollständigt. Dieser Status beschreibt den Quellcode und lokale Prüfungen, nicht eine Produktionsfreigabe.
+Arbeitsstand: Feature-Branch `satan1800de-eng-dienstplanung-besetzung-konfliktpruefung` auf dem aktuellen `main`. PR #18 ist mit Merge-Commit `c8d4fbe203d179b7c4b620d604409c7217478033` gemergt; Backend/PostgreSQL, Frontend einschließlich Vitest und Docker waren grün, Issue #6 ist geschlossen. Issue #2 bleibt bis zur formalen Abnahme seiner Akzeptanzkriterien offen. Issue #10 wird in diesem Branch bearbeitet. Dieser Status beschreibt den Quellcode und tatsächlich ausgeführte Prüfungen, nicht eine Produktions- oder Rechtsfreigabe.
 
 ## Implementierter Stand
 
 - Modularer FastAPI-Monolith mit SQLAlchemy, PostgreSQL, Alembic sowie React/TypeScript/Vite.
-- Kundenkern in `main`: Anlage, Filterung, Sortierung, Suche, Detailabruf/-änderung, Geschäfts- und Rechnungsanschriften, Rechtsform, Ansprechpartner mit Primärkontakt, Archivierung/Reaktivierung und Historie. Der Issue-#6-Branch ergänzt Website, Vertragsstatus, Filter/Sortierung danach und erreichbare Objektzuordnungen. Dokumenten- und Vertragsverwaltung fehlen weiterhin.
+- Kundenkern in `main`: Anlage, Filterung, Sortierung, Suche, Detailabruf/-änderung, Geschäfts- und Rechnungsanschriften, Rechtsform, Website, Vertragsstatus, Ansprechpartner mit Primärkontakt, Archivierung/Reaktivierung, Historie und erreichbare Objektzuordnungen. PR #18 ist gemergt; Issue #6 ist geschlossen. Dokumenten- und Vertragsverwaltung fehlen weiterhin.
 - Objektverwaltung mit Kunden-FK, Suche/Filter/Sortierung/Paginierung, Detailbearbeitung, Anschrift, mehreren einzeln bearbeitbaren Ansprechpartnern, Archivierung/Reaktivierung und Historie.
 - Objektmitarbeiter-Zuweisungen auf aktive Mitarbeiter-/Objektleitungskonten; serverseitiger Objektzugriff anhand globaler Rechte oder Zuweisung. Sensible Sicherheits-/Zutrittsdaten liegen in eigener Tabelle und eigenen API-Endpunkten mit separaten Berechtigungen.
 - Personalakten mit Personalnummer, Stammdaten, optionalem Benutzerkonto, Beschäftigungsstatus, Qualifikationen, Ablaufübersicht, Abwesenheiten, Archivierung/Reaktivierung und Historie. Anschrift, Notfallkontakt und interne Notizen sind getrennt und zusätzlich berechtigt.
+- Dienstplan-Kern im aktuellen Feature-Branch: Schichtanlage/-änderung, Tages-/Wochen-/Monatsansichten, Mitarbeiter-/Objekt-/Datumsfilter, Entwurf/Veröffentlichung/Absage, Verlauf, Konfliktprüfung und konfigurierbare IANA-Zeitzone/Mindestruhezeit. UTC-Zeitpunkte, Abwesenheiten, aktiver Beschäftigungszeitraum, Qualifikation, Objektzuweisung, bestehende Schichten und Ruhezeit werden geprüft. Die persönliche Verfügbarkeit hat im aktuellen Datenmodell keine eigenständigen Wunsch-/Sperrzeitfenster; es wird die Verfügbarkeit aus Beschäftigungsstatus, Abwesenheiten und bestehenden Diensten abgeleitet.
 - Anmeldung mit Argon2id, serverseitig widerrufbaren opaque Sitzungen, Idle-/Absolute-Timeout, CSRF-Prüfung und Login-Rate-Limit.
 - Serverseitige RBAC-Prüfungen, Benutzeranlage/-deaktivierung und Schutz des letzten aktiven Administrators.
 - Audit-Ereignisse für An-/Abmeldung, fehlgeschlagene Anmeldungen, Passwortwechsel, Benutzer- und Kundenänderungen.
@@ -21,10 +22,10 @@ Arbeitsstand: Issue-#6-Branch `satan1800de-eng-issue-6-customer-completion`, auf
 
 | Bereich | Status |
 |---|---|
-| Kunden | Issue #6 wird in diesem Branch vervollständigt: additive Alembic-Migration 0010, Website, Vertragsstatus, Validierung, Suche/Filter/Sortierung sowie geschützte Objektzuordnungen. Vertrags- und Dokumentenmodule/Zuordnungen fehlen ([#6](https://github.com/Xonni-star/securityops-python/issues/6)). |
-| Objekte | Backend/API/UI und Migrationen 0005–0007 in `main` implementiert; PR #16 und dessen CI sind abgeschlossen. Objektzuweisungen bleiben technisch an Benutzerkonten gebunden; Personalakten werden über dasselbe Zuweisungsmodell und eine zusätzliche Personalhistorie integriert. Issue #2 bleibt bis zur fachlichen Bestätigung der Akzeptanzkriterien offen. |
+| Kunden | PR #18 mit Migration 0010, Website, Vertragsstatus, Suche/Filter/Sortierung und geschützten Objektzuordnungen ist gemergt; CI Backend/PostgreSQL, Frontend/Vitest und Docker war grün. Issue #6 ist geschlossen. Vertrags- und Dokumentenmodule fehlen weiterhin ([#6](https://github.com/Xonni-star/securityops-python/issues/6)). |
+| Objekte | Backend/API/UI und Migrationen 0005–0007 in `main` implementiert; PR #16 und dessen CI sind abgeschlossen. Issue #2 bleibt offen, da die formale Abnahme der Akzeptanzkriterien noch aussteht. |
 | Personal/Qualifikationen | Migrationen 0008–0009, Personalakten, Abwesenheiten, sensible Daten, Historie, Zuweisungen und versionierte Qualifikationsdateien sind in `main`. PR #17 wurde gemergt; PostgreSQL-/Backend-, Frontend- und Docker-CI war grün und Issue #5 ist geschlossen ([#5](https://github.com/Xonni-star/securityops-python/issues/5)). |
-| Dienstplanung | Nicht implementiert ([#10](https://github.com/Xonni-star/securityops-python/issues/10)). |
+| Dienstplanung | Scheduling-Kern in diesem Branch in Bearbeitung: Migration 0011, API/UI und Tests; PostgreSQL-Integrationsprüfung, CI und Review ausstehend ([#10](https://github.com/Xonni-star/securityops-python/issues/10)). |
 | Zeiterfassung | Nicht implementiert ([#4](https://github.com/Xonni-star/securityops-python/issues/4)). |
 | OWKS/Kontrollgänge | Nicht implementiert ([#3](https://github.com/Xonni-star/securityops-python/issues/3)). |
 | Dokumente/Verträge | Nicht implementiert ([#8](https://github.com/Xonni-star/securityops-python/issues/8)). |
@@ -39,19 +40,19 @@ Arbeitsstand: Issue-#6-Branch `satan1800de-eng-issue-6-customer-completion`, auf
 - Prioritäten und Abhängigkeiten: [`IMPLEMENTATION_ROADMAP.md`](IMPLEMENTATION_ROADMAP.md).
 - Sicherheitsbefunde und offene Maßnahmen: [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md).
 - Architektur, Betrieb und weitere Unterlagen sind im [`README.md`](../README.md) verlinkt.
-- PR #17: GitHub-CI für Backend/PostgreSQL, Frontend und Docker erfolgreich; Issue #5 geschlossen.
-- Issue #6 / PR #18: 23 Backendtests, Ruff-Lint/Format, 2 Frontendtests, Frontend-TypeScript-/Produktionsbuild, PostgreSQL-Migrations-/Backend-CI und beide Docker-Image-Builds bestanden. Alembic-Upgrade bis 0010 und Downgrade 0010→0009 wurden lokal zusätzlich offline gerendert.
-- Lokales PostgreSQL und Docker sind in der Entwicklungsumgebung nicht verfügbar; die tatsächliche PostgreSQL- und Docker-Prüfung erfolgt in CI.
+- PR #18 (Merge-Commit `c8d4fbe203d179b7c4b620d604409c7217478033`): GitHub-CI für Backend/PostgreSQL, Frontend einschließlich Vitest und Docker erfolgreich; Issue #6 geschlossen.
+- Dienstplanung lokal: 27 Backendtests bestanden, ein PostgreSQL-spezifischer Parallelitätstest wegen fehlendem lokalen PostgreSQL übersprungen; Ruff-Lint/Format, Frontend-TypeScript-/Produktionsbuild und drei Vitest-Tests erfolgreich. Alembic-Upgrade bis 0011 und Downgrade 0011→0010 wurden für PostgreSQL offline gerendert. Ein Offline-SQL-Render ist kein Live-Migrationstest. PostgreSQL-Migration, Paralleltest und Docker-Image-Builds müssen in CI bestätigt werden, bevor die Akzeptanzkriterien als erfüllt gelten.
 - Derzeit keine E2E-, Last-, Restore-, externe Penetrations- oder unabhängige Datenschutz-/Steuerprüfung.
 
 ## Nächste Schritte
 
-1. Review und Merge von PR #18 zu Issue #6 abwarten; Issue #6 bleibt bis zur fachlichen Abnahme offen.
-2. Danach Dienstplanung [#10](https://github.com/Xonni-star/securityops-python/issues/10), Zeiterfassung [#4](https://github.com/Xonni-star/securityops-python/issues/4) und weitere Module gemäß Roadmap angehen.
-3. Produktionshärtung, Monitoring und Backup/Restore aus [Issue #9](https://github.com/Xonni-star/securityops-python/issues/9) bleiben separat offen.
+1. Dienstplan-Branch gegen PostgreSQL-CI, Berechtigungs-/Konflikttests, Frontend und Docker prüfen; PR reviewen und Issue #10 erst nach erfüllten Akzeptanzkriterien schließen.
+2. Issue #2 bleibt bis zur formalen Abnahme offen; keine geschlossenen Issues erneut öffnen.
+3. Zeiterfassung [#4](https://github.com/Xonni-star/securityops-python/issues/4) und weitere Module gemäß Roadmap angehen.
+4. Produktionshärtung, Monitoring, unabhängige Rechtsprüfung und Backup/Restore aus [Issue #9](https://github.com/Xonni-star/securityops-python/issues/9) bleiben separat offen.
 
 ## Repository-Arbeitsstand
 
-- Der aktuelle Arbeitsbranch ist `satan1800de-eng-issue-6-customer-completion`; PR #18 ist offen und enthält nur die Folgearbeiten zu Issue #6 auf dem aktuellen `main`.
-- PR #17 ist gemergt; Issue #5 ist geschlossen.
+- Der aktuelle Arbeitsbranch ist `satan1800de-eng-dienstplanung-besetzung-konfliktpruefung`, ausgehend von `main` nach Merge von PR #18.
+- PR #18 ist gemergt; Issue #6 ist geschlossen. Issue #2 bleibt bis zur formalen Akzeptanz offen; Issue #10 wird bearbeitet.
 - Die bereits in `main` gemergte Objektverwaltung wurde nicht neu entwickelt; Personalakten greifen über ihr verknüpftes Benutzerkonto auf die bestehende Zuweisungstabelle zu.

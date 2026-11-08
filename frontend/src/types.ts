@@ -11,6 +11,7 @@ export type ObjectSort = "name" | "code" | "created_at" | "status";
 export type EmployeeStatus = "active" | "inactive" | "leave" | "terminated";
 export type EmployeeAbsenceType = "vacation" | "sick_leave" | "other";
 export type EmployeeAbsenceStatus = "pending" | "approved" | "rejected";
+export type ScheduleShiftStatus = "draft" | "published" | "cancelled";
 
 export interface CustomerAddress {
   id: string;
@@ -301,4 +302,37 @@ export interface ObjectAssignmentCandidate {
   id: string;
   username: string;
   full_name: string;
+}
+
+export interface ScheduleSettings {
+  time_zone: string;
+  minimum_rest_hours: number;
+  updated_at: string;
+}
+
+export interface ScheduleShift {
+  id: string;
+  employee_id: string;
+  employee_number: string;
+  employee_name: string;
+  object_id: string;
+  object_code: string;
+  object_name: string;
+  starts_at: string;
+  ends_at: string;
+  time_zone: string;
+  break_minutes: number;
+  required_qualification: string | null;
+  status: ScheduleShiftStatus;
+  created_by_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ScheduleShiftHistory {
+  id: string;
+  actor_id: string | null;
+  action: string;
+  changed_fields: string[];
+  created_at: string;
 }

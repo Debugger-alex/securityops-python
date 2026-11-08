@@ -1,6 +1,6 @@
 # SecurityOps – Entwicklungsstand
 
-Modularer Start für die Verwaltungsplattform eines Sicherheitsdienstes. Enthalten sind FastAPI, PostgreSQL, Alembic, eine React-Oberfläche, Kundenstammdaten sowie Benutzeranmeldung, Rollen-/Rechteprüfung und Audit-Protokoll.
+Modularer Start für die Verwaltungsplattform eines Sicherheitsdienstes. Enthalten sind FastAPI, PostgreSQL, Alembic, eine React-Oberfläche, Kunden-, Objekt- und Personalverwaltung sowie Benutzeranmeldung, Rollen-/Rechteprüfung und Audit-Protokoll. Ein Dienstplan-Kern mit Zeitzonen- und Konfliktprüfung wird in einem eigenen Feature-Branch umgesetzt und ist noch nicht in `main` geprüft/gemergt.
 
 ## Start mit Docker Compose
 
@@ -70,8 +70,13 @@ Das Passwort muss mindestens 12 Zeichen lang sein. Der Bootstrapping-Befehl erst
 - `/api/v1/employees/qualifications/expiring` – ablaufende und abgelaufene Nachweise
 - `/api/v1/employees/{id}/absences` – Abwesenheiten mit eigenen Rechten verwalten
 - `/api/v1/employees/{id}/sensitive` – getrennt geschützte sensible Personaldaten
+- `/api/v1/scheduling/settings` – Zeitzone und Mindestruhezeit lesen/ändern
+- `/api/v1/scheduling/shifts` – Schichten mit Tages-/Wochen-/Monatsfiltern lesen und verwalten
+- `/api/v1/scheduling/shifts/{id}/history` – nachvollziehbaren Änderungsverlauf lesen
 
 Statuswerte: `active`, `inactive`, `lead`. Kundennummern werden serverseitig eindeutig als `K-<UUID>` erzeugt. Kunden werden in dieser Ausbaustufe nicht physisch gelöscht.
+
+Die im Feature-Branch entstehende Dienstplanung speichert Zeitpunkte als UTC und nutzt eine konfigurierbare IANA-Zeitzone zur Auflösung lokaler Eingaben. PostgreSQL-Constraints verhindern konkurrierende zeitliche Doppelbelegungen. Konfigurierbare Ruhezeit- und Besetzungsprüfungen sind keine automatische Rechtsprüfung oder Rechtskonformitätsgarantie.
 
 ## Datenbankserver konfigurieren
 
@@ -87,12 +92,12 @@ pip install '.[test]'
 pytest
 ```
 
-Die API-Tests verwenden eine isolierte SQLite-Testdatenbank; der Produktivbetrieb verwendet PostgreSQL.
+Die lokalen API-Tests verwenden standardmäßig eine isolierte SQLite-Testdatenbank. Die GitHub-CI wendet alle Alembic-Migrationen zusätzlich auf PostgreSQL 17 an und führt die Backendtests gegen diese Datenbank aus; der produktive Betrieb verwendet PostgreSQL.
 
 ## Projektstatus und Sicherheit
 
 Die Bestandsaufnahme und offenen Module sind in [`docs/PROJECT_AUDIT.md`](docs/PROJECT_AUDIT.md), [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) und der [priorisierten Implementierungs-Roadmap](docs/IMPLEMENTATION_ROADMAP.md) dokumentiert. Weitere technische Informationen: [Architektur](docs/ARCHITECTURE.md), [Datenbank](docs/DATABASE.md), [API](docs/API.md), [Sicherheitsstatus](docs/SECURITY.md), [Sicherheitsprüfung](docs/SECURITY_REVIEW.md), [Installation](docs/INSTALLATION.md), [Deployment](docs/DEPLOYMENT.md), [Backup/Restore](docs/BACKUP_RESTORE.md), [Benutzeranleitung](docs/USER_GUIDE.md), [Changelog](docs/CHANGELOG.md) und [Roadmap](docs/ROADMAP.md).
 
-Die Objektverwaltung umfasst Backend, API und eine Frontend-Oberfläche mit Suche, Filterung, Sortierung, Details, Anschriften, Ansprechpartnern, Archivierung, Historie, Zuweisungen und getrennt geschützten Sicherheitsdaten. Objektzugriff wird serverseitig anhand globaler Rechte oder einer Objektzuweisung geprüft. Die Personalverwaltung in PR #17 umfasst Personalakten, Abwesenheiten und getrennte sensible Daten. Migration 0009 ergänzt eine nachvollziehbare Verbindung der Personalakten zu bestehenden Objektzuweisungen sowie versionierte Qualifikationsdateien mit eigenen Berechtigungen. Dateien werden auf PDF/PNG/JPEG und 10 MiB begrenzt, geprüft und in PostgreSQL gespeichert. Lokal bestehen 21 Backendtests; Ruff, Frontend-TypeScript und Produktionsbuild sind erfolgreich. PostgreSQL-, Frontend- und Docker-CI waren für den vorigen Commit erfolgreich; die neuesten Berechtigungsregressionstests benötigen einen erneuten CI-Lauf. PR #17 ist zur Review bereit, Issue #5 bleibt bis zur Review, Integration und bestätigten Akzeptanz offen. MFA, Passwortzurücksetzung, Dienstplanung, Zeiterfassung, OWKS, Vertragsverwaltung und Rechnungswesen sind noch nicht implementiert. Das Audit-Protokoll ist über die Anwendung schreibgeschützt, aber noch nicht durch getrennte Datenbankrollen gegen privilegierte Datenbankänderungen abgesichert.
+Die Objektverwaltung umfasst Backend, API und Frontend mit Suche, Filtern, Details, Anschriften, Ansprechpartnern, Archivierung, Historie, Zuweisungen und getrennt geschützten Sicherheitsdaten. Objektzugriff wird serverseitig anhand globaler Rechte oder einer Objektzuweisung geprüft. Personalakten, Qualifikationen, Abwesenheiten, getrennte sensible Daten und versionierte Qualifikationsdateien sind in `main`. PR #18 ist mit Merge-Commit `c8d4fbe203d179b7c4b620d604409c7217478033` gemergt; Backend/PostgreSQL, Frontend einschließlich Vitest und Docker CI waren grün, Issue #6 ist geschlossen. Issue #2 bleibt bis zur formalen Abnahme seiner Akzeptanzkriterien offen. Issue #10 wird im aktuellen Feature-Branch bearbeitet. MFA, Passwortzurücksetzung, Zeiterfassung, OWKS, Vertragsverwaltung und Rechnungswesen sind noch nicht implementiert. Das Audit-Protokoll ist über die Anwendung schreibgeschützt, aber noch nicht durch getrennte Datenbankrollen gegen privilegierte Datenbankänderungen abgesichert.
 
-Die Anwendung ist ein Entwicklungsstand, keine Produktionsfreigabe. Lokal bestehen 21 Backendtests; Ruff, Frontend-TypeScript und Frontendbuild sind erfolgreich. Das Upgrade/Downgrade der Migration 0009 wurde offline für den PostgreSQL-Dialekt gerendert. PostgreSQL und Docker sind für den vorherigen Commit in CI geprüft; der neueste Test-/Dokumentationsstand wartet auf CI. Vor öffentlichem Betrieb müssen unter anderem HTTPS/Reverse-Proxy, `SESSION_COOKIE_SECURE=true`, zentralisiertes Rate-Limiting, Backup/Wiederherstellung, Sicherheitsprüfung und die Datenschutz-/Aufbewahrungsvorgaben für den konkreten Betrieb eingerichtet sein. Die in PostgreSQL gespeicherten Qualifikationsdateien benötigen besonderen Schutz für Datenbank und Backups; Anwendungsebene-Verschlüsselung ist mangels Schlüsselverwaltung, Rotation und Restore-Verfahren nicht implementiert.
+Die Anwendung ist ein Entwicklungsstand, keine Produktionsfreigabe. Für den Scheduling-Branch sind lokale Backend-, Ruff-, Frontend- und Migrationstests sowie CI-Ergebnisse getrennt in [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) dokumentiert. Lokales PostgreSQL und Docker stehen nicht zur Verfügung; die Migration mit dem PostgreSQL-Exclusion-Constraint, der Paralleltest und beide Docker-Images müssen in CI geprüft werden. Vor öffentlichem Betrieb müssen unter anderem HTTPS/Reverse-Proxy, `SESSION_COOKIE_SECURE=true`, zentralisiertes Rate-Limiting, Backup/Wiederherstellung, Sicherheitsprüfung und Datenschutz-/Aufbewahrungsvorgaben eingerichtet sein. Ruhezeitregeln sind keine automatische Rechtsprüfung; gesetzliche Konformität wird nicht behauptet und erfordert unabhängige fachliche Prüfung.

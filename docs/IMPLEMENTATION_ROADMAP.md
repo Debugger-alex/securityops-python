@@ -1,6 +1,6 @@
 # SecurityOps – Implementierungs-Roadmap
 
-Diese Roadmap beschreibt `main` nach dem Merge von PR #17 sowie den aktuellen Arbeitsstand im Branch `satan1800de-eng-issue-6-customer-completion`. PR #17 ist gemergt, seine CI war erfolgreich und Issue #5 ist geschlossen. Issue #6 wird in diesem Branch vervollständigt; ein Issue bleibt offen, bis Code, Migrationen, Berechtigungsprüfungen, Tests, Dokumentation und CI vollständig geprüft sind. Der Funktionsumfang ist nicht produktionsreif.
+Diese Roadmap beschreibt `main` nach Merge von PR #18 (Merge-Commit `c8d4fbe203d179b7c4b620d604409c7217478033`) und den Arbeitsstand im Branch `satan1800de-eng-dienstplanung-besetzung-konfliktpruefung`. PR #18: Backend/PostgreSQL, Frontend einschließlich Vitest und Docker CI grün; Issue #6 geschlossen. Issue #2 bleibt wegen ausstehender formaler Abnahme offen. Issue #10 wird in diesem Branch bearbeitet. Ein Issue wird nicht ohne fachliche Abnahme geschlossen; Produktions-, Datenschutz- und Rechtsfreigaben sind hiervon getrennt.
 
 ## Statusübersicht
 
@@ -8,10 +8,10 @@ Diese Roadmap beschreibt `main` nach dem Merge von PR #17 sowie den aktuellen Ar
 |---|---|---|
 | Einzelmandanten-Grundgerüst | Teilweise | FastAPI, React/TypeScript, PostgreSQL, Alembic und Compose sind vorhanden; keine Mandantenstrukturen. |
 | Anmeldung und Rollen | Teilweise | Argon2id, serverseitige Sitzungen, CSRF, RBAC und Admin-Bootstrap vorhanden. MFA, Passwortzurücksetzung und Sitzungsverwaltung fehlen. Objektbezogene Rechte sind im aktuellen Branch ergänzt. |
-| Kunden | Teilweise umgesetzt; PR #18 offen | Bestehende Kundenverwaltung in `main`; PR #18 ergänzt Website, Vertragsstatus, Filter/Sortierung nach Vertragsstatus und berechtigungsgefilterte Objektzuordnungen. Backend/PostgreSQL-, Frontend- und Docker-CI sind grün. Vertrags- und Dokumentenmodule fehlen weiterhin ([#6](https://github.com/Xonni-star/securityops-python/issues/6)). |
-| Objekte | In `main` umgesetzt; Abnahme offen | Backend/API/UI und Migrationen 0005–0007; PR #16 gemergt und CI erfolgreich. Akzeptanzkriterien von Issue #2 sind noch formal zu bestätigen ([#2](https://github.com/Xonni-star/securityops-python/issues/2)). |
+| Kunden | In `main` umgesetzt; Issue #6 geschlossen | PR #18 ergänzt Website, Vertragsstatus, Filter/Sortierung und berechtigungsgefilterte Objektzuordnungen; Backend/PostgreSQL, Frontend einschließlich Vitest und Docker CI grün. Vertrags- und Dokumentenmodule fehlen weiterhin ([#6](https://github.com/Xonni-star/securityops-python/issues/6)). |
+| Objekte | In `main` umgesetzt; formale Abnahme offen | Backend/API/UI und Migrationen 0005–0007; PR #16 gemergt und CI erfolgreich. Issue #2 bleibt offen, bis die Akzeptanzkriterien formal abgenommen sind ([#2](https://github.com/Xonni-star/securityops-python/issues/2)). |
 | Personal und Qualifikationen | In `main` umgesetzt | Migrationen 0008–0009, Personalakten, Qualifikationen, Abwesenheiten, sensible Daten, Historie, Objektzuweisungen und versionierte Qualifikationsdateien. PR #17 ist gemergt, CI erfolgreich; Issue #5 ist geschlossen. |
-| Dienstplanung | Nicht implementiert | Schichten, Besetzung, Konflikt- und Qualifikationsprüfung fehlen ([#10](https://github.com/Xonni-star/securityops-python/issues/10)). |
+| Dienstplanung | In Bearbeitung | Branch enthält Scheduling-Kern mit UTC-Zeitpunkten, konfigurierbarer IANA-Zeitzone/Ruhezeit, PostgreSQL-Überlappungsschutz, Prüfungen, API/UI und Änderungshistorie. PostgreSQL-CI, parallele Integrationstests, Review und Issue-Abnahme stehen aus ([#10](https://github.com/Xonni-star/securityops-python/issues/10)). |
 | Zeiterfassung | Nicht implementiert | Nachvollziehbare Buchungen, Korrekturfreigaben und Export fehlen ([#4](https://github.com/Xonni-star/securityops-python/issues/4)). |
 | OWKS | Nicht implementiert | Kontrollpunkte, QR/NFC, Rundgänge und Offline-Synchronisierung fehlen ([#3](https://github.com/Xonni-star/securityops-python/issues/3)). |
 | Dokumente und Verträge | Nicht implementiert | Geschützte Ablage, Berechtigungen und Versionierung fehlen ([#8](https://github.com/Xonni-star/securityops-python/issues/8)). |
@@ -29,13 +29,13 @@ Diese Roadmap beschreibt `main` nach dem Merge von PR #17 sowie den aktuellen Ar
 
 ### P1 – Kunden und Objekte
 
-1. PR #18 zu Issue #6 reviewen und abnehmen; Vertrags-/Dokumentzuordnungen erst mit den noch nicht vorhandenen Modulen ergänzen ([#6](https://github.com/Xonni-star/securityops-python/issues/6)).
-2. Akzeptanzkriterien von Issue #2 nach dem Merge von PR #16 formal bewerten; Issue bis zur bestätigten Abnahme offen halten.
+1. Vertrags-/Dokumentzuordnungen erst mit den noch nicht vorhandenen Modulen ergänzen; Issue #6 ist nach PR #18 geschlossen ([#6](https://github.com/Xonni-star/securityops-python/issues/6)).
+2. Akzeptanzkriterien von Issue #2 formal bewerten; Issue bis zur bestätigten Abnahme offen halten.
 
 ### P2 – Personal und Einsatzbetrieb
 
 1. Personalverwaltung bei Bedarf nach der in `main` erfolgten Implementierung fachlich weiterentwickeln ([#5](https://github.com/Xonni-star/securityops-python/issues/5)).
-2. Dienstplanung mit Qualifikations-, Verfügbarkeits-, Ruhezeit- und Doppelbelegungsprüfungen ([#10](https://github.com/Xonni-star/securityops-python/issues/10)).
+2. Laufenden Dienstplan-Branch gegen PostgreSQL-CI, parallele Änderungen, Berechtigungen, Zeiten, Frontend und Docker prüfen; Issue #10 erst nach Review und geprüften Akzeptanzkriterien schließen. Die Verfügbarkeit wird derzeit aus Beschäftigungszeitraum, Abwesenheiten und bestehenden Diensten abgeleitet; individuelle regelmäßige Wunsch-/Sperrzeiten sind nicht modelliert ([#10](https://github.com/Xonni-star/securityops-python/issues/10)).
 3. Arbeitszeitbuchungen mit begründeten, genehmigten Korrekturen und unverändertem Original ([#4](https://github.com/Xonni-star/securityops-python/issues/4)).
 4. OWKS auf Objekte und Personal aufbauen; eindeutige Kontrollereignisse, QR/NFC und idempotente spätere Offline-Synchronisierung ([#3](https://github.com/Xonni-star/securityops-python/issues/3)).
 
