@@ -1,5 +1,13 @@
 # Änderungsprotokoll
 
+## 2026-11-08 – Gestapelte Ergänzung zu Zeiterfassung/Zuschlägen
+
+- Migration 0013 ergänzt Bundeslandseinstellung, unveränderliche Zuschlagsregeln, versionierte Berechnungssnapshots und endgültige Abrechnungsperiodensperren mit getrennten Rechten.
+- Zuschlagszeit wird ausschließlich auf tatsächliche Arbeitssegmente verteilt; Nacht-/Betriebszeitfenster, Samstage, Sonntage, gesetzliche Feiertage nach Bundesland, Prioritäten, ausdrücklich freigegebene Kombinationen und `Europe/Berlin`-DST werden berücksichtigt.
+- Verwaltungsoberfläche, getrennte Zuschlagsauswertung und formelsicherer CSV-Nachweis ergänzt. Periodensperren verlangen freigegebene Buchungen, vollständige Dienstabdeckung und keine grenzüberschreitenden Buchungen.
+- Geldbeträge bleiben bewusst unberechnet: Lohnbasis, Prozentbasis, Festzuschlagseinheit und Rundung sind nicht festgelegt. Snapshots speichern Regelwert und Arbeitszeit, nicht Payroll-Beträge.
+- Lokale Prüfung: zielgerichtete Zeiterfassungstests `4 passed`, Frontendtests `4 passed`, TypeScript-/Produktionsbuild, Ruff und PostgreSQL-Offline-Upgrade/-Downgrade erfolgreich. Vollständige Backend-, Live-PostgreSQL- und Dockerprüfungen folgen vor Veröffentlichung.
+
 ## 2026-11-08 – Zeiterfassung für Issue #4
 
 - Migration 0012 ergänzt UTC-Arbeitszeitbuchungen, Arbeits-/Pausensegmente, getrennte Korrekturversionen, Verlauf, Constraints und rollenbasierte Rechte.

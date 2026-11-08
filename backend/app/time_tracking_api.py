@@ -36,6 +36,10 @@ from app.schemas import (
     TimeEntryStart,
     TimeEntrySummaryRead,
 )
+from app.time_tracking_surcharges import (
+    ensure_interval_not_period_locked,
+    lock_time_tracking_periods,
+)
 
 router = APIRouter()
 
@@ -516,6 +520,7 @@ def start_time_entry(
         "time_tracking.manage" not in principal.permission_codes
     ):
         raise HTTPException(status_code=403, detail="Keine Berechtigung für diese Aktion.")
+    lock_time_tracking_periods(db)
     employee, obj, shift = employee_for_start(db, principal, payload)
     lock_employee_schedule(db, employee.id)
     open_entry = db.scalar(
@@ -564,6 +569,7 @@ def pause_time_entry(
     db: Annotated[Session, Depends(get_db)],
     principal: Annotated[AuthPrincipal, Depends(get_auth_principal)],
 ) -> TimeEntryRead:
+    lock_time_tracking_periods(db)
     entry = get_entry(db, entry_id, principal, for_update=True)
     if entry.status != "open":
         raise HTTPException(
@@ -571,6 +577,12 @@ def pause_time_entry(
         )
     segment = active_segment(entry, "work")
     timestamp = now_utc()
+    ensure_interval_not_period_locked(
+        db,
+        starts_at=entry.started_at,
+        ends_at=timestamp,
+        time_zone=get_schedule_settings(db).time_zone,
+    )
     if timestamp <= as_utc(segment.started_at):
         raise HTTPException(status_code=409, detail="Die Pause muss nach Arbeitsbeginn liegen.")
     segment.ended_at = timestamp
@@ -595,6 +607,7 @@ def resume_time_entry(
     db: Annotated[Session, Depends(get_db)],
     principal: Annotated[AuthPrincipal, Depends(get_auth_principal)],
 ) -> TimeEntryRead:
+    lock_time_tracking_periods(db)
     entry = get_entry(db, entry_id, principal, for_update=True)
     if entry.status != "open":
         raise HTTPException(
@@ -602,6 +615,12 @@ def resume_time_entry(
         )
     segment = active_segment(entry, "break")
     timestamp = now_utc()
+    ensure_interval_not_period_locked(
+        db,
+        starts_at=entry.started_at,
+        ends_at=timestamp,
+        time_zone=get_schedule_settings(db).time_zone,
+    )
     if timestamp <= as_utc(segment.started_at):
         raise HTTPException(status_code=409, detail="Die Pause muss vor dem Fortsetzen liegen.")
     segment.ended_at = timestamp
@@ -624,10 +643,17 @@ def stop_time_entry(
     db: Annotated[Session, Depends(get_db)],
     principal: Annotated[AuthPrincipal, Depends(get_auth_principal)],
 ) -> TimeEntryRead:
+    lock_time_tracking_periods(db)
     entry = get_entry(db, entry_id, principal, for_update=True)
     if entry.status != "open":
         raise HTTPException(status_code=409, detail="Nur laufende Buchungen können beendet werden.")
     timestamp = now_utc()
+    ensure_interval_not_period_locked(
+        db,
+        starts_at=entry.started_at,
+        ends_at=timestamp,
+        time_zone=get_schedule_settings(db).time_zone,
+    )
     segment = active_segment(entry)
     if timestamp <= as_utc(segment.started_at):
         raise HTTPException(status_code=409, detail="Das Segmentende muss nach dem Beginn liegen.")
@@ -655,12 +681,19 @@ def create_manual_entry(
 ) -> TimeEntryRead:
     if "time_tracking.manage" not in principal.permission_codes:
         raise HTTPException(status_code=403, detail="Keine Berechtigung für manuelle Buchungen.")
+    lock_time_tracking_periods(db)
     employee = db.get(Employee, payload.employee_id)
     if employee is None:
         raise HTTPException(status_code=404, detail="Mitarbeiter nicht gefunden.")
     obj = get_object_for_user(db, payload.object_id, principal)
     require_employee_object_assignment(db, employee, obj)
     starts_at, ends_at = validate_segments(payload.segments)
+    ensure_interval_not_period_locked(
+        db,
+        starts_at=starts_at,
+        ends_at=ends_at,
+        time_zone=get_schedule_settings(db).time_zone,
+    )
     lock_employee_schedule(db, employee.id)
     proposed = [
         (segment.kind, segment.started_at.astimezone(UTC), segment.ended_at.astimezone(UTC))
@@ -777,6 +810,7 @@ def request_time_correction(
     db: Annotated[Session, Depends(get_db)],
     principal: Annotated[AuthPrincipal, Depends(get_auth_principal)],
 ) -> TimeEntryCorrectionRead:
+    lock_time_tracking_periods(db)
     entry = get_entry(db, entry_id, principal, for_update=True)
     is_owner = entry.employee.user_id == principal.user.id
     if is_owner:
@@ -796,6 +830,18 @@ def request_time_correction(
             status_code=409, detail="Für diese Buchung liegt bereits ein Antrag vor."
         )
     starts_at, ends_at = validate_segments(payload.segments)
+    ensure_interval_not_period_locked(
+        db,
+        starts_at=entry.started_at,
+        ends_at=entry.ended_at,
+        time_zone=get_schedule_settings(db).time_zone,
+    )
+    ensure_interval_not_period_locked(
+        db,
+        starts_at=starts_at,
+        ends_at=ends_at,
+        time_zone=get_schedule_settings(db).time_zone,
+    )
     correction = TimeEntryCorrection(
         entry=entry,
         requested_by_id=principal.user.id,
@@ -911,6 +957,7 @@ def approve_time_entry(
 ) -> TimeEntryRead:
     if "time_tracking.approve" not in principal.permission_codes:
         raise HTTPException(status_code=403, detail="Keine Berechtigung für Freigaben.")
+    lock_time_tracking_periods(db)
     entry = get_entry(db, entry_id, principal, for_update=True)
     ensure_not_self_approval(entry, principal)
     ensure_entry_access(entry, principal)
@@ -940,6 +987,7 @@ def reject_time_entry(
         raise HTTPException(status_code=403, detail="Keine Berechtigung für Ablehnungen.")
     if not payload.reason:
         raise HTTPException(status_code=422, detail="Eine Ablehnungsbegründung ist erforderlich.")
+    lock_time_tracking_periods(db)
     entry = get_entry(db, entry_id, principal, for_update=True)
     ensure_not_self_approval(entry, principal)
     ensure_entry_access(entry, principal)
@@ -975,6 +1023,7 @@ def approve_time_correction(
 ) -> TimeEntryRead:
     if "time_tracking.approve" not in principal.permission_codes:
         raise HTTPException(status_code=403, detail="Keine Berechtigung für Freigaben.")
+    lock_time_tracking_periods(db)
     correction = get_correction(db, correction_id, principal, for_update=True)
     entry = get_entry(db, correction.entry_id, principal, for_update=True)
     ensure_not_self_approval(entry, principal)
@@ -984,6 +1033,18 @@ def approve_time_correction(
         (segment.kind, as_utc(segment.started_at), as_utc(segment.ended_at))
         for segment in correction.segments
     ]
+    ensure_interval_not_period_locked(
+        db,
+        starts_at=entry.started_at,
+        ends_at=entry.ended_at,
+        time_zone=get_schedule_settings(db).time_zone,
+    )
+    ensure_interval_not_period_locked(
+        db,
+        starts_at=proposed[0][1],
+        ends_at=proposed[-1][2],
+        time_zone=get_schedule_settings(db).time_zone,
+    )
     lock_employee_schedule(db, entry.employee_id)
     ensure_no_work_overlap(db, entry.employee_id, proposed, exclude_entry_id=entry.id)
     timestamp = now_utc()
@@ -1024,6 +1085,7 @@ def reject_time_correction(
         raise HTTPException(status_code=403, detail="Keine Berechtigung für Ablehnungen.")
     if not payload.reason:
         raise HTTPException(status_code=422, detail="Eine Ablehnungsbegründung ist erforderlich.")
+    lock_time_tracking_periods(db)
     correction = get_correction(db, correction_id, principal, for_update=True)
     entry = get_entry(db, correction.entry_id, principal, for_update=True)
     ensure_not_self_approval(entry, principal)
@@ -1058,7 +1120,14 @@ def lock_time_entry(
 ) -> TimeEntryRead:
     if "time_tracking.manage" not in principal.permission_codes:
         raise HTTPException(status_code=403, detail="Keine Berechtigung zum Sperren von Buchungen.")
+    lock_time_tracking_periods(db)
     entry = get_entry(db, entry_id, principal, for_update=True)
+    ensure_interval_not_period_locked(
+        db,
+        starts_at=entry.started_at,
+        ends_at=entry.ended_at,
+        time_zone=get_schedule_settings(db).time_zone,
+    )
     if entry.status != "approved":
         raise HTTPException(
             status_code=409, detail="Nur freigegebene Buchungen können gesperrt werden."

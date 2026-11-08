@@ -43,6 +43,11 @@ import type {
   TimeEntryCorrection,
   TimeEntrySummary,
   MissingShift,
+  FederalState,
+  TimeSurchargeCalculation,
+  TimeSurchargeCategory,
+  TimeSurchargeRule,
+  TimeTrackingPeriod,
 } from "./types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -679,6 +684,85 @@ export async function exportTimeEntries(filters: TimeEntryFilters): Promise<Blob
     cookie.startsWith("securityops_csrf="),
   )?.split("=")[1];
   const response = await fetch(`/api/v1/time-tracking/export.csv?${timeFilterParams(filters)}`, {
+    credentials: "same-origin",
+    headers: csrf ? { "X-CSRF-Token": decodeURIComponent(csrf) } : {},
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(
+      typeof body?.detail === "string" ? body.detail : `Serverfehler (${response.status})`,
+    );
+  }
+  return response.blob();
+}
+
+export const getTimeTrackingSettings = () =>
+  request<{ federal_state: FederalState | null; updated_at: string }>("/time-tracking/settings");
+
+export const updateTimeTrackingSettings = (federalState: FederalState | null) =>
+  request<{ federal_state: FederalState | null; updated_at: string }>("/time-tracking/settings", {
+    method: "PATCH",
+    body: JSON.stringify({ federal_state: federalState }),
+  });
+
+export const getTimeSurchargeRules = () =>
+  request<TimeSurchargeRule[]>("/time-tracking/surcharge-rules");
+
+export const createTimeSurchargeRule = (data: {
+  code: string;
+  name: string;
+  category: TimeSurchargeCategory;
+  calculation_type: "percentage" | "fixed";
+  value: string;
+  currency: string | null;
+  basis_description: string;
+  valid_from: string;
+  valid_to: string | null;
+  priority: number;
+  combination_mode: "exclusive" | "combine";
+  weekdays: number[];
+  starts_local: string | null;
+  ends_local: string | null;
+}) =>
+  request<TimeSurchargeRule>("/time-tracking/surcharge-rules", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const calculateTimeSurcharges = (entryId: string) =>
+  request<TimeSurchargeCalculation>(
+    `/time-tracking/entries/${entryId}/surcharge-calculations`,
+    { method: "POST" },
+  );
+
+export const getTimeSurchargeCalculations = (entryId: string) =>
+  request<TimeSurchargeCalculation[]>(
+    `/time-tracking/entries/${entryId}/surcharge-calculations`,
+  );
+
+export const getTimeSurchargeReport = (fromDate: string, toDate: string) =>
+  request<TimeSurchargeCalculation[]>(
+    `/time-tracking/reports/surcharges?${new URLSearchParams({
+      from_date: fromDate,
+      to_date: toDate,
+    })}`,
+  );
+
+export const getLockedTimePeriods = () =>
+  request<TimeTrackingPeriod[]>("/time-tracking/periods");
+
+export const lockTimePeriod = (fromDate: string, toDate: string) =>
+  request<TimeTrackingPeriod>("/time-tracking/periods/lock", {
+    method: "POST",
+    body: JSON.stringify({ from_date: fromDate, to_date: toDate }),
+  });
+
+export async function exportTimeSurchargeCsv(fromDate: string, toDate: string): Promise<Blob> {
+  const csrf = document.cookie.split("; ").find((cookie) =>
+    cookie.startsWith("securityops_csrf="),
+  )?.split("=")[1];
+  const params = new URLSearchParams({ from_date: fromDate, to_date: toDate });
+  const response = await fetch(`/api/v1/time-tracking/export-surcharges.csv?${params}`, {
     credentials: "same-origin",
     headers: csrf ? { "X-CSRF-Token": decodeURIComponent(csrf) } : {},
   });

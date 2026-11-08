@@ -989,3 +989,126 @@ class TimeEntryHistory(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
+
+
+class TimeTrackingSettings(Base):
+    __tablename__ = "time_tracking_settings"
+    __table_args__ = (
+        CheckConstraint("id = 1", name="ck_time_tracking_settings_singleton"),
+        CheckConstraint(
+            "federal_state IS NULL OR federal_state IN "
+            "('BW', 'BY', 'BE', 'BB', 'HB', 'HH', 'HE', 'MV', 'NI', 'NW', 'RP', 'SL', 'SN', 'ST', 'SH', 'TH')",
+            name="ck_time_tracking_settings_federal_state",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, default=1)
+    federal_state: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    updated_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
+class TimeSurchargeRule(Base):
+    __tablename__ = "time_surcharge_rules"
+    __table_args__ = (
+        CheckConstraint(
+            "category IN ('night', 'saturday', 'sunday', 'public_holiday', 'business')",
+            name="ck_time_surcharge_rules_category",
+        ),
+        CheckConstraint(
+            "calculation_type IN ('percentage', 'fixed')",
+            name="ck_time_surcharge_rules_calculation_type",
+        ),
+        CheckConstraint("value > 0", name="ck_time_surcharge_rules_value"),
+        CheckConstraint(
+            "valid_to IS NULL OR valid_to >= valid_from",
+            name="ck_time_surcharge_rules_validity",
+        ),
+        CheckConstraint(
+            "combination_mode IN ('exclusive', 'combine')",
+            name="ck_time_surcharge_rules_combination",
+        ),
+        UniqueConstraint("code", name="uq_time_surcharge_rules_code"),
+        Index("ix_time_surcharge_rules_validity", "valid_from", "valid_to"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    code: Mapped[str] = mapped_column(String(80), nullable=False)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    category: Mapped[str] = mapped_column(String(30), nullable=False)
+    calculation_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    value: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=False)
+    currency: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    basis_description: Mapped[str] = mapped_column(String(240), nullable=False)
+    valid_from: Mapped[date] = mapped_column(nullable=False)
+    valid_to: Mapped[date | None] = mapped_column(nullable=True)
+    priority: Mapped[int] = mapped_column(nullable=False, default=100)
+    combination_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="exclusive")
+    weekdays: Mapped[list[int]] = mapped_column(JSON, nullable=False, default=list)
+    starts_local: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    ends_local: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    created_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class TimeSurchargeCalculation(Base):
+    __tablename__ = "time_surcharge_calculations"
+    __table_args__ = (
+        CheckConstraint("version > 0", name="ck_time_surcharge_calculations_version"),
+        CheckConstraint(
+            "length(gross_work_seconds) > 0",
+            name="ck_time_surcharge_calculations_work_seconds",
+        ),
+        UniqueConstraint("entry_id", "version", name="uq_time_surcharge_calculations_version"),
+        Index("ix_time_surcharge_calculations_entry_created", "entry_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    entry_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("time_entries.id", ondelete="RESTRICT"), nullable=False
+    )
+    version: Mapped[int] = mapped_column(nullable=False)
+    gross_work_seconds: Mapped[str] = mapped_column(String(32), nullable=False)
+    time_zone: Mapped[str] = mapped_column(String(80), nullable=False)
+    federal_state: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    rule_snapshot: Mapped[list[dict[str, object]]] = mapped_column(JSON, nullable=False)
+    allocation_snapshot: Mapped[list[dict[str, object]]] = mapped_column(JSON, nullable=False)
+    source_segments: Mapped[list[dict[str, str]]] = mapped_column(JSON, nullable=False)
+    created_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class TimeTrackingPeriod(Base):
+    __tablename__ = "time_tracking_periods"
+    __table_args__ = (
+        CheckConstraint("to_date >= from_date", name="ck_time_tracking_periods_date_order"),
+        UniqueConstraint("from_date", "to_date", name="uq_time_tracking_periods_range"),
+        Index("ix_time_tracking_periods_range", "from_date", "to_date"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    from_date: Mapped[date] = mapped_column(nullable=False)
+    to_date: Mapped[date] = mapped_column(nullable=False)
+    time_zone: Mapped[str] = mapped_column(String(80), nullable=False)
+    federal_state: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    locked_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    locked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )

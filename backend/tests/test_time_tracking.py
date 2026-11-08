@@ -367,3 +367,320 @@ def test_manual_dst_entry_overlap_and_formula_safe_approved_export(client: TestC
     )
     assert rejected.status_code == 200, rejected.text
     assert rejected.json()["status"] == "rejected"
+
+
+def test_surcharge_rules_split_actual_work_and_snapshot_dst_and_holiday(
+    client: TestClient,
+) -> None:
+    employee, obj, admin_csrf = setup_tracking(client)
+    headers = {"X-CSRF-Token": admin_csrf}
+    settings = client.patch(
+        "/api/v1/time-tracking/settings",
+        headers=headers,
+        json={"federal_state": "BY"},
+    )
+    assert settings.status_code == 200, settings.text
+
+    common = {
+        "valid_from": "2027-01-01",
+        "priority": 100,
+        "combination_mode": "combine",
+    }
+    night = client.post(
+        "/api/v1/time-tracking/surcharge-rules",
+        headers=headers,
+        json={
+            **common,
+            "code": "NIGHT",
+            "name": "Nachtarbeit",
+            "category": "night",
+            "calculation_type": "percentage",
+            "value": "25",
+            "basis_description": "Prozentualer Zuschlag auf die vereinbarte Grundvergütung",
+            "starts_local": "22:00",
+            "ends_local": "06:00",
+        },
+    )
+    assert night.status_code == 201, night.text
+    sunday = client.post(
+        "/api/v1/time-tracking/surcharge-rules",
+        headers=headers,
+        json={
+            **common,
+            "code": "SUNDAY",
+            "name": "Sonntagsarbeit",
+            "category": "sunday",
+            "calculation_type": "fixed",
+            "value": "2.50",
+            "currency": "EUR",
+            "basis_description": "Fester Betrag je zuschlagsberechtigter Arbeitsstunde",
+        },
+    )
+    assert sunday.status_code == 201, sunday.text
+    holiday = client.post(
+        "/api/v1/time-tracking/surcharge-rules",
+        headers=headers,
+        json={
+            **common,
+            "code": "BAVARIA-HOLIDAY",
+            "name": "Bayerischer Feiertag",
+            "category": "public_holiday",
+            "calculation_type": "percentage",
+            "value": "50",
+            "basis_description": "Prozentualer Zuschlag auf die vereinbarte Grundvergütung",
+        },
+    )
+    assert holiday.status_code == 201, holiday.text
+
+    zone = ZoneInfo("Europe/Berlin")
+    first_work_start = datetime(2027, 10, 31, 1, 0, tzinfo=zone, fold=0)
+    first_work_end = datetime(2027, 10, 31, 2, 15, tzinfo=zone, fold=0)
+    break_end = datetime(2027, 10, 31, 2, 15, tzinfo=zone, fold=1)
+    last_work_end = datetime(2027, 10, 31, 3, 15, tzinfo=zone)
+    entry_response = client.post(
+        "/api/v1/time-tracking/entries/manual",
+        headers=headers,
+        json={
+            "employee_id": employee["id"],
+            "object_id": obj["id"],
+            "segments": [
+                {
+                    "kind": "work",
+                    "started_at": first_work_start.isoformat(),
+                    "ended_at": first_work_end.isoformat(),
+                },
+                {
+                    "kind": "break",
+                    "started_at": first_work_end.isoformat(),
+                    "ended_at": break_end.isoformat(),
+                },
+                {
+                    "kind": "work",
+                    "started_at": break_end.isoformat(),
+                    "ended_at": last_work_end.isoformat(),
+                },
+            ],
+        },
+    )
+    assert entry_response.status_code == 201, entry_response.text
+    entry_id = entry_response.json()["id"]
+    approved = client.post(
+        f"/api/v1/time-tracking/entries/{entry_id}/approve",
+        headers=headers,
+    )
+    assert approved.status_code == 200, approved.text
+
+    calculated = client.post(
+        f"/api/v1/time-tracking/entries/{entry_id}/surcharge-calculations",
+        headers=headers,
+    )
+    assert calculated.status_code == 201, calculated.text
+    snapshot = calculated.json()
+    assert snapshot["gross_work_seconds"] == "8100"
+    assert snapshot["time_zone"] == "Europe/Berlin"
+    assert snapshot["federal_state"] == "BY"
+    allocations = {item["rule_code"]: item for item in snapshot["allocation_snapshot"]}
+    assert allocations["NIGHT"]["eligible_work_seconds"] == "8100"
+    assert allocations["SUNDAY"]["eligible_work_seconds"] == "8100"
+    assert allocations["NIGHT"]["calculated_amount"] is None
+
+    holiday_start = datetime(2027, 1, 6, 9, 0, tzinfo=zone)
+    holiday_end = holiday_start + timedelta(hours=1)
+    holiday_entry = client.post(
+        "/api/v1/time-tracking/entries/manual",
+        headers=headers,
+        json={
+            "employee_id": employee["id"],
+            "object_id": obj["id"],
+            "segments": [
+                {
+                    "kind": "work",
+                    "started_at": holiday_start.isoformat(),
+                    "ended_at": holiday_end.isoformat(),
+                }
+            ],
+        },
+    )
+    assert holiday_entry.status_code == 201, holiday_entry.text
+    holiday_entry_id = holiday_entry.json()["id"]
+    holiday_approved = client.post(
+        f"/api/v1/time-tracking/entries/{holiday_entry_id}/approve",
+        headers=headers,
+    )
+    assert holiday_approved.status_code == 200, holiday_approved.text
+    holiday_calculation = client.post(
+        f"/api/v1/time-tracking/entries/{holiday_entry_id}/surcharge-calculations",
+        headers=headers,
+    )
+    assert holiday_calculation.status_code == 201, holiday_calculation.text
+    holiday_allocations = {
+        item["rule_code"]: item for item in holiday_calculation.json()["allocation_snapshot"]
+    }
+    assert holiday_allocations["BAVARIA-HOLIDAY"]["eligible_work_seconds"] == "3600"
+    surcharge_report = client.get(
+        "/api/v1/time-tracking/reports/surcharges",
+        params={"from_date": "2027-01-06", "to_date": "2027-01-06"},
+    )
+    assert surcharge_report.status_code == 200, surcharge_report.text
+    assert len(surcharge_report.json()) == 1
+    surcharge_csv = client.get(
+        "/api/v1/time-tracking/export-surcharges.csv",
+        params={"from_date": "2027-01-06", "to_date": "2027-01-06"},
+    )
+    assert surcharge_csv.status_code == 200, surcharge_csv.text
+    assert "BAVARIA-HOLIDAY" in surcharge_csv.text
+    assert "Kein Geldbetrag berechnet" in surcharge_csv.text
+
+    changed_state = client.patch(
+        "/api/v1/time-tracking/settings",
+        headers=headers,
+        json={"federal_state": "NW"},
+    )
+    assert changed_state.status_code == 200, changed_state.text
+    recalculation = client.post(
+        f"/api/v1/time-tracking/entries/{holiday_entry_id}/surcharge-calculations",
+        headers=headers,
+    )
+    assert recalculation.status_code == 201, recalculation.text
+    assert recalculation.json()["federal_state"] == "NW"
+    assert all(
+        item["rule_code"] != "BAVARIA-HOLIDAY"
+        for item in recalculation.json()["allocation_snapshot"]
+    )
+    history = client.get(
+        f"/api/v1/time-tracking/entries/{holiday_entry_id}/surcharge-calculations",
+    )
+    assert history.status_code == 200
+    assert [item["federal_state"] for item in history.json()] == ["BY", "NW"]
+
+    sign_in(client, "zeiterfassung-person", EMPLOYEE_PASSWORD)
+    forbidden_rules = client.get("/api/v1/time-tracking/surcharge-rules")
+    assert forbidden_rules.status_code == 403
+
+
+def test_surcharge_priority_conflicts_and_locked_periods_are_auditable(
+    client: TestClient,
+) -> None:
+    employee, obj, admin_csrf = setup_tracking(client)
+    headers = {"X-CSRF-Token": admin_csrf}
+    start_date = date.today() - timedelta(days=3)
+    start = datetime.combine(start_date, datetime.min.time(), tzinfo=ZoneInfo("Europe/Berlin"))
+    end = start + timedelta(hours=1)
+    entry_response = client.post(
+        "/api/v1/time-tracking/entries/manual",
+        headers=headers,
+        json={
+            "employee_id": employee["id"],
+            "object_id": obj["id"],
+            "segments": [
+                {
+                    "kind": "work",
+                    "started_at": start.isoformat(),
+                    "ended_at": end.isoformat(),
+                }
+            ],
+        },
+    )
+    assert entry_response.status_code == 201, entry_response.text
+    entry_id = entry_response.json()["id"]
+    approved = client.post(
+        f"/api/v1/time-tracking/entries/{entry_id}/approve",
+        headers=headers,
+    )
+    assert approved.status_code == 200, approved.text
+
+    valid_from = start_date.isoformat()
+    for code in ("NIGHT-A", "NIGHT-B"):
+        response = client.post(
+            "/api/v1/time-tracking/surcharge-rules",
+            headers=headers,
+            json={
+                "code": code,
+                "name": code,
+                "category": "night",
+                "calculation_type": "percentage",
+                "value": "20",
+                "basis_description": "Vereinbarte Grundvergütung",
+                "valid_from": valid_from,
+                "valid_to": valid_from,
+                "priority": 100,
+                "combination_mode": "exclusive",
+                "starts_local": "00:00",
+                "ends_local": "04:00",
+            },
+        )
+        assert response.status_code == 201, response.text
+    ambiguous = client.post(
+        f"/api/v1/time-tracking/entries/{entry_id}/surcharge-calculations",
+        headers=headers,
+    )
+    assert ambiguous.status_code == 409
+    assert "gleich priorisierte" in ambiguous.json()["detail"]
+
+    locked_date = start_date + timedelta(days=1)
+    locked_start = datetime.combine(
+        locked_date, datetime.min.time(), tzinfo=ZoneInfo("Europe/Berlin")
+    )
+    locked_end = locked_start + timedelta(hours=1)
+    locked_entry = client.post(
+        "/api/v1/time-tracking/entries/manual",
+        headers=headers,
+        json={
+            "employee_id": employee["id"],
+            "object_id": obj["id"],
+            "segments": [
+                {
+                    "kind": "work",
+                    "started_at": locked_start.isoformat(),
+                    "ended_at": locked_end.isoformat(),
+                }
+            ],
+        },
+    )
+    assert locked_entry.status_code == 201, locked_entry.text
+    locked_entry_id = locked_entry.json()["id"]
+    locked_approved = client.post(
+        f"/api/v1/time-tracking/entries/{locked_entry_id}/approve",
+        headers=headers,
+    )
+    assert locked_approved.status_code == 200, locked_approved.text
+
+    locked = client.post(
+        "/api/v1/time-tracking/periods/lock",
+        headers=headers,
+        json={"from_date": locked_date.isoformat(), "to_date": locked_date.isoformat()},
+    )
+    assert locked.status_code == 201, locked.text
+    calculations = client.get(
+        f"/api/v1/time-tracking/entries/{locked_entry_id}/surcharge-calculations",
+    )
+    assert calculations.status_code == 200
+    assert calculations.json()[0]["gross_work_seconds"] == "3600"
+
+    correction = client.post(
+        f"/api/v1/time-tracking/entries/{locked_entry_id}/corrections",
+        headers=headers,
+        json={
+            "reason": "Korrektur nach Periodensperre",
+            "segments": [
+                {
+                    "kind": "work",
+                    "started_at": locked_start.isoformat(),
+                    "ended_at": locked_end.isoformat(),
+                }
+            ],
+        },
+    )
+    assert correction.status_code == 409
+    late_calculation = client.post(
+        f"/api/v1/time-tracking/entries/{locked_entry_id}/surcharge-calculations",
+        headers=headers,
+    )
+    assert late_calculation.status_code == 409
+
+    duplicate_lock = client.post(
+        "/api/v1/time-tracking/periods/lock",
+        headers=headers,
+        json={"from_date": locked_date.isoformat(), "to_date": locked_date.isoformat()},
+    )
+    assert duplicate_lock.status_code == 409

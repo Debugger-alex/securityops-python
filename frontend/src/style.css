@@ -186,6 +186,10 @@ footer span { padding: 0 5px; }
 .time-correction-form label { display: grid; gap: 6px; color: #43515c; font-size: .82rem; font-weight: 600; }
 .time-correction-form textarea { min-height: 84px; height: auto; padding: 10px; resize: vertical; }
 .time-correction-form .form-row { align-items: end; }
+.time-surcharge-rule-form { display: grid; gap: 12px; margin: 18px 0; padding: 16px 0; border-top: 1px solid #e5eaed; border-bottom: 1px solid #e5eaed; }
+.time-surcharge-rule-form h3, .time-surcharge-rule-form .muted, .time-surcharge-panel .muted { flex-basis: 100%; }
+.time-surcharge-rule-form select[multiple] { min-height: 112px; }
+.time-surcharge-panel > .panel-heading:not(:first-child) { margin-top: 24px; }
 
 @media (max-width: 850px) {
   .content-grid { grid-template-columns: 1fr; }

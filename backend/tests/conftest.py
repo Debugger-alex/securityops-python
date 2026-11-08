@@ -43,6 +43,10 @@ from app.models import (
     TimeEntryCorrectionSegment,
     TimeEntryHistory,
     TimeEntrySegment,
+    TimeSurchargeCalculation,
+    TimeSurchargeRule,
+    TimeTrackingPeriod,
+    TimeTrackingSettings,
     User,
     UserSession,
     user_roles,
@@ -87,8 +91,12 @@ def client() -> Generator[TestClient, None, None]:
         db.execute(delete(TimeEntryCorrectionSegment))
         db.execute(delete(TimeEntryCorrection))
         db.execute(delete(TimeEntryHistory))
+        db.execute(delete(TimeSurchargeCalculation))
         db.execute(delete(TimeEntrySegment))
         db.execute(delete(TimeEntry))
+        db.execute(delete(TimeTrackingPeriod))
+        db.execute(delete(TimeSurchargeRule))
+        db.execute(delete(TimeTrackingSettings))
         db.execute(delete(ScheduleShiftHistory))
         db.execute(delete(ScheduleShift))
         db.execute(delete(ScheduleSettings))
@@ -150,6 +158,10 @@ def client() -> Generator[TestClient, None, None]:
             "time_tracking.reject",
             "time_tracking.export",
             "time_tracking.manage",
+            "time_tracking.surcharges.read",
+            "time_tracking.surcharges.manage",
+            "time_tracking.periods.read",
+            "time_tracking.periods.lock",
         )
         permissions = {}
         for code in permission_codes:
@@ -204,6 +216,10 @@ def client() -> Generator[TestClient, None, None]:
                 "time_tracking.reject",
                 "time_tracking.export",
                 "time_tracking.manage",
+                "time_tracking.surcharges.read",
+                "time_tracking.surcharges.manage",
+                "time_tracking.periods.read",
+                "time_tracking.periods.lock",
             ),
         )
         get_or_create_role(
@@ -245,6 +261,10 @@ def client() -> Generator[TestClient, None, None]:
                 "time_tracking.reject",
                 "time_tracking.export",
                 "time_tracking.manage",
+                "time_tracking.surcharges.read",
+                "time_tracking.surcharges.manage",
+                "time_tracking.periods.read",
+                "time_tracking.periods.lock",
             ),
         )
         db.add(ScheduleSettings(id=1, time_zone="Europe/Berlin", minimum_rest_hours=11))

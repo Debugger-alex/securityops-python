@@ -16,6 +16,7 @@ from app.personnel_api import router as personnel_router
 from app.rate_limit import limiter
 from app.scheduling_api import router as scheduling_router
 from app.time_tracking_api import router as time_tracking_router
+from app.time_tracking_surcharges import router as time_tracking_surcharges_router
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -34,6 +35,7 @@ app.include_router(router, prefix=settings.api_prefix)
 app.include_router(personnel_router, prefix=settings.api_prefix)
 app.include_router(scheduling_router, prefix=settings.api_prefix)
 app.include_router(time_tracking_router, prefix=settings.api_prefix)
+app.include_router(time_tracking_surcharges_router, prefix=settings.api_prefix)
 app.include_router(identity_router, prefix=settings.api_prefix)
 
 

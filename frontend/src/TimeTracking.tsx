@@ -1,7 +1,8 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import {
   approveTimeCorrection,
   approveTimeEntry,
+  calculateTimeSurcharges,
   createManualTimeEntry,
   exportTimeEntries,
   getCustomers,
@@ -11,6 +12,7 @@ import {
   getTimeCorrections,
   getTimeEntries,
   getTimeReport,
+  getTimeSurchargeCalculations,
   pauseTimeEntry,
   rejectTimeCorrection,
   rejectTimeEntry,
@@ -31,7 +33,9 @@ import type {
   TimeEntrySegment,
   TimeEntryStatus,
   TimeEntrySummary,
+  TimeSurchargeCalculation,
 } from "./types";
+import TimeSurchargeAdministration from "./TimeSurchargeAdministration";
 
 type Props = { user: AuthUser };
 type SegmentDraft = { kind: "work" | "break"; started_at: string; ended_at: string };
@@ -100,6 +104,8 @@ export default function TimeTracking({ user }: Props) {
   const canApprove = user.permissions.includes("time_tracking.approve");
   const canReject = user.permissions.includes("time_tracking.reject");
   const canManage = user.permissions.includes("time_tracking.manage");
+  const canManageSurcharges = user.permissions.includes("time_tracking.surcharges.manage");
+  const canReadSurcharges = user.permissions.includes("time_tracking.surcharges.read");
   const canExport = user.permissions.includes("time_tracking.export");
   const [fromDate, setFromDate] = useState(firstOfMonth);
   const [toDate, setToDate] = useState(today);
@@ -116,6 +122,9 @@ export default function TimeTracking({ user }: Props) {
   const [objects, setObjects] = useState<SecurityObject[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [correctionDraft, setCorrectionDraft] = useState<CorrectionDraft | null>(null);
+  const [expandedSurchargeEntryId, setExpandedSurchargeEntryId] = useState("");
+  const [surchargeCalculations, setSurchargeCalculations] =
+    useState<Record<string, TimeSurchargeCalculation[]>>({});
   const [manualPauses, setManualPauses] = useState<Array<{ started_at: string; ended_at: string }>>([]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -332,6 +341,41 @@ export default function TimeTracking({ user }: Props) {
     await perform(() => rejectTimeCorrection(correctionId, reason.trim()), "Korrektur abgelehnt.");
   }
 
+  async function toggleSurchargeHistory(entryId: string) {
+    if (expandedSurchargeEntryId === entryId) {
+      setExpandedSurchargeEntryId("");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const history = await getTimeSurchargeCalculations(entryId);
+      setSurchargeCalculations((current) => ({ ...current, [entryId]: history }));
+      setExpandedSurchargeEntryId(entryId);
+    } catch (reason) {
+      setError(messageFrom(reason, "Berechnungsnachweise konnten nicht geladen werden."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function calculateSurcharges(entryId: string) {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await calculateTimeSurcharges(entryId);
+      const history = await getTimeSurchargeCalculations(entryId);
+      setSurchargeCalculations((current) => ({ ...current, [entryId]: history }));
+      setExpandedSurchargeEntryId(entryId);
+      setNotice("Zuschlagsberechnung als neue, nachvollziehbare Version gespeichert.");
+    } catch (reason) {
+      setError(messageFrom(reason, "Zuschläge konnten nicht berechnet werden."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section className="time-tracking-module">
       <section className="intro object-intro">
@@ -516,7 +560,7 @@ export default function TimeTracking({ user }: Props) {
               <th>Soll / Ist</th><th>Pause / Abweichung</th><th>Status</th><th>Aktionen</th>
             </tr></thead>
             <tbody>
-              {entries.map((entry) => <tr key={entry.id}>
+              {entries.map((entry) => <Fragment key={entry.id}><tr>
                 <td>{formatInstant(entry.started_at, entry.time_zone)}
                   <small>bis {formatInstant(entry.ended_at, entry.time_zone)}</small>
                 </td>
@@ -539,8 +583,37 @@ export default function TimeTracking({ user }: Props) {
                     && ["approved", "rejected"].includes(entry.status)
                     && <button className="text-button" disabled={busy}
                       onClick={() => beginCorrection(entry)}>Korrektur beantragen</button>}
+                  {canManageSurcharges && ["approved", "locked"].includes(entry.status)
+                    && <button className="text-button" disabled={busy}
+                      onClick={() => void calculateSurcharges(entry.id)}>
+                      Zuschläge berechnen</button>}
+                  {canReadSurcharges && ["approved", "locked"].includes(entry.status)
+                    && <button className="text-button" disabled={busy}
+                      onClick={() => void toggleSurchargeHistory(entry.id)}>
+                      {expandedSurchargeEntryId === entry.id ? "Nachweis ausblenden" : "Nachweis ansehen"}
+                    </button>}
                 </div></td>
-              </tr>)}
+              </tr>
+                {expandedSurchargeEntryId === entry.id
+                  && <tr><td colSpan={7}>
+                    <div className="time-correction-list">
+                      {(surchargeCalculations[entry.id] ?? []).map((calculation) =>
+                        <article className="time-correction-card" key={calculation.id}>
+                          <strong>Berechnungsversion {calculation.version}</strong>
+                          {calculation.allocation_snapshot.map((allocation, index) =>
+                            <p key={`${allocation.rule_id ?? "none"}-${index}`}>
+                              {allocation.rule_name}: {durationLabel(Number(allocation.eligible_work_seconds))}
+                              {allocation.configured_value !== null
+                                ? ` · Regelwert ${allocation.configured_value}${allocation.currency ? ` ${allocation.currency}` : " %"}`
+                                : ""}
+                              <small>{allocation.calculation_note}</small>
+                            </p>)}
+                        </article>)}
+                      {(surchargeCalculations[entry.id] ?? []).length === 0
+                        && <p className="empty">Für diese Buchung liegt noch kein Berechnungsnachweis vor.</p>}
+                    </div>
+                  </td></tr>}
+              </Fragment>)}
               {entries.length === 0 && <tr><td className="empty" colSpan={7}>Keine Arbeitszeitbuchungen im Zeitraum.</td></tr>}
             </tbody>
           </table>
@@ -600,6 +673,11 @@ export default function TimeTracking({ user }: Props) {
           </li>)}
         </ul>
       </section>}
+
+      {(canReadSurcharges || canManageSurcharges
+        || user.permissions.includes("time_tracking.periods.read")
+        || user.permissions.includes("time_tracking.periods.lock"))
+        && <TimeSurchargeAdministration user={user} fromDate={fromDate} toDate={toDate} />}
     </section>
   );
 }

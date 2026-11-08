@@ -436,3 +436,67 @@ export interface MissingShift {
   ends_at: string;
   time_zone: string;
 }
+
+export type FederalState =
+  | "BW" | "BY" | "BE" | "BB" | "HB" | "HH" | "HE" | "MV"
+  | "NI" | "NW" | "RP" | "SL" | "SN" | "ST" | "SH" | "TH";
+
+export type TimeSurchargeCategory =
+  | "night" | "saturday" | "sunday" | "public_holiday" | "business";
+
+export interface TimeSurchargeRule {
+  id: string;
+  code: string;
+  name: string;
+  category: TimeSurchargeCategory;
+  calculation_type: "percentage" | "fixed";
+  value: number | string;
+  currency: string | null;
+  basis_description: string;
+  valid_from: string;
+  valid_to: string | null;
+  priority: number;
+  combination_mode: "exclusive" | "combine";
+  weekdays: number[];
+  starts_local: string | null;
+  ends_local: string | null;
+  created_by_id: string | null;
+  created_at: string;
+}
+
+export interface TimeSurchargeAllocation {
+  rule_id: string | null;
+  rule_code: string | null;
+  rule_name: string;
+  eligible_work_seconds: number | string;
+  configured_value: number | string | null;
+  calculation_type: "percentage" | "fixed" | null;
+  currency: string | null;
+  basis_description: string | null;
+  calculated_amount: number | string | null;
+  calculation_note: string;
+}
+
+export interface TimeSurchargeCalculation {
+  id: string;
+  entry_id: string;
+  version: number;
+  gross_work_seconds: number | string;
+  time_zone: string;
+  federal_state: FederalState | null;
+  rule_snapshot: Array<Record<string, unknown>>;
+  allocation_snapshot: TimeSurchargeAllocation[];
+  source_segments: Array<{ kind: "work"; started_at: string; ended_at: string }>;
+  created_by_id: string | null;
+  created_at: string;
+}
+
+export interface TimeTrackingPeriod {
+  id: string;
+  from_date: string;
+  to_date: string;
+  time_zone: string;
+  federal_state: FederalState | null;
+  locked_by_id: string | null;
+  locked_at: string;
+}
