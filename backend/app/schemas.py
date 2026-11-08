@@ -336,7 +336,30 @@ class ObjectAssignmentUpdate(BaseModel):
         return value
 
 
+class ObjectSecurityUpdate(BaseModel):
+    security_requirements: str | None = Field(default=None, max_length=10000)
+    access_information: str | None = Field(default=None, max_length=10000)
+    emergency_contact: str | None = Field(default=None, max_length=200)
+
+    @field_validator("security_requirements", "access_information", "emergency_contact")
+    @classmethod
+    def normalize_sensitive_values(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip() or None
+
+
+class ObjectSecurityRead(BaseModel):
+    object_id: UUID
+    security_requirements: str | None
+    access_information: str | None
+    emergency_contact: str | None
+    updated_at: datetime | None
+
+
 class ObjectCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     customer_id: UUID
     name: str = Field(min_length=1, max_length=200)
     code: str | None = Field(default=None, min_length=1, max_length=50)
@@ -345,10 +368,7 @@ class ObjectCreate(BaseModel):
     status: ObjectStatus = "active"
     operating_hours: str | None = Field(default=None, max_length=200)
     service_times: str | None = Field(default=None, max_length=200)
-    security_requirements: str | None = Field(default=None, max_length=10000)
     staffing_requirements: str | None = Field(default=None, max_length=10000)
-    access_information: str | None = Field(default=None, max_length=10000)
-    emergency_contact: str | None = Field(default=None, max_length=200)
     address: ObjectAddressInput | None = None
     contact: ObjectContactCreate | None = None
     contacts: list[ObjectContactCreate] = Field(default_factory=list, max_length=100)
@@ -373,6 +393,8 @@ class ObjectCreate(BaseModel):
 
 
 class ObjectUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     customer_id: UUID | None = None
     name: str | None = Field(default=None, min_length=1, max_length=200)
     code: str | None = Field(default=None, min_length=1, max_length=50)
@@ -381,10 +403,7 @@ class ObjectUpdate(BaseModel):
     status: ObjectStatus | None = None
     operating_hours: str | None = Field(default=None, max_length=200)
     service_times: str | None = Field(default=None, max_length=200)
-    security_requirements: str | None = Field(default=None, max_length=10000)
     staffing_requirements: str | None = Field(default=None, max_length=10000)
-    access_information: str | None = Field(default=None, max_length=10000)
-    emergency_contact: str | None = Field(default=None, max_length=200)
     address: ObjectAddressInput | None = None
 
     @field_validator("name", "code")
@@ -420,10 +439,7 @@ class ObjectRead(BaseModel):
     status: ObjectStatus
     operating_hours: str | None
     service_times: str | None
-    security_requirements: str | None
     staffing_requirements: str | None
-    access_information: str | None
-    emergency_contact: str | None
     archived_at: datetime | None
     address: ObjectAddressRead | None
     contacts: list[ObjectContactRead] = Field(default_factory=list)

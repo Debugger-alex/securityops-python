@@ -279,10 +279,7 @@ class SecurityObject(Base):
     status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)
     operating_hours: Mapped[str | None] = mapped_column(String(200), nullable=True)
     service_times: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    security_requirements: Mapped[str | None] = mapped_column(Text, nullable=True)
     staffing_requirements: Mapped[str | None] = mapped_column(Text, nullable=True)
-    access_information: Mapped[str | None] = mapped_column(Text, nullable=True)
-    emergency_contact: Mapped[str | None] = mapped_column(String(200), nullable=True)
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
@@ -305,6 +302,9 @@ class SecurityObject(Base):
     )
     assignments: Mapped[list["ObjectAssignment"]] = relationship(
         back_populates="object", cascade="all, delete-orphan"
+    )
+    security_details: Mapped["ObjectSecurityDetails | None"] = relationship(
+        back_populates="object", cascade="all, delete-orphan", uselist=False
     )
 
 
@@ -401,3 +401,33 @@ class ObjectAssignment(Base):
     )
     object: Mapped[SecurityObject] = relationship(back_populates="assignments")
     user: Mapped[User] = relationship(foreign_keys=[user_id], back_populates="object_assignments")
+
+
+class ObjectSecurityDetails(Base):
+    __tablename__ = "object_security_details"
+    __table_args__ = (
+        CheckConstraint(
+            "security_requirements IS NULL OR length(trim(security_requirements)) > 0",
+            name="ck_object_security_requirements_nonblank",
+        ),
+        CheckConstraint(
+            "access_information IS NULL OR length(trim(access_information)) > 0",
+            name="ck_object_access_information_nonblank",
+        ),
+    )
+
+    object_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("objects.id", ondelete="RESTRICT"),
+        primary_key=True,
+    )
+    security_requirements: Mapped[str | None] = mapped_column(Text, nullable=True)
+    access_information: Mapped[str | None] = mapped_column(Text, nullable=True)
+    emergency_contact: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    object: Mapped[SecurityObject] = relationship(back_populates="security_details")

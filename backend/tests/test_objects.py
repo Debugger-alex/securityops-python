@@ -237,6 +237,78 @@ def test_object_access_is_limited_to_assignments(client: TestClient) -> None:
     )
 
 
+def test_object_security_data_requires_separate_permission(client: TestClient) -> None:
+    admin_headers = {"X-CSRF-Token": sign_in(client)}
+    customer = client.post(
+        "/api/v1/customers",
+        headers=admin_headers,
+        json={"company_name": "Kunde für Sicherheitstest GmbH"},
+    ).json()
+    created = client.post(
+        "/api/v1/objects",
+        headers=admin_headers,
+        json={"customer_id": customer["id"], "name": "Sicherheitsobjekt", "code": "OBJ-SEC-1"},
+    )
+    assert created.status_code == 201
+    object_id = created.json()["id"]
+    assert "access_information" not in created.json()
+    assert "security_requirements" not in created.json()
+    assert "emergency_contact" not in created.json()
+
+    saved = client.patch(
+        f"/api/v1/objects/{object_id}/security",
+        headers=admin_headers,
+        json={
+            "security_requirements": "Zutritt nur nach Anmeldung",
+            "access_information": "Schlüssel im gesicherten Schlüsseldepot",
+            "emergency_contact": "Test-Notfallkontakt",
+        },
+    )
+    assert saved.status_code == 200
+    assert saved.json()["access_information"] == "Schlüssel im gesicherten Schlüsseldepot"
+    assert "access_information" not in client.get("/api/v1/objects").json()["items"][0]
+    assert "access_information" not in client.get(f"/api/v1/objects/{object_id}").json()
+
+    create_test_user("sicherheitsleitung", "object_manager")
+    create_test_user("sicherheitsmitarbeiter", "employee")
+    manager_headers = {
+        "X-CSRF-Token": sign_in_as(client, "sicherheitsleitung", "objekt-test-passwort-2026")
+    }
+    assert client.get(f"/api/v1/objects/{object_id}/security").status_code == 404
+
+    admin_headers = {"X-CSRF-Token": sign_in_as(client, "admin", ADMIN_PASSWORD)}
+    assigned = client.put(
+        f"/api/v1/objects/{object_id}/assignments",
+        headers=admin_headers,
+        json={
+            "user_ids": [
+                str(get_user_id("sicherheitsleitung")),
+                str(get_user_id("sicherheitsmitarbeiter")),
+            ]
+        },
+    )
+    assert assigned.status_code == 200
+
+    manager_headers = {
+        "X-CSRF-Token": sign_in_as(client, "sicherheitsleitung", "objekt-test-passwort-2026")
+    }
+    assert (
+        client.get(f"/api/v1/objects/{object_id}/security").json()["access_information"]
+        == "Schlüssel im gesicherten Schlüsseldepot"
+    )
+    assert (
+        client.patch(
+            f"/api/v1/objects/{object_id}/security",
+            headers=manager_headers,
+            json={"access_information": "Nicht erlaubte Änderung"},
+        ).status_code
+        == 403
+    )
+
+    sign_in_as(client, "sicherheitsmitarbeiter", "objekt-test-passwort-2026")
+    assert client.get(f"/api/v1/objects/{object_id}/security").status_code == 403
+
+
 def get_user_id(username: str) -> UUID:
     with TestingSessionLocal() as db:
         user = db.scalar(select(User).where(User.username == username))

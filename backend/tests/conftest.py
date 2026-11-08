@@ -91,6 +91,8 @@ def client() -> Generator[TestClient, None, None]:
             "objects.read_all",
             "objects.manage_all",
             "objects.assign",
+            "objects.sensitive.read",
+            "objects.sensitive.manage",
             "dashboard.read",
             "users.read",
             "users.manage",
@@ -134,7 +136,18 @@ def client() -> Generator[TestClient, None, None]:
             "management",
             "Geschäftsführung",
             "Testrolle ohne Administratorrechte",
-            ("users.read", "users.manage", "customers.read", "objects.read", "objects.manage"),
+            (
+                "users.read",
+                "users.manage",
+                "customers.read",
+                "objects.read",
+                "objects.manage",
+                "objects.read_all",
+                "objects.manage_all",
+                "objects.assign",
+                "objects.sensitive.read",
+                "objects.sensitive.manage",
+            ),
         )
         get_or_create_role(
             "employee",
@@ -146,7 +159,7 @@ def client() -> Generator[TestClient, None, None]:
             "object_manager",
             "Objektleitung",
             "Testrolle mit zugewiesener Objektverwaltung",
-            ("objects.read", "objects.manage"),
+            ("objects.read", "objects.manage", "objects.sensitive.read"),
         )
         db.add(
             User(

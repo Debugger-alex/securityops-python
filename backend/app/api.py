@@ -17,6 +17,7 @@ from app.models import (
     ObjectAssignment,
     ObjectContact,
     ObjectHistory,
+    ObjectSecurityDetails,
     SecurityObject,
     User,
 )
@@ -43,6 +44,8 @@ from app.schemas import (
     ObjectHistoryRead,
     ObjectPage,
     ObjectRead,
+    ObjectSecurityRead,
+    ObjectSecurityUpdate,
     ObjectUpdate,
 )
 
@@ -658,7 +661,6 @@ def list_objects(
                 SecurityObject.code.ilike(term),
                 SecurityObject.object_type.ilike(term),
                 SecurityObject.description.ilike(term),
-                SecurityObject.emergency_contact.ilike(term),
                 contact_matches,
                 address_matches,
             )
@@ -718,16 +720,9 @@ def create_object(
         status=payload.status,
         operating_hours=payload.operating_hours.strip() if payload.operating_hours else None,
         service_times=payload.service_times.strip() if payload.service_times else None,
-        security_requirements=payload.security_requirements.strip()
-        if payload.security_requirements
-        else None,
         staffing_requirements=payload.staffing_requirements.strip()
         if payload.staffing_requirements
         else None,
-        access_information=payload.access_information.strip()
-        if payload.access_information
-        else None,
-        emergency_contact=payload.emergency_contact.strip() if payload.emergency_contact else None,
     )
     db.add(obj)
     db.flush()
@@ -895,6 +890,75 @@ def get_object(
     return ObjectRead.model_validate(get_object_or_404(db, object_id, _principal))
 
 
+def object_security_read(
+    db: Session,
+    obj: SecurityObject,
+) -> ObjectSecurityRead:
+    details = db.get(ObjectSecurityDetails, obj.id)
+    return ObjectSecurityRead(
+        object_id=obj.id,
+        security_requirements=details.security_requirements if details else None,
+        access_information=details.access_information if details else None,
+        emergency_contact=details.emergency_contact if details else None,
+        updated_at=details.updated_at if details else None,
+    )
+
+
+@router.get(
+    "/objects/{object_id}/security",
+    response_model=ObjectSecurityRead,
+)
+def get_object_security_details(
+    object_id: UUID,
+    db: Session = Depends(get_db),
+    principal=Depends(require_permission("objects.sensitive.read")),
+) -> ObjectSecurityRead:
+    obj = get_object_or_404(db, object_id, principal)
+    return object_security_read(db, obj)
+
+
+@router.patch(
+    "/objects/{object_id}/security",
+    response_model=ObjectSecurityRead,
+)
+def update_object_security_details(
+    request: Request,
+    object_id: UUID,
+    payload: ObjectSecurityUpdate,
+    db: Session = Depends(get_db),
+    principal=Depends(require_permission("objects.sensitive.manage")),
+) -> ObjectSecurityRead:
+    obj = get_object_or_404(db, object_id, principal, for_write=True)
+    ensure_object_is_active(obj)
+    changes = payload.model_dump(exclude_unset=True)
+    details = db.get(ObjectSecurityDetails, obj.id)
+    changed_fields = {
+        field for field, value in changes.items() if details is None and value is not None
+    }
+
+    if details is None and changed_fields:
+        details = ObjectSecurityDetails(object_id=obj.id)
+        db.add(details)
+        db.flush()
+    if details is not None:
+        for field, value in changes.items():
+            if getattr(details, field) != value:
+                setattr(details, field, value)
+                changed_fields.add(field)
+
+    if changed_fields:
+        record_object_event(
+            db,
+            obj=obj,
+            actor_id=principal.user.id,
+            action="security_updated",
+            changed_fields=changed_fields,
+            ip_address=request.client.host if request.client else None,
+        )
+        db.commit()
+    return object_security_read(db, obj)
+
+
 @router.patch("/objects/{object_id}", response_model=ObjectRead)
 def update_object(
     request: Request,
@@ -934,10 +998,7 @@ def update_object(
                 "status",
                 "operating_hours",
                 "service_times",
-                "security_requirements",
                 "staffing_requirements",
-                "access_information",
-                "emergency_contact",
             }
             and getattr(obj, field) != value
         ):
