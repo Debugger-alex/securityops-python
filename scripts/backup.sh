@@ -21,9 +21,13 @@ output_parent=$(dirname "$output")
 output_name=$(basename "$output")
 temporary=$(mktemp -d "$output_parent/.${output_name}.tmp.XXXXXX")
 api_was_running=false
+backup_container_id=""
 cleanup() {
     status=$?
     trap - EXIT
+    if [[ -n "$backup_container_id" ]]; then
+        docker stop "$backup_container_id" >/dev/null || status=1
+    fi
     if [[ "$api_was_running" == true ]]; then
         docker compose start api || status=1
     fi
@@ -41,8 +45,16 @@ docker compose exec -T db sh -ec \
     'pg_dump --format=custom --no-owner --no-acl --username="$POSTGRES_USER" --dbname="$POSTGRES_DB"' \
     | age --encrypt --recipient "$BACKUP_AGE_RECIPIENT" >"$temporary/database.dump.age"
 
-docker compose --profile backup run --rm --no-deps -T backup-documents \
+docker compose --profile backup build --quiet backup-documents >/dev/null
+backup_container_id=$(
+    docker compose --profile backup run --detach --rm --no-deps \
+        --entrypoint sh backup-documents -c 'sleep infinity'
+)
+docker exec "$backup_container_id" \
+    tar -C /var/lib/securityops/documents -cf - . \
     | age --encrypt --recipient "$BACKUP_AGE_RECIPIENT" >"$temporary/documents.tar.age"
+docker stop "$backup_container_id" >/dev/null
+backup_container_id=""
 
 if [[ ! -s "$temporary/database.dump.age" || ! -s "$temporary/documents.tar.age" ]]; then
     echo "Mindestens ein verschlüsselter Backup-Bestandteil ist leer." >&2
