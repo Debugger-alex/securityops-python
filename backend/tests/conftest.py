@@ -142,12 +142,9 @@ def client() -> Generator[TestClient, None, None]:
             if role is None:
                 role = Role(code=code, name=name, description=description)
                 db.add(role)
-            existing_codes = {permission.code for permission in role.permissions}
-            role.permissions.extend(
-                permissions[permission_code]
-                for permission_code in permission_codes
-                if permission_code not in existing_codes
-            )
+            role.permissions = [
+                permissions[permission_code] for permission_code in permission_codes
+            ]
             return role
 
         administrator = get_or_create_role(
