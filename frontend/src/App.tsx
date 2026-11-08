@@ -1,12 +1,92 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { createCustomer, getCustomers, getDashboard, getSession, login, logout, updateCustomerStatus } from "./api";
-import type { AuthUser, Customer, CustomerStatus, Dashboard } from "./types";
+import {
+  archiveCustomer,
+  createCustomer,
+  createCustomerContact,
+  deleteCustomerContact,
+  getCustomer,
+  getCustomerHistory,
+  getCustomers,
+  getDashboard,
+  getSession,
+  login,
+  logout,
+  reactivateCustomer,
+  updateCustomer,
+  updateCustomerContact,
+} from "./api";
+import type {
+  AuthUser,
+  Customer,
+  CustomerAddress,
+  CustomerAddressInput,
+  CustomerHistory,
+  CustomerSort,
+  CustomerStatus,
+  Dashboard,
+} from "./types";
 
 const statusNames: Record<CustomerStatus, string> = {
   active: "Aktiv",
   inactive: "Inaktiv",
   lead: "Interessent",
 };
+
+const actionNames: Record<string, string> = {
+  created: "Kunde angelegt",
+  updated: "Kundendaten geändert",
+  archived: "Kunde archiviert",
+  reactivated: "Kunde reaktiviert",
+  contact_created: "Ansprechpartner hinzugefügt",
+  contact_updated: "Ansprechpartner geändert",
+  contact_deleted: "Ansprechpartner entfernt",
+};
+
+const pageSize = 25;
+
+function messageFrom(reason: unknown, fallback: string) {
+  return reason instanceof Error ? reason.message : fallback;
+}
+
+function optionalValue(data: FormData, name: string) {
+  return String(data.get(name) ?? "").trim() || undefined;
+}
+
+function formAddress(data: FormData, prefix: string): CustomerAddressInput | undefined {
+  const street = optionalValue(data, `${prefix}_street`);
+  const houseNumber = optionalValue(data, `${prefix}_house_number`);
+  const postalCode = optionalValue(data, `${prefix}_postal_code`);
+  const city = optionalValue(data, `${prefix}_city`);
+  if (!street && !houseNumber && !postalCode && !city) return undefined;
+  return {
+    street: street ?? "",
+    house_number: houseNumber ?? "",
+    postal_code: postalCode ?? "",
+    city: city ?? "",
+    country_code: optionalValue(data, `${prefix}_country_code`)?.toUpperCase() || "DE",
+  };
+}
+
+function AddressFields({ prefix, title, address }: {
+  prefix: string;
+  title: string;
+  address?: CustomerAddress | null;
+}) {
+  return (
+    <fieldset className="address-fields">
+      <legend>{title}</legend>
+      <label>Straße<input name={`${prefix}_street`} defaultValue={address?.street ?? ""} maxLength={160} /></label>
+      <div className="form-row">
+        <label>Hausnummer<input name={`${prefix}_house_number`} defaultValue={address?.house_number ?? ""} maxLength={30} /></label>
+        <label>PLZ<input name={`${prefix}_postal_code`} defaultValue={address?.postal_code ?? ""} maxLength={20} /></label>
+      </div>
+      <div className="form-row">
+        <label>Ort<input name={`${prefix}_city`} defaultValue={address?.city ?? ""} maxLength={100} /></label>
+        <label>Ländercode<input name={`${prefix}_country_code`} defaultValue={address?.country_code ?? "DE"} maxLength={2} /></label>
+      </div>
+    </fieldset>
+  );
+}
 
 export default function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -15,11 +95,19 @@ export default function App() {
   const [matchingCustomers, setMatchingCustomers] = useState(0);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<CustomerStatus | "">("");
+  const [includeArchived, setIncludeArchived] = useState(false);
+  const [sortBy, setSortBy] = useState<CustomerSort>("company_name");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [offset, setOffset] = useState(0);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [history, setHistory] = useState<CustomerHistory[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const canReadCustomers = user?.permissions.includes("customers.read") ?? false;
   const canCreateCustomers = user?.permissions.includes("customers.create") ?? false;
   const canUpdateCustomers = user?.permissions.includes("customers.update") ?? false;
+  const canArchiveCustomers = user?.permissions.includes("customers.archive") ?? false;
 
   useEffect(() => {
     getSession()
@@ -31,7 +119,17 @@ export default function App() {
   const loadData = useCallback(async () => {
     try {
       const [page, stats] = await Promise.all([
-        canReadCustomers ? getCustomers(search) : Promise.resolve(null),
+        canReadCustomers
+          ? getCustomers({
+            q: search,
+            status: statusFilter,
+            includeArchived,
+            sortBy,
+            sortOrder,
+            limit: pageSize,
+            offset,
+          })
+          : Promise.resolve(null),
         user?.permissions.includes("dashboard.read") ? getDashboard() : Promise.resolve(null),
       ]);
       setCustomers(page?.items ?? []);
@@ -39,9 +137,19 @@ export default function App() {
       setDashboard(stats);
       setError("");
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Daten konnten nicht geladen werden.");
+      setError(messageFrom(reason, "Daten konnten nicht geladen werden."));
     }
-  }, [canReadCustomers, search, user]);
+  }, [canReadCustomers, includeArchived, offset, search, sortBy, sortOrder, statusFilter, user]);
+
+  const refreshSelected = useCallback(async (customerId: string) => {
+    const [customer, customerHistory] = await Promise.all([
+      getCustomer(customerId),
+      getCustomerHistory(customerId),
+    ]);
+    setSelectedCustomer(customer);
+    setHistory(customerHistory);
+    return customer;
+  }, []);
 
   useEffect(() => {
     if (user) void loadData();
@@ -56,7 +164,7 @@ export default function App() {
       setUser(session.user);
       setError("");
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Anmeldung fehlgeschlagen.");
+      setError(messageFrom(reason, "Anmeldung fehlgeschlagen."));
     } finally {
       setBusy(false);
     }
@@ -68,6 +176,8 @@ export default function App() {
     } finally {
       setUser(null);
       setCustomers([]);
+      setSelectedCustomer(null);
+      setHistory([]);
       setDashboard(null);
     }
   }
@@ -78,15 +188,57 @@ export default function App() {
     const data = new FormData(form);
     setBusy(true);
     try {
-      await createCustomer({
+      const payload = {
         company_name: String(data.get("company_name")).trim(),
-        email: String(data.get("email")).trim() || undefined,
-        phone: String(data.get("phone")).trim() || undefined,
-      });
+        status: String(data.get("status")) as CustomerStatus,
+        email: optionalValue(data, "email"),
+        phone: optionalValue(data, "phone"),
+        legal_form: optionalValue(data, "legal_form"),
+        vat_number: optionalValue(data, "vat_number"),
+        tax_number: optionalValue(data, "tax_number"),
+        internal_notes: optionalValue(data, "internal_notes"),
+        business_address: formAddress(data, "business"),
+        billing_address: formAddress(data, "billing"),
+      };
+      const customer = await createCustomer(payload);
       form.reset();
+      setOffset(0);
       await loadData();
+      await refreshSelected(customer.id);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Kunde konnte nicht gespeichert werden.");
+      setError(messageFrom(reason, "Kunde konnte nicht gespeichert werden."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitCustomerUpdate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedCustomer) return;
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    setBusy(true);
+    try {
+      const payload = {
+        company_name: String(data.get("company_name")).trim(),
+        status: String(data.get("status")) as CustomerStatus,
+        email: optionalValue(data, "email") ?? null,
+        phone: optionalValue(data, "phone") ?? null,
+        legal_form: optionalValue(data, "legal_form") ?? null,
+        vat_number: optionalValue(data, "vat_number") ?? null,
+        tax_number: optionalValue(data, "tax_number") ?? null,
+        internal_notes: optionalValue(data, "internal_notes") ?? null,
+        business_address: data.get("remove_business_address") === "on"
+          ? null
+          : formAddress(data, "edit_business"),
+        billing_address: data.get("remove_billing_address") === "on"
+          ? null
+          : formAddress(data, "edit_billing"),
+      };
+      await updateCustomer(selectedCustomer.id, payload);
+      await Promise.all([loadData(), refreshSelected(selectedCustomer.id)]);
+    } catch (reason) {
+      setError(messageFrom(reason, "Kundendaten konnten nicht gespeichert werden."));
     } finally {
       setBusy(false);
     }
@@ -94,10 +246,77 @@ export default function App() {
 
   async function changeStatus(customer: Customer, status: CustomerStatus) {
     try {
-      await updateCustomerStatus(customer.id, status);
-      await loadData();
+      await updateCustomer(customer.id, { status });
+      await Promise.all([loadData(), selectedCustomer?.id === customer.id
+        ? refreshSelected(customer.id)
+        : Promise.resolve()]);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Status konnte nicht geändert werden.");
+      setError(messageFrom(reason, "Status konnte nicht geändert werden."));
+    }
+  }
+
+  async function changeArchiveState() {
+    if (!selectedCustomer) return;
+    const action = selectedCustomer.archived_at ? reactivateCustomer : archiveCustomer;
+    setBusy(true);
+    try {
+      await action(selectedCustomer.id);
+      await Promise.all([loadData(), refreshSelected(selectedCustomer.id)]);
+    } catch (reason) {
+      setError(messageFrom(reason, "Archivierungsstatus konnte nicht geändert werden."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitContact(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedCustomer) return;
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    setBusy(true);
+    try {
+      await createCustomerContact(selectedCustomer.id, {
+        first_name: String(data.get("first_name")).trim(),
+        last_name: String(data.get("last_name")).trim(),
+        responsibility: optionalValue(data, "responsibility"),
+        email: optionalValue(data, "contact_email"),
+        phone: optionalValue(data, "contact_phone"),
+        is_primary: data.get("is_primary") === "on",
+      });
+      form.reset();
+      await refreshSelected(selectedCustomer.id);
+    } catch (reason) {
+      setError(messageFrom(reason, "Ansprechpartner konnte nicht gespeichert werden."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function updatePrimaryContact(customer: Customer, contactId: string, isPrimary: boolean) {
+    try {
+      await updateCustomerContact(customer.id, contactId, { is_primary: isPrimary });
+      await refreshSelected(customer.id);
+    } catch (reason) {
+      setError(messageFrom(reason, "Ansprechpartner konnte nicht geändert werden."));
+    }
+  }
+
+  async function removeContact(customer: Customer, contactId: string) {
+    try {
+      await deleteCustomerContact(customer.id, contactId);
+      await refreshSelected(customer.id);
+    } catch (reason) {
+      setError(messageFrom(reason, "Ansprechpartner konnte nicht entfernt werden."));
+    }
+  }
+
+  async function openCustomer(customer: Customer) {
+    setError("");
+    try {
+      await refreshSelected(customer.id);
+    } catch (reason) {
+      setError(messageFrom(reason, "Kundendetails konnten nicht geladen werden."));
     }
   }
 
@@ -152,17 +371,13 @@ export default function App() {
         <p>Ihre Kundenstammdaten an einem zentralen Ort.</p>
       </section>
 
-      <section className="stats" aria-label="Kundenübersicht">
-        <article className="stat-card">
-          <span>Kunden gesamt</span><strong>{dashboard?.customers_total ?? "–"}</strong>
-        </article>
-        <article className="stat-card">
-          <span>Aktive Kunden</span><strong>{dashboard?.customers_active ?? "–"}</strong>
-        </article>
-        <article className="stat-card">
-          <span>Interessenten</span><strong>{dashboard?.customers_leads ?? "–"}</strong>
-        </article>
-      </section>
+      {dashboard && <section className="stats" aria-label="Kundenübersicht">
+        <article className="stat-card"><span>Kunden gesamt</span><strong>{dashboard.customers_total}</strong></article>
+        <article className="stat-card"><span>Aktive Kunden</span><strong>{dashboard.customers_active}</strong></article>
+        <article className="stat-card"><span>Interessenten</span><strong>{dashboard.customers_leads}</strong></article>
+      </section>}
+
+      {error && <p className="alert page-alert" role="alert">{error}</p>}
 
       <section className="content-grid">
         {canReadCustomers && <section className="panel">
@@ -175,64 +390,118 @@ export default function App() {
             <span aria-hidden="true">⌕</span>
             <input
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Name, Kundennummer oder E-Mail suchen"
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setOffset(0);
+              }}
+              placeholder="Name, Nummer, Kontakt oder Ort suchen"
             />
           </label>
-          {error && <p className="alert" role="alert">{error}</p>}
+          <div className="filter-row">
+            <label>Status
+              <select value={statusFilter} onChange={(event) => {
+                setStatusFilter(event.target.value as CustomerStatus | "");
+                setOffset(0);
+              }}>
+                <option value="">Alle Status</option>
+                {Object.entries(statusNames).map(([value, name]) =>
+                  <option key={value} value={value}>{name}</option>,
+                )}
+              </select>
+            </label>
+            <label>Sortieren nach
+              <select value={sortBy} onChange={(event) => setSortBy(event.target.value as CustomerSort)}>
+                <option value="company_name">Unternehmen</option>
+                <option value="customer_number">Kundennummer</option>
+                <option value="created_at">Angelegt am</option>
+                <option value="status">Status</option>
+              </select>
+            </label>
+            <label>Reihenfolge
+              <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value as "asc" | "desc")}>
+                <option value="asc">Aufsteigend</option>
+                <option value="desc">Absteigend</option>
+              </select>
+            </label>
+            {canArchiveCustomers && <label className="checkbox-label">
+              <input type="checkbox" checked={includeArchived} onChange={(event) => {
+                setIncludeArchived(event.target.checked);
+                setOffset(0);
+              }} />
+              Archivierte einblenden
+            </label>}
+          </div>
           <div className="table-scroll">
             <table>
-              <thead><tr><th>Kunde</th><th>Kontakt</th><th>Status</th></tr></thead>
+              <thead><tr><th>Kunde</th><th>Kontakt</th><th>Status</th><th>Details</th></tr></thead>
               <tbody>
-                {customers.map((customer) => (
-                  <tr key={customer.id}>
-                    <td>
-                      <strong>{customer.company_name}</strong>
-                      <small>{customer.customer_number}</small>
-                    </td>
-                    <td>
-                      {customer.email && <a href={`mailto:${customer.email}`}>{customer.email}</a>}
-                      {customer.phone && <small>{customer.phone}</small>}
-                      {!customer.email && !customer.phone && <span className="muted">Keine Kontaktdaten</span>}
-                    </td>
-                    <td>
-                      {canUpdateCustomers ? <>
-                        <label className="sr-only" htmlFor={`status-${customer.id}`}>Status für {customer.company_name}</label>
-                        <select
-                          id={`status-${customer.id}`}
-                          value={customer.status}
-                          onChange={(event) => void changeStatus(customer, event.target.value as CustomerStatus)}
-                        >
-                          {Object.entries(statusNames).map(([value, name]) =>
-                            <option key={value} value={value}>{name}</option>,
-                          )}
-                        </select>
-                      </> : <span className={`status status-${customer.status}`}>{statusNames[customer.status]}</span>}
-                    </td>
-                  </tr>
-                ))}
+                {customers.map((customer) => {
+                  const primary = customer.contacts.find((contact) => contact.is_primary);
+                  return (
+                    <tr key={customer.id} className={customer.archived_at ? "archived-row" : ""}>
+                      <td><strong>{customer.company_name}</strong><small>{customer.customer_number}</small></td>
+                      <td>
+                        {primary
+                          ? <><strong>{primary.first_name} {primary.last_name}</strong>
+                            {primary.email && <small><a href={`mailto:${primary.email}`}>{primary.email}</a></small>}</>
+                          : <>{customer.email && <a href={`mailto:${customer.email}`}>{customer.email}</a>}
+                            {customer.phone && <small>{customer.phone}</small>}
+                            {!customer.email && !customer.phone && <span className="muted">Keine Kontaktdaten</span>}</>}
+                      </td>
+                      <td>
+                        {canUpdateCustomers && !customer.archived_at ? (
+                          <label className="sr-only" htmlFor={`status-${customer.id}`}>Status für {customer.company_name}</label>
+                        ) : null}
+                        {canUpdateCustomers && !customer.archived_at ? (
+                          <select id={`status-${customer.id}`} value={customer.status}
+                            onChange={(event) => void changeStatus(customer, event.target.value as CustomerStatus)}>
+                            {Object.entries(statusNames).map(([value, name]) =>
+                              <option key={value} value={value}>{name}</option>,
+                            )}
+                          </select>
+                        ) : <span className={`status status-${customer.status}`}>
+                          {customer.archived_at ? "Archiviert" : statusNames[customer.status]}
+                        </span>}
+                      </td>
+                      <td><button className="text-button" onClick={() => void openCustomer(customer)}>Öffnen</button></td>
+                    </tr>
+                  );
+                })}
                 {customers.length === 0 && (
-                  <tr><td className="empty" colSpan={3}>Noch keine Kunden vorhanden.</td></tr>
+                  <tr><td className="empty" colSpan={4}>Keine passenden Kunden vorhanden.</td></tr>
                 )}
               </tbody>
             </table>
           </div>
+          <div className="pagination">
+            <span className="result-count">{matchingCustomers === 0 ? 0 : offset + 1}–{Math.min(offset + pageSize, matchingCustomers)} von {matchingCustomers}</span>
+            <div>
+              <button className="secondary-button" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - pageSize))}>Zurück</button>
+              <button className="secondary-button" disabled={offset + pageSize >= matchingCustomers}
+                onClick={() => setOffset(offset + pageSize)}>Weiter</button>
+            </div>
+          </div>
         </section>}
 
         {canCreateCustomers && <aside className="panel form-panel">
-          <div className="panel-heading">
-            <div><p className="eyebrow">NEU ANLEGEN</p><h2>Kunde hinzufügen</h2></div>
-          </div>
+          <div className="panel-heading"><div><p className="eyebrow">NEU ANLEGEN</p><h2>Kunde hinzufügen</h2></div></div>
           <form onSubmit={submitCustomer}>
             <label>Unternehmen <span aria-hidden="true">*</span>
               <input name="company_name" required maxLength={200} placeholder="Muster GmbH" />
             </label>
-            <label>E-Mail
-              <input name="email" type="email" maxLength={254} placeholder="kontakt@unternehmen.de" />
+            <label>Status
+              <select name="status" defaultValue="active">
+                {Object.entries(statusNames).map(([value, name]) => <option key={value} value={value}>{name}</option>)}
+              </select>
             </label>
-            <label>Telefon
-              <input name="phone" type="tel" maxLength={40} placeholder="+49 30 123456" />
-            </label>
+            <label>E-Mail<input name="email" type="email" maxLength={254} /></label>
+            <label>Telefon<input name="phone" type="tel" maxLength={40} /></label>
+            <label>Rechtsform<input name="legal_form" maxLength={100} placeholder="GmbH, e.K. …" /></label>
+            <label>Umsatzsteuer-ID<input name="vat_number" maxLength={32} /></label>
+            <label>Steuernummer<input name="tax_number" maxLength={32} /></label>
+            <AddressFields prefix="business" title="Geschäftsanschrift" />
+            <AddressFields prefix="billing" title="Rechnungsanschrift (optional)" />
+            <label>Interne Notizen<textarea name="internal_notes" maxLength={10000} rows={3} /></label>
             <button type="submit" disabled={busy}>{busy ? "Wird gespeichert …" : "Kunden speichern"}</button>
           </form>
         </aside>}
@@ -240,7 +509,111 @@ export default function App() {
           <section className="panel"><h2>Kein Modulzugriff</h2><p className="muted">Deinem Konto sind aktuell keine Kundenverwaltungsrechte zugewiesen.</p></section>
         )}
       </section>
-      <footer>SecurityOps <span>·</span> Erste Ausbaustufe</footer>
+
+      {selectedCustomer && canReadCustomers && <section className="panel detail-panel" aria-labelledby="customer-detail-title">
+        <div className="panel-heading">
+          <div><p className="eyebrow">KUNDENDETAILS · {selectedCustomer.customer_number}</p>
+            <h2 id="customer-detail-title">{selectedCustomer.company_name}</h2></div>
+          <button className="secondary-button" onClick={() => {
+            setSelectedCustomer(null);
+            setHistory([]);
+          }}>Schließen</button>
+        </div>
+        <div className="detail-grid">
+          {canUpdateCustomers && !selectedCustomer.archived_at ? <form className="form-panel detail-form" onSubmit={submitCustomerUpdate}>
+            <label>Unternehmen<input name="company_name" required maxLength={200} defaultValue={selectedCustomer.company_name} /></label>
+            <label>Status<select name="status" defaultValue={selectedCustomer.status}>
+              {Object.entries(statusNames).map(([value, name]) => <option key={value} value={value}>{name}</option>)}
+            </select></label>
+            <label>E-Mail<input name="email" type="email" maxLength={254} defaultValue={selectedCustomer.email ?? ""} /></label>
+            <label>Telefon<input name="phone" maxLength={40} defaultValue={selectedCustomer.phone ?? ""} /></label>
+            <label>Rechtsform<input name="legal_form" maxLength={100} defaultValue={selectedCustomer.legal_form ?? ""} /></label>
+            <label>Umsatzsteuer-ID<input name="vat_number" maxLength={32} defaultValue={selectedCustomer.vat_number ?? ""} /></label>
+            <label>Steuernummer<input name="tax_number" maxLength={32} defaultValue={selectedCustomer.tax_number ?? ""} /></label>
+            <AddressFields prefix="edit_business" title="Geschäftsanschrift" address={selectedCustomer.business_address} />
+            {selectedCustomer.business_address && <label className="checkbox-label">
+              <input type="checkbox" name="remove_business_address" /> Geschäftsanschrift entfernen
+            </label>}
+            <AddressFields prefix="edit_billing" title="Rechnungsanschrift" address={selectedCustomer.billing_address} />
+            {selectedCustomer.billing_address && <label className="checkbox-label">
+              <input type="checkbox" name="remove_billing_address" /> Rechnungsanschrift entfernen
+            </label>}
+            <label>Interne Notizen<textarea name="internal_notes" maxLength={10000} rows={3}
+              defaultValue={selectedCustomer.internal_notes ?? ""} /></label>
+            <button type="submit" disabled={busy}>Änderungen speichern</button>
+          </form> : <div className="detail-summary">
+            <p><strong>Status:</strong> {selectedCustomer.archived_at ? "Archiviert" : statusNames[selectedCustomer.status]}</p>
+            {selectedCustomer.legal_form && <p><strong>Rechtsform:</strong> {selectedCustomer.legal_form}</p>}
+            {selectedCustomer.vat_number && <p><strong>USt-IdNr.:</strong> {selectedCustomer.vat_number}</p>}
+            {selectedCustomer.tax_number && <p><strong>Steuernummer:</strong> {selectedCustomer.tax_number}</p>}
+            {selectedCustomer.internal_notes && <p><strong>Interne Notizen:</strong><br />{selectedCustomer.internal_notes}</p>}
+            <AddressSummary title="Geschäftsanschrift" address={selectedCustomer.business_address} />
+            <AddressSummary title="Rechnungsanschrift" address={selectedCustomer.billing_address} />
+          </div>}
+
+          <div className="detail-side">
+            {canArchiveCustomers && <div className="archive-box">
+              <h3>{selectedCustomer.archived_at ? "Archivierter Kunde" : "Kundenstatus"}</h3>
+              <p className="muted">{selectedCustomer.archived_at
+                ? `Archiviert am ${new Date(selectedCustomer.archived_at).toLocaleString("de-DE")}.`
+                : "Archivierte Kunden werden standardmäßig aus der Liste und den Kennzahlen ausgeblendet."}</p>
+              <button className={selectedCustomer.archived_at ? "primary-button" : "danger-button"}
+                disabled={busy} onClick={() => void changeArchiveState()}>
+                {selectedCustomer.archived_at ? "Reaktivieren" : "Kunde archivieren"}
+              </button>
+            </div>}
+            <section className="contact-section">
+              <h3>Ansprechpartner</h3>
+              {selectedCustomer.contacts.length === 0 && <p className="muted">Noch keine Ansprechpartner hinterlegt.</p>}
+              {selectedCustomer.contacts.map((contact) => (
+                <article className="contact-card" key={contact.id}>
+                  <div><strong>{contact.first_name} {contact.last_name}</strong>
+                    {contact.is_primary && <span className="primary-tag">Primär</span>}
+                    {contact.responsibility && <small>{contact.responsibility}</small>}
+                    {contact.email && <small><a href={`mailto:${contact.email}`}>{contact.email}</a></small>}
+                    {contact.phone && <small>{contact.phone}</small>}
+                  </div>
+                  {canUpdateCustomers && !selectedCustomer.archived_at && <div className="contact-actions">
+                    {!contact.is_primary && <button className="text-button" onClick={() => void updatePrimaryContact(selectedCustomer, contact.id, true)}>Als primär setzen</button>}
+                    <button className="text-button danger-text" onClick={() => void removeContact(selectedCustomer, contact.id)}>Entfernen</button>
+                  </div>}
+                </article>
+              ))}
+              {canUpdateCustomers && !selectedCustomer.archived_at && <form className="contact-form" onSubmit={submitContact}>
+                <h4>Ansprechpartner hinzufügen</h4>
+                <div className="form-row">
+                  <label>Vorname<input name="first_name" required maxLength={100} /></label>
+                  <label>Nachname<input name="last_name" required maxLength={100} /></label>
+                </div>
+                <label>Funktion<input name="responsibility" maxLength={120} /></label>
+                <label>E-Mail<input name="contact_email" type="email" maxLength={254} /></label>
+                <label>Telefon<input name="contact_phone" maxLength={40} /></label>
+                <label className="checkbox-label"><input type="checkbox" name="is_primary" /> Primärer Ansprechpartner</label>
+                <button className="secondary-button" type="submit" disabled={busy}>Hinzufügen</button>
+              </form>}
+            </section>
+          </div>
+        </div>
+        <section className="history-section">
+          <h3>Änderungshistorie</h3>
+          {history.length === 0 ? <p className="muted">Noch keine Historieneinträge.</p> : (
+            <ol className="history-list">
+              {history.map((item) => <li key={item.id}>
+                <strong>{actionNames[item.action] ?? item.action}</strong>
+                <time dateTime={item.created_at}>{new Date(item.created_at).toLocaleString("de-DE")}</time>
+                {item.changed_fields.length > 0 && <small>Geänderte Bereiche: {item.changed_fields.join(", ")}</small>}
+              </li>)}
+            </ol>
+          )}
+        </section>
+      </section>}
+      <footer>SecurityOps <span>·</span> Kundenverwaltung</footer>
     </main>
   );
+}
+
+function AddressSummary({ title, address }: { title: string; address: CustomerAddress | null }) {
+  if (!address) return null;
+  return <p><strong>{title}:</strong><br />{address.street} {address.house_number}<br />
+    {address.postal_code} {address.city}<br />{address.country_code}</p>;
 }

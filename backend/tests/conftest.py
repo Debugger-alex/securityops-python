@@ -69,6 +69,7 @@ def client() -> Generator[TestClient, None, None]:
             "customers.read",
             "customers.create",
             "customers.update",
+            "customers.archive",
             "dashboard.read",
             "users.read",
             "users.manage",

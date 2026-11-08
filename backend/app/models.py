@@ -10,7 +10,10 @@ from sqlalchemy import (
     Index,
     String,
     Table,
+    Text,
+    UniqueConstraint,
     Uuid,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -152,6 +155,11 @@ class Customer(Base):
     status: Mapped[str] = mapped_column(String(20), default="active", index=True)
     email: Mapped[str | None] = mapped_column(String(254), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    legal_form: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    vat_number: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    tax_number: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    internal_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
@@ -160,4 +168,86 @@ class Customer(Base):
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
         nullable=False,
+    )
+    addresses: Mapped[list["CustomerAddress"]] = relationship(back_populates="customer")
+    contacts: Mapped[list["CustomerContact"]] = relationship(back_populates="customer")
+
+    @property
+    def business_address(self) -> "CustomerAddress | None":
+        return next((address for address in self.addresses if address.kind == "business"), None)
+
+    @property
+    def billing_address(self) -> "CustomerAddress | None":
+        return next((address for address in self.addresses if address.kind == "billing"), None)
+
+
+class CustomerAddress(Base):
+    __tablename__ = "customer_addresses"
+    __table_args__ = (
+        UniqueConstraint("customer_id", "kind", name="uq_customer_addresses_customer_kind"),
+        CheckConstraint("kind IN ('business', 'billing')", name="ck_customer_addresses_kind"),
+        CheckConstraint(
+            "length(trim(street)) > 0 AND length(trim(city)) > 0",
+            name="ck_customer_addresses_required_fields",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    customer_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("customers.id", ondelete="RESTRICT"), nullable=False
+    )
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    street: Mapped[str] = mapped_column(String(160), nullable=False)
+    house_number: Mapped[str] = mapped_column(String(30), nullable=False)
+    postal_code: Mapped[str] = mapped_column(String(20), nullable=False)
+    city: Mapped[str] = mapped_column(String(100), nullable=False)
+    country_code: Mapped[str] = mapped_column(String(2), default="DE", nullable=False)
+    customer: Mapped[Customer] = relationship(back_populates="addresses")
+
+
+class CustomerContact(Base):
+    __tablename__ = "customer_contacts"
+    __table_args__ = (
+        CheckConstraint(
+            "length(trim(first_name)) > 0 AND length(trim(last_name)) > 0",
+            name="ck_customer_contacts_name",
+        ),
+        Index("ix_customer_contacts_customer_name", "customer_id", "last_name", "first_name"),
+        Index(
+            "uq_customer_contacts_primary",
+            "customer_id",
+            unique=True,
+            postgresql_where=text("is_primary"),
+            sqlite_where=text("is_primary = 1"),
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    customer_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("customers.id", ondelete="RESTRICT"), nullable=False
+    )
+    first_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    last_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    responsibility: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    is_primary: Mapped[bool] = mapped_column(default=False, nullable=False)
+    customer: Mapped[Customer] = relationship(back_populates="contacts")
+
+
+class CustomerHistory(Base):
+    __tablename__ = "customer_history"
+    __table_args__ = (Index("ix_customer_history_customer_created", "customer_id", "created_at"),)
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    customer_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("customers.id", ondelete="RESTRICT"), nullable=False
+    )
+    actor_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    action: Mapped[str] = mapped_column(String(50), nullable=False)
+    changed_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
