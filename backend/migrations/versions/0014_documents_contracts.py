@@ -6,6 +6,7 @@ from uuid import NAMESPACE_URL, uuid5
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 revision: str = "0014_documents_contracts"
 down_revision: str | None = "0013_time_tracking_surcharges"
@@ -284,12 +285,17 @@ def upgrade() -> None:
         sa.column("role_id", postgresql.UUID(as_uuid=True)),
         sa.column("permission_id", postgresql.UUID(as_uuid=True)),
     )
-    op.bulk_insert(
-        permissions,
-        [
-            {"id": stable_id("permission", code), "code": code, "description": description}
-            for code, description in PERMISSIONS.items()
-        ],
+    connection = op.get_bind()
+    connection.execute(
+        pg_insert(permissions)
+        .values(
+            [
+                {"id": stable_id("permission", code), "code": code, "description": description}
+                for code, description in PERMISSIONS.items()
+                if code != "documents.read"
+            ]
+        )
+        .on_conflict_do_nothing()
     )
     all_document_permissions = set(PERMISSIONS)
     all_contract_permissions = {code for code in PERMISSIONS if code.startswith("contracts.")}
@@ -325,21 +331,26 @@ def upgrade() -> None:
         "auditor": {"documents.read", "contracts.read"},
         "employee": {"documents.read", "documents.download"},
     }
-    op.bulk_insert(
-        role_permissions,
-        [
-            {
-                "role_id": stable_id("role", role_code),
-                "permission_id": stable_id("permission", permission_code),
-            }
-            for role_code, codes in matrix.items()
-            for permission_code in sorted(codes)
-        ],
+    connection.execute(
+        pg_insert(role_permissions)
+        .values(
+            [
+                {
+                    "role_id": stable_id("role", role_code),
+                    "permission_id": stable_id("permission", permission_code),
+                }
+                for role_code, codes in matrix.items()
+                for permission_code in sorted(codes)
+            ]
+        )
+        .on_conflict_do_nothing()
     )
 
 
 def downgrade() -> None:
-    permission_ids = [stable_id("permission", code) for code in PERMISSIONS]
+    permission_ids = [
+        stable_id("permission", code) for code in PERMISSIONS if code != "documents.read"
+    ]
     role_permissions = sa.table(
         "role_permissions",
         sa.column("permission_id", postgresql.UUID(as_uuid=True)),
@@ -351,6 +362,12 @@ def downgrade() -> None:
     connection = op.get_bind()
     connection.execute(
         sa.delete(role_permissions).where(role_permissions.c.permission_id.in_(permission_ids))
+    )
+    connection.execute(
+        sa.delete(role_permissions).where(
+            role_permissions.c.role_id == stable_id("role", "accounting"),
+            role_permissions.c.permission_id == stable_id("permission", "documents.read"),
+        )
     )
     connection.execute(sa.delete(permissions).where(permissions.c.id.in_(permission_ids)))
     op.drop_index("ix_doc_contract_reminders_due_status", table_name="document_contract_reminders")
