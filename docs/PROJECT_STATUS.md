@@ -67,7 +67,7 @@ PR #23 (OWKS) und #24 (Dokumente/Verträge) sind gemergt und in `main` enthalten
 - PR #23 und #24 sind gemergt; PR #25 ist der einzige offene PR und bleibt getrennt von `main`.
 - PR #21 ist geschlossen, nicht gemergt; die enthaltenen Änderungen sind laut Verlauf in #22/`main` enthalten.
 - Issues #2–#6 sind geschlossen; #7–#10 sind offen laut aktueller GitHub-Abfrage. Insbesondere zeigte die frische Abfrage Issue #8 weiterhin als OPEN, obwohl die Funktions-PRs gemergt sind. Diese Dokumentationsänderung verändert keinen Issue-Status.
-- Die jüngsten CI-Checks des bisherigen PR-#25-Heads waren erfolgreich. Für den nachfolgenden Dokumentations-Head ist CI nach Push neu auszuführen und zu prüfen.
+- Für PR-#25-Head `a6b7af50243cf6fe92829e1e498225809bb3578c` waren Backend/PostgreSQL/Migrationen, Frontend und Docker im Lauf 42527368838 erfolgreich. Der erste Backend-Versuch traf einen transienten PostgreSQL-Deadlock im parallelen Dienstplan-Constraint-Test; der erneute Lauf war erfolgreich. CI ist kein fachlicher Abnahmenachweis.
 
 ## Tests, Betrieb und Abnahme
 
