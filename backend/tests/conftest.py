@@ -38,6 +38,15 @@ from app.models import (
     ScheduleShift,
     ScheduleShiftHistory,
     SecurityObject,
+    TimeEntry,
+    TimeEntryCorrection,
+    TimeEntryCorrectionSegment,
+    TimeEntryHistory,
+    TimeEntrySegment,
+    TimeSurchargeCalculation,
+    TimeSurchargeRule,
+    TimeTrackingPeriod,
+    TimeTrackingSettings,
     User,
     UserSession,
     user_roles,
@@ -79,6 +88,15 @@ def client() -> Generator[TestClient, None, None]:
     with TestingSessionLocal() as db:
         db.execute(delete(UserSession))
         db.execute(delete(AuditLog))
+        db.execute(delete(TimeEntryCorrectionSegment))
+        db.execute(delete(TimeEntryCorrection))
+        db.execute(delete(TimeEntryHistory))
+        db.execute(delete(TimeSurchargeCalculation))
+        db.execute(delete(TimeEntrySegment))
+        db.execute(delete(TimeEntry))
+        db.execute(delete(TimeTrackingPeriod))
+        db.execute(delete(TimeSurchargeRule))
+        db.execute(delete(TimeTrackingSettings))
         db.execute(delete(ScheduleShiftHistory))
         db.execute(delete(ScheduleShift))
         db.execute(delete(ScheduleSettings))
@@ -131,6 +149,19 @@ def client() -> Generator[TestClient, None, None]:
             "employees.documents.manage",
             "scheduling.read",
             "scheduling.manage",
+            "time_tracking.read_own",
+            "time_tracking.read_all",
+            "time_tracking.create",
+            "time_tracking.correct_own",
+            "time_tracking.correct_all",
+            "time_tracking.approve",
+            "time_tracking.reject",
+            "time_tracking.export",
+            "time_tracking.manage",
+            "time_tracking.surcharges.read",
+            "time_tracking.surcharges.manage",
+            "time_tracking.periods.read",
+            "time_tracking.periods.lock",
         )
         permissions = {}
         for code in permission_codes:
@@ -178,13 +209,31 @@ def client() -> Generator[TestClient, None, None]:
                 "objects.sensitive.manage",
                 "employees.read",
                 "employees.manage",
+                "time_tracking.read_all",
+                "time_tracking.create",
+                "time_tracking.correct_all",
+                "time_tracking.approve",
+                "time_tracking.reject",
+                "time_tracking.export",
+                "time_tracking.manage",
+                "time_tracking.surcharges.read",
+                "time_tracking.surcharges.manage",
+                "time_tracking.periods.read",
+                "time_tracking.periods.lock",
             ),
         )
         get_or_create_role(
             "employee",
             "Mitarbeiter",
             "Operative Testrolle",
-            ("owks.read", "objects.read", "scheduling.read"),
+            (
+                "owks.read",
+                "objects.read",
+                "scheduling.read",
+                "time_tracking.read_own",
+                "time_tracking.create",
+                "time_tracking.correct_own",
+            ),
         )
         get_or_create_role(
             "object_manager",
@@ -205,6 +254,17 @@ def client() -> Generator[TestClient, None, None]:
                 "employees.absences.manage",
                 "employees.documents.read",
                 "employees.documents.manage",
+                "time_tracking.read_all",
+                "time_tracking.create",
+                "time_tracking.correct_all",
+                "time_tracking.approve",
+                "time_tracking.reject",
+                "time_tracking.export",
+                "time_tracking.manage",
+                "time_tracking.surcharges.read",
+                "time_tracking.surcharges.manage",
+                "time_tracking.periods.read",
+                "time_tracking.periods.lock",
             ),
         )
         db.add(ScheduleSettings(id=1, time_zone="Europe/Berlin", minimum_rest_hours=11))

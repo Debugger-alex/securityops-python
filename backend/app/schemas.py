@@ -931,6 +931,358 @@ class ScheduleShiftHistoryRead(BaseModel):
     created_at: datetime
 
 
+TimeEntryStatus = Literal[
+    "open", "submitted", "approved", "rejected", "correction_requested", "locked"
+]
+TimeSegmentKind = Literal["work", "break"]
+
+
+class TimeEntryStart(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    shift_id: UUID | None = None
+    employee_id: UUID | None = None
+    object_id: UUID | None = None
+
+
+class TimeSegmentInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: TimeSegmentKind
+    started_at: datetime
+    ended_at: datetime
+
+    @field_validator("started_at", "ended_at")
+    @classmethod
+    def timestamps_must_have_timezone(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("Zeitpunkte müssen einen UTC-Offset enthalten.")
+        return value
+
+    @model_validator(mode="after")
+    def end_must_follow_start(self):
+        if self.ended_at <= self.started_at:
+            raise ValueError("Das Segmentende muss nach dem Segmentbeginn liegen.")
+        return self
+
+
+class TimeSegmentsInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    segments: list[TimeSegmentInput] = Field(min_length=1, max_length=100)
+
+    @model_validator(mode="after")
+    def segments_must_form_a_continuous_work_period(self):
+        for index, segment in enumerate(self.segments):
+            expected_kind = "work" if index % 2 == 0 else "break"
+            if segment.kind != expected_kind:
+                raise ValueError("Arbeits- und Pausensegmente müssen sich abwechseln.")
+            if index and self.segments[index - 1].ended_at != segment.started_at:
+                raise ValueError("Arbeits- und Pausensegmente müssen lückenlos aufeinanderfolgen.")
+        return self
+
+
+class TimeEntryManualCreate(TimeSegmentsInput):
+    employee_id: UUID
+    object_id: UUID
+    shift_id: UUID | None = None
+
+
+class TimeCorrectionCreate(TimeSegmentsInput):
+    reason: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("reason")
+    @classmethod
+    def reason_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Ein Korrekturgrund ist erforderlich.")
+        return value
+
+
+class TimeEntryDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("reason")
+    @classmethod
+    def optional_reason_must_not_be_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            raise ValueError("Der Begründungstext darf nicht leer sein.")
+        return value
+
+
+class TimeEntrySegmentRead(BaseModel):
+    id: UUID
+    position: int
+    kind: TimeSegmentKind
+    started_at: datetime
+    ended_at: datetime | None
+
+
+class TimeEntryCorrectionRead(BaseModel):
+    id: UUID
+    entry_id: UUID
+    reason: str
+    status: Literal["pending", "approved", "rejected"]
+    rejection_reason: str | None
+    requested_by_id: UUID | None
+    decided_by_id: UUID | None
+    requested_at: datetime
+    decided_at: datetime | None
+    segments: list[TimeEntrySegmentRead]
+
+
+class TimeEntryRead(BaseModel):
+    id: UUID
+    employee_id: UUID
+    employee_number: str
+    employee_name: str
+    object_id: UUID
+    object_code: str
+    object_name: str
+    customer_id: UUID
+    customer_name: str
+    shift_id: UUID | None
+    planned_start_at: datetime | None
+    planned_end_at: datetime | None
+    planned_break_seconds: int
+    time_zone: str
+    started_at: datetime
+    ended_at: datetime | None
+    status: TimeEntryStatus
+    actual_work_seconds: float
+    actual_break_seconds: float
+    planned_work_seconds: int | None
+    difference_seconds: float | None
+    start_deviation_seconds: float | None
+    end_deviation_seconds: float | None
+    created_by_id: UUID | None
+    submitted_at: datetime | None
+    reviewed_by_id: UUID | None
+    reviewed_at: datetime | None
+    decision_reason: str | None
+    segments: list[TimeEntrySegmentRead]
+    corrections: list[TimeEntryCorrectionRead]
+
+
+class TimeEntrySummaryRead(BaseModel):
+    from_date: date
+    to_date: date
+    time_zone: str
+    group_by: Literal["employee", "object", "customer", "day", "week", "month"] | None
+    entry_count: int
+    actual_work_seconds: float
+    actual_break_seconds: float
+    planned_work_seconds: int
+    difference_seconds: float
+    overtime_seconds: float
+    pending_count: int
+    groups: list["TimeEntryReportGroup"]
+    items: list[TimeEntryRead]
+
+
+class TimeEntryReportGroup(BaseModel):
+    key: str
+    label: str
+    entry_count: int
+    actual_work_seconds: float
+    actual_break_seconds: float
+    planned_work_seconds: int
+    difference_seconds: float
+    overtime_seconds: float
+    pending_count: int
+
+
+class MissingShiftRead(BaseModel):
+    shift_id: UUID
+    employee_id: UUID
+    employee_number: str
+    employee_name: str
+    object_id: UUID
+    object_code: str
+    object_name: str
+    starts_at: datetime
+    ends_at: datetime
+    time_zone: str
+
+
+FederalState = Literal[
+    "BW",
+    "BY",
+    "BE",
+    "BB",
+    "HB",
+    "HH",
+    "HE",
+    "MV",
+    "NI",
+    "NW",
+    "RP",
+    "SL",
+    "SN",
+    "ST",
+    "SH",
+    "TH",
+]
+SurchargeCategory = Literal["night", "saturday", "sunday", "public_holiday", "business"]
+SurchargeCalculationType = Literal["percentage", "fixed"]
+SurchargeCombinationMode = Literal["exclusive", "combine"]
+
+
+class TimeTrackingSettingsRead(BaseModel):
+    federal_state: FederalState | None
+    updated_at: datetime
+
+
+class TimeTrackingSettingsUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    federal_state: FederalState | None
+
+
+class TimeSurchargeRuleCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    code: str = Field(min_length=2, max_length=80, pattern=r"^[a-zA-Z0-9._-]+$")
+    name: str = Field(min_length=1, max_length=160)
+    category: SurchargeCategory
+    calculation_type: SurchargeCalculationType
+    value: Decimal = Field(gt=0, max_digits=12, decimal_places=4)
+    currency: str | None = Field(default=None, min_length=3, max_length=3, pattern=r"^[A-Z]{3}$")
+    basis_description: str = Field(min_length=1, max_length=240)
+    valid_from: date
+    valid_to: date | None = None
+    priority: int = Field(default=100, ge=0, le=10000)
+    combination_mode: SurchargeCombinationMode = "exclusive"
+    weekdays: list[int] = Field(default_factory=list, max_length=7)
+    starts_local: str | None = Field(default=None, pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    ends_local: str | None = Field(default=None, pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+
+    @field_validator("name", "basis_description")
+    @classmethod
+    def text_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Das Feld darf nicht leer sein.")
+        return value
+
+    @field_validator("currency")
+    @classmethod
+    def currency_must_be_present_for_fixed_amount(cls, value: str | None, info):
+        if info.data.get("calculation_type") == "fixed" and value is None:
+            raise ValueError("Für einen festen Zuschlag muss eine Währung angegeben werden.")
+        if info.data.get("calculation_type") == "percentage" and value is not None:
+            raise ValueError("Prozentuale Zuschläge dürfen keine Währung enthalten.")
+        return value
+
+    @field_validator("weekdays")
+    @classmethod
+    def weekdays_must_be_unique_and_valid(cls, value: list[int]) -> list[int]:
+        if len(set(value)) != len(value) or any(day < 0 or day > 6 for day in value):
+            raise ValueError("Wochentage müssen eindeutige ISO-Werte von 0 bis 6 sein.")
+        return sorted(value)
+
+    @model_validator(mode="after")
+    def validate_rule_window(self):
+        if self.valid_to is not None and self.valid_to < self.valid_from:
+            raise ValueError("Das Gültigkeitsende darf nicht vor dem Gültigkeitsbeginn liegen.")
+        if self.category in {"night", "business"}:
+            if self.starts_local is None or self.ends_local is None:
+                raise ValueError("Für Zeitfenster müssen Beginn und Ende angegeben werden.")
+            if self.category == "business" and not self.weekdays:
+                raise ValueError("Individuelle Zuschläge benötigen mindestens einen Wochentag.")
+        elif self.starts_local is not None or self.ends_local is not None or self.weekdays:
+            raise ValueError(
+                "Zeitfenster und Wochentage gelten nur für Nacht- oder Betriebsregeln."
+            )
+        if self.calculation_type == "fixed" and self.currency is None:
+            raise ValueError("Für einen festen Zuschlag muss eine Währung angegeben werden.")
+        if self.calculation_type == "percentage" and self.currency is not None:
+            raise ValueError("Prozentuale Zuschläge dürfen keine Währung enthalten.")
+        return self
+
+
+class TimeSurchargeRuleRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    code: str
+    name: str
+    category: SurchargeCategory
+    calculation_type: SurchargeCalculationType
+    value: Decimal
+    currency: str | None
+    basis_description: str
+    valid_from: date
+    valid_to: date | None
+    priority: int
+    combination_mode: SurchargeCombinationMode
+    weekdays: list[int]
+    starts_local: str | None
+    ends_local: str | None
+    created_by_id: UUID | None
+    created_at: datetime
+
+
+class TimeSurchargeAllocationRead(BaseModel):
+    rule_id: UUID | None
+    rule_code: str | None
+    rule_name: str
+    eligible_work_seconds: Decimal
+    configured_value: Decimal | None
+    calculation_type: SurchargeCalculationType | None
+    currency: str | None
+    basis_description: str | None
+    calculated_amount: Decimal | None
+    calculation_note: str
+
+
+class TimeSurchargeCalculationRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    entry_id: UUID
+    version: int
+    gross_work_seconds: Decimal
+    time_zone: str
+    federal_state: FederalState | None
+    rule_snapshot: list[dict[str, object]]
+    allocation_snapshot: list[TimeSurchargeAllocationRead]
+    source_segments: list[dict[str, str]]
+    created_by_id: UUID | None
+    created_at: datetime
+
+
+class TimeTrackingPeriodLockCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    from_date: date
+    to_date: date
+
+    @model_validator(mode="after")
+    def period_must_be_ordered_and_bounded(self):
+        if self.to_date < self.from_date:
+            raise ValueError("Das Periodenende darf nicht vor dem Beginn liegen.")
+        if (self.to_date - self.from_date).days > 366:
+            raise ValueError("Eine Abrechnungsperiode darf höchstens 367 Kalendertage umfassen.")
+        return self
+
+
+class TimeTrackingPeriodRead(BaseModel):
+    id: UUID
+    from_date: date
+    to_date: date
+    time_zone: str
+    federal_state: FederalState | None
+    locked_by_id: UUID | None
+    locked_at: datetime
+
+
 CustomerCreate.model_rebuild()
 CustomerUpdate.model_rebuild()
 CustomerRead.model_rebuild()

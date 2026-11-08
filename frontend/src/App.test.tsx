@@ -19,6 +19,11 @@ vi.mock("./api", () => ({
   getSession: vi.fn(),
   getScheduleSettings: vi.fn(),
   getScheduleShifts: vi.fn(),
+  getTimeEntries: vi.fn(),
+  getTimeReport: vi.fn(),
+  startTimeEntry: vi.fn(),
+  getTimeCorrections: vi.fn(),
+  getMissingShifts: vi.fn(),
   login: vi.fn(),
   logout: vi.fn(),
   reactivateCustomer: vi.fn(),
@@ -160,5 +165,42 @@ describe("Kundenformulare", () => {
     expect(screen.getByText("Veröffentlicht")).toBeTruthy();
     expect(screen.getByRole("option", { name: "Monat" })).toBeTruthy();
     expect(api.getScheduleShifts).toHaveBeenCalled();
+  });
+
+  it("zeigt Mitarbeitenden die Zeiterfassung und startet eine Buchung", async () => {
+    vi.mocked(api.getSession).mockResolvedValue({
+      user: {
+        id: "employee-user",
+        username: "mitarbeiter",
+        email: "mitarbeiter@example.de",
+        full_name: "Mitarbeiter",
+        is_active: true,
+        roles: ["employee"],
+        permissions: ["time_tracking.read_own", "time_tracking.create"],
+      },
+    });
+    vi.mocked(api.getTimeEntries).mockResolvedValue([]);
+    vi.mocked(api.getTimeReport).mockResolvedValue({
+      from_date: "2026-11-01",
+      to_date: "2026-11-08",
+      time_zone: "Europe/Berlin",
+      group_by: "employee",
+      entry_count: 0,
+      actual_work_seconds: 0,
+      actual_break_seconds: 0,
+      planned_work_seconds: 0,
+      difference_seconds: 0,
+      overtime_seconds: 0,
+      pending_count: 0,
+      groups: [],
+      items: [],
+    });
+    vi.mocked(api.startTimeEntry).mockResolvedValue({} as Awaited<ReturnType<typeof api.startTimeEntry>>);
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Zeiterfassung" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Arbeitszeit starten" }));
+    await waitFor(() => expect(api.startTimeEntry).toHaveBeenCalledWith({}));
   });
 });

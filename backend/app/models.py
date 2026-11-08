@@ -815,3 +815,300 @@ class ScheduleShiftHistory(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
     shift: Mapped[ScheduleShift] = relationship(back_populates="history")
+
+
+class TimeEntry(Base):
+    __tablename__ = "time_entries"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('open', 'submitted', 'approved', 'rejected', "
+            "'correction_requested', 'locked')",
+            name="ck_time_entries_status",
+        ),
+        CheckConstraint(
+            "ended_at IS NULL OR ended_at > started_at",
+            name="ck_time_entries_time_order",
+        ),
+        UniqueConstraint("employee_id", "shift_id", name="uq_time_entries_employee_shift"),
+        Index("ix_time_entries_employee_start", "employee_id", "started_at"),
+        Index("ix_time_entries_object_start", "object_id", "started_at"),
+        Index("ix_time_entries_status_start", "status", "started_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    employee_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("employees.id", ondelete="RESTRICT"), nullable=False
+    )
+    object_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("objects.id", ondelete="RESTRICT"), nullable=False
+    )
+    shift_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("schedule_shifts.id", ondelete="RESTRICT"), nullable=True
+    )
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="open", nullable=False)
+    created_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewed_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    decision_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    employee: Mapped[Employee] = relationship()
+    object: Mapped[SecurityObject] = relationship()
+    shift: Mapped[ScheduleShift | None] = relationship()
+    segments: Mapped[list["TimeEntrySegment"]] = relationship(
+        back_populates="entry", cascade="all, delete-orphan", order_by="TimeEntrySegment.position"
+    )
+    corrections: Mapped[list["TimeEntryCorrection"]] = relationship(
+        back_populates="entry", cascade="all, delete-orphan"
+    )
+
+
+class TimeEntrySegment(Base):
+    __tablename__ = "time_entry_segments"
+    __table_args__ = (
+        CheckConstraint("kind IN ('work', 'break')", name="ck_time_entry_segments_kind"),
+        CheckConstraint("position > 0", name="ck_time_entry_segments_position"),
+        CheckConstraint(
+            "ended_at IS NULL OR ended_at > started_at",
+            name="ck_time_entry_segments_time_order",
+        ),
+        UniqueConstraint("entry_id", "position", name="uq_time_entry_segments_position"),
+        Index("ix_time_entry_segments_entry", "entry_id", "position"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    entry_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("time_entries.id", ondelete="RESTRICT"), nullable=False
+    )
+    position: Mapped[int] = mapped_column(nullable=False)
+    kind: Mapped[str] = mapped_column(String(10), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    entry: Mapped[TimeEntry] = relationship(back_populates="segments")
+
+
+class TimeEntryCorrection(Base):
+    __tablename__ = "time_entry_corrections"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'approved', 'rejected')",
+            name="ck_time_entry_corrections_status",
+        ),
+        CheckConstraint(
+            "length(trim(reason)) > 0",
+            name="ck_time_entry_corrections_reason",
+        ),
+        Index("ix_time_entry_corrections_entry_created", "entry_id", "requested_at"),
+        Index(
+            "uq_time_entry_corrections_pending",
+            "entry_id",
+            unique=True,
+            sqlite_where=text("status = 'pending'"),
+            postgresql_where=text("status = 'pending'"),
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    entry_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("time_entries.id", ondelete="RESTRICT"), nullable=False
+    )
+    requested_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    previous_status: Mapped[str] = mapped_column(String(30), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    decided_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    requested_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    entry: Mapped[TimeEntry] = relationship(back_populates="corrections")
+    segments: Mapped[list["TimeEntryCorrectionSegment"]] = relationship(
+        back_populates="correction",
+        cascade="all, delete-orphan",
+        order_by="TimeEntryCorrectionSegment.position",
+    )
+
+
+class TimeEntryCorrectionSegment(Base):
+    __tablename__ = "time_entry_correction_segments"
+    __table_args__ = (
+        CheckConstraint("kind IN ('work', 'break')", name="ck_time_entry_correction_segments_kind"),
+        CheckConstraint("position > 0", name="ck_time_entry_correction_segments_position"),
+        CheckConstraint(
+            "ended_at > started_at",
+            name="ck_time_entry_correction_segments_time_order",
+        ),
+        UniqueConstraint("correction_id", "position", name="uq_time_entry_correction_segments_pos"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    correction_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("time_entry_corrections.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    position: Mapped[int] = mapped_column(nullable=False)
+    kind: Mapped[str] = mapped_column(String(10), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ended_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    correction: Mapped[TimeEntryCorrection] = relationship(back_populates="segments")
+
+
+class TimeEntryHistory(Base):
+    __tablename__ = "time_entry_history"
+    __table_args__ = (Index("ix_time_entry_history_entry_created", "entry_id", "created_at"),)
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    entry_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("time_entries.id", ondelete="RESTRICT"), nullable=False
+    )
+    actor_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    action: Mapped[str] = mapped_column(String(50), nullable=False)
+    details: Mapped[dict[str, object]] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class TimeTrackingSettings(Base):
+    __tablename__ = "time_tracking_settings"
+    __table_args__ = (
+        CheckConstraint("id = 1", name="ck_time_tracking_settings_singleton"),
+        CheckConstraint(
+            "federal_state IS NULL OR federal_state IN "
+            "('BW', 'BY', 'BE', 'BB', 'HB', 'HH', 'HE', 'MV', 'NI', 'NW', 'RP', 'SL', 'SN', 'ST', 'SH', 'TH')",
+            name="ck_time_tracking_settings_federal_state",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, default=1)
+    federal_state: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    updated_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
+class TimeSurchargeRule(Base):
+    __tablename__ = "time_surcharge_rules"
+    __table_args__ = (
+        CheckConstraint(
+            "category IN ('night', 'saturday', 'sunday', 'public_holiday', 'business')",
+            name="ck_time_surcharge_rules_category",
+        ),
+        CheckConstraint(
+            "calculation_type IN ('percentage', 'fixed')",
+            name="ck_time_surcharge_rules_calculation_type",
+        ),
+        CheckConstraint("value > 0", name="ck_time_surcharge_rules_value"),
+        CheckConstraint(
+            "valid_to IS NULL OR valid_to >= valid_from",
+            name="ck_time_surcharge_rules_validity",
+        ),
+        CheckConstraint(
+            "combination_mode IN ('exclusive', 'combine')",
+            name="ck_time_surcharge_rules_combination",
+        ),
+        UniqueConstraint("code", name="uq_time_surcharge_rules_code"),
+        Index("ix_time_surcharge_rules_validity", "valid_from", "valid_to"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    code: Mapped[str] = mapped_column(String(80), nullable=False)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    category: Mapped[str] = mapped_column(String(30), nullable=False)
+    calculation_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    value: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=False)
+    currency: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    basis_description: Mapped[str] = mapped_column(String(240), nullable=False)
+    valid_from: Mapped[date] = mapped_column(nullable=False)
+    valid_to: Mapped[date | None] = mapped_column(nullable=True)
+    priority: Mapped[int] = mapped_column(nullable=False, default=100)
+    combination_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="exclusive")
+    weekdays: Mapped[list[int]] = mapped_column(JSON, nullable=False, default=list)
+    starts_local: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    ends_local: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    created_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class TimeSurchargeCalculation(Base):
+    __tablename__ = "time_surcharge_calculations"
+    __table_args__ = (
+        CheckConstraint("version > 0", name="ck_time_surcharge_calculations_version"),
+        CheckConstraint(
+            "length(gross_work_seconds) > 0",
+            name="ck_time_surcharge_calculations_work_seconds",
+        ),
+        UniqueConstraint("entry_id", "version", name="uq_time_surcharge_calculations_version"),
+        Index("ix_time_surcharge_calculations_entry_created", "entry_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    entry_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("time_entries.id", ondelete="RESTRICT"), nullable=False
+    )
+    version: Mapped[int] = mapped_column(nullable=False)
+    gross_work_seconds: Mapped[str] = mapped_column(String(32), nullable=False)
+    time_zone: Mapped[str] = mapped_column(String(80), nullable=False)
+    federal_state: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    rule_snapshot: Mapped[list[dict[str, object]]] = mapped_column(JSON, nullable=False)
+    allocation_snapshot: Mapped[list[dict[str, object]]] = mapped_column(JSON, nullable=False)
+    source_segments: Mapped[list[dict[str, str]]] = mapped_column(JSON, nullable=False)
+    created_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class TimeTrackingPeriod(Base):
+    __tablename__ = "time_tracking_periods"
+    __table_args__ = (
+        CheckConstraint("to_date >= from_date", name="ck_time_tracking_periods_date_order"),
+        UniqueConstraint("from_date", "to_date", name="uq_time_tracking_periods_range"),
+        Index("ix_time_tracking_periods_range", "from_date", "to_date"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    from_date: Mapped[date] = mapped_column(nullable=False)
+    to_date: Mapped[date] = mapped_column(nullable=False)
+    time_zone: Mapped[str] = mapped_column(String(80), nullable=False)
+    federal_state: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    locked_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    locked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )

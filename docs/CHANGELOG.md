@@ -1,12 +1,27 @@
 # Änderungsprotokoll
 
-## 2026-11-08 – Dienstplanung (in Bearbeitung)
+## 2026-11-08 – Gestapelte Ergänzung zu Zeiterfassung/Zuschlägen
+
+- Migration 0013 ergänzt Bundeslandseinstellung, unveränderliche Zuschlagsregeln, versionierte Berechnungssnapshots und endgültige Abrechnungsperiodensperren mit getrennten Rechten.
+- Zuschlagszeit wird ausschließlich auf tatsächliche Arbeitssegmente verteilt; Nacht-/Betriebszeitfenster, Samstage, Sonntage, gesetzliche Feiertage nach Bundesland, Prioritäten, ausdrücklich freigegebene Kombinationen und `Europe/Berlin`-DST werden berücksichtigt.
+- Verwaltungsoberfläche, getrennte Zuschlagsauswertung und formelsicherer CSV-Nachweis ergänzt. Periodensperren verlangen freigegebene Buchungen, vollständige Dienstabdeckung und keine grenzüberschreitenden Buchungen.
+- Geldbeträge bleiben bewusst unberechnet: Lohnbasis, Prozentbasis, Festzuschlagseinheit und Rundung sind nicht festgelegt. Snapshots speichern Regelwert und Arbeitszeit, nicht Payroll-Beträge.
+- Lokale Prüfung: zielgerichtete Zeiterfassungstests `4 passed`, Frontendtests `4 passed`, TypeScript-/Produktionsbuild, Ruff und PostgreSQL-Offline-Upgrade/-Downgrade erfolgreich. Vollständige Backend-, Live-PostgreSQL- und Dockerprüfungen folgen vor Veröffentlichung.
+
+## 2026-11-08 – Zeiterfassung für Issue #4
+
+- Migration 0012 ergänzt UTC-Arbeitszeitbuchungen, Arbeits-/Pausensegmente, getrennte Korrekturversionen, Verlauf, Constraints und rollenbasierte Rechte.
+- Geschützte API ergänzt Start, Pause, Fortsetzen, Einreichen, manuelle Nachträge, Korrekturen, Freigaben/Ablehnungen, Sperren, gruppierte Auswertungen, Fehlbuchungsübersicht und formelsicheren CSV-Export.
+- Deutsche Mitarbeiter- und Verwaltungsoberfläche mit Zeitsteuerung, Filtern, Korrektur-/Freigabeablauf und CSV-Download ergänzt. Freigegebene Originalsegmente werden bei Korrekturen nicht überschrieben.
+- Lokal erfolgreich: Backend `29 passed, 1 skipped`, Frontend `4 passed`, Produktionsbuild, Ruff-Lint/Format und Alembic-Offline-Upgrade/-Downgrade. Der übersprungene Test benötigt PostgreSQL; Live-PostgreSQL-/Docker-CI läuft für PR [#20](https://github.com/Xonni-star/securityops-python/pull/20). Issue #4 bleibt bis zur fachlichen Abnahme offen; kein Merge oder Issue-Abschluss.
+
+## 2026-11-08 – Dienstplanung (in `main`)
 
 - Alembic-Migration 0011 ergänzt Schichten, Planungseinstellungen, Verlauf und einen PostgreSQL-Exclusion-Constraint gegen zeitliche Doppelbelegung; API-Konfliktprüfungen werden pro Mitarbeiter per Transaktions-Advisory-Lock serialisiert.
 - Geschützte Scheduling-API und React-Oberfläche mit Tages-/Wochen-/Monatsansichten, Filtern, Entwurf/Veröffentlichung/Absage, Änderungsverlauf und konfigurierbarer IANA-Zeitzone/Ruhezeit ergänzt.
 - Backendtests für Zeitumrechnung einschließlich doppelter Ortszeit, Konflikte, Qualifikation, Abwesenheiten, Objektzuweisung, Berechtigungen und parallele PostgreSQL-Schreibzugriffe ergänzt. Lokal: 27 Backendtests bestanden, PostgreSQL-Parallelitätstest mangels PostgreSQL übersprungen; Ruff, Frontend-Build/Vitest und Offline-Migrationsupgrade/-downgrade erfolgreich. GitHub-CI für Backend/Migration/PostgreSQL, Frontend und Docker erfolgreich.
-- PR [#19](https://github.com/Xonni-star/securityops-python/pull/19) ist offen; Issue #10 bleibt bis Review und formaler Akzeptanz offen. Issue #2 bleibt bis zur formalen Abnahme offen; Issue #6 wird nicht erneut geöffnet.
-- PR #18 ist in `main` (Merge-Commit `c8d4fbe203d179b7c4b620d604409c7217478033`), CI Backend/PostgreSQL, Frontend einschließlich Vitest und Docker grün; Issue #6 geschlossen. Issue #2 bleibt bis zur formalen Abnahme offen; Issue #10 wird bearbeitet.
+- PR [#19](https://github.com/Xonni-star/securityops-python/pull/19) ist in `main`; Issue #10 bleibt bis fachlicher Akzeptanz offen. Issue #2 bleibt bis zur formalen Abnahme offen; Issue #6 wird nicht erneut geöffnet.
+- PR #18 ist in `main` (Merge-Commit `c8d4fbe203d179b7c4b620d604409c7217478033`), CI Backend/PostgreSQL, Frontend einschließlich Vitest und Docker grün; Issue #6 geschlossen. Issue #2 bleibt bis zur formalen Abnahme offen.
 
 ## Kundenverwaltung erweitert
 
