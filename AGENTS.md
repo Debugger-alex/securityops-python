@@ -2,7 +2,7 @@
 
 ## Projektziel und Umfang
 
-SecurityOps ist eine deutschsprachige Verwaltungsplattform für einen Sicherheitsdienst. Ziel ist ein modularer Monolith mit Python/FastAPI, SQLAlchemy, PostgreSQL, Alembic sowie React/TypeScript. Der belegte `main`-Stand umfasst Identity/RBAC, Kunden, Objekte, Personal/Qualifikationen, Dienstplanung, Zeiterfassung einschließlich Zuschlagszeitnachweisen, OWKS sowie Dokumente/Verträge. Offene Pull Requests sind kein Teil von `main` und dürfen in Statusaussagen nicht als integriert dargestellt werden.
+SecurityOps ist eine deutschsprachige Verwaltungsplattform für einen Sicherheitsdienst. Ziel ist ein modularer Monolith mit Python/FastAPI, SQLAlchemy, PostgreSQL, Alembic sowie React/TypeScript. Der belegte `main`-Stand umfasst Identity/RBAC mit optionalem TOTP-MFA und Sitzungsverwaltung, Kunden, Objekte, Personal/Qualifikationen, Dienstplanung, Zeiterfassung einschließlich Zuschlagszeitnachweisen, OWKS, Dokumente/Verträge und Rechnungswesen. Offene Pull Requests sind kein Teil von `main` und dürfen in Statusaussagen nicht als integriert dargestellt werden.
 
 ## Verbindliche Arbeitsweise
 
@@ -34,4 +34,4 @@ SecurityOps ist eine deutschsprachige Verwaltungsplattform für einen Sicherheit
 
 ## Ausbau und Betrieb
 
-Die fachliche Reihenfolge richtet sich nach echten Daten- und Berechtigungsabhängigkeiten: Kunden → Objekte → Personal/Qualifikationen → Dienstplanung → Zeiterfassung/OWKS → Dokumente/Verträge → Abrechnung. Die im Repository offenen Module und Maßnahmen sind in [`docs/IMPLEMENTATION_ROADMAP.md`](docs/IMPLEMENTATION_ROADMAP.md) priorisiert. Vor produktivem Betrieb sind mindestens MFA-/Kontowiederherstellungsentscheidungen, RBAC-/Auditprüfung, TLS, Schutz der Uploads, Backup/Restore, Monitoring, Incident-Abläufe und Datenschutz-/Aufbewahrungsvorgaben zu klären und nachzuweisen.
+Die fachliche Reihenfolge richtet sich nach echten Daten- und Berechtigungsabhängigkeiten: Kunden → Objekte → Personal/Qualifikationen → Dienstplanung → Zeiterfassung/OWKS → Dokumente/Verträge → Abrechnung. Die im Repository offenen Abnahmen und Maßnahmen sind in [`docs/IMPLEMENTATION_ROADMAP.md`](docs/IMPLEMENTATION_ROADMAP.md) priorisiert. MFA/Sitzungsverwaltung und Rechnungswesen sind implementiert, aber unabhängig sicherheits- bzw. fachlich zu prüfen; nutzerinitiierter E-Mail-Passwortreset ist nicht vorhanden. Vor produktivem Betrieb sind mindestens RBAC-/Auditprüfung, TLS, Schutz der Uploads, Backup/Restore, Monitoring, Incident-Abläufe und Datenschutz-/Aufbewahrungsvorgaben zu klären und nachzuweisen.

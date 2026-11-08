@@ -55,7 +55,7 @@ Uvicorn vertraut ausschließlich den in `FORWARDED_ALLOW_IPS` aufgelisteten Adre
 
 ## Secrets und Betrieb
 
-- `POSTGRES_PASSWORD`, TLS-Schlüssel und Backup-Identitäten aus einem Secret-Manager bereitstellen; nicht in `.env`, Git oder Images veröffentlichen.
+- `POSTGRES_PASSWORD`, TLS-Schlüssel und Backup-Identitäten aus einem Secret-Manager bereitstellen; nicht in `.env`, Git oder Images veröffentlichen. Wenn TOTP-MFA genutzt wird, zusätzlich `MFA_ENCRYPTION_KEY` als Fernet-Schlüssel sicher setzen und auf allen API-Instanzen identisch halten; Schlüsselrotation vorab planen.
 - Die Beispielkonfiguration nutzt eine lokale PostgreSQL-Rolle. Für Produktion eine dedizierte Rolle mit minimalen Datenbankrechten und getrennte Migrationsberechtigungen einrichten.
 - Redis ist nur im internen Compose-Netz erreichbar und speichert flüchtige Rate-Limit-Zähler. Für externe Redis-Installationen `rediss://` und die dafür erforderlichen Zugriffsdaten sicher bereitstellen.
 - Dokumente liegen im privaten Volume und niemals im statischen Webroot. Volume-Verschlüsselung, Zugriff, Aufbewahrung und Backup sind Betreiberaufgaben.

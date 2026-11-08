@@ -8,11 +8,11 @@ Die verbindliche Priorisierung, Abhängigkeiten und der aktuelle `main`-/PR-Stat
 2. Fachliche Abnahme der in `main` implementierten Module und Nachverfolgung offener Akzeptanzthemen (Issues #7–#10 offen; Issue #8 laut aktueller GitHub-Abfrage OPEN).
 3. OWKS (gemergter PR #23, Issue #3 geschlossen) auf Objekten, Personal und Zuweisungen fachlich weiter prüfen; statische QR/NFC-Kennungen sind kein physischer Präsenznachweis.
 4. Dokumenten-/Vertragsverwaltung (gemergter PR #24) sowie geschützte Dateiablage/Vertragsregeln anhand fachlicher Akzeptanz prüfen.
-5. Rechnungswesen (Issue #7, offener PR #27) auf fachlich freigegebenen Verträgen und Leistungsnachweisen; PR-Vorschlag ist nicht in `main`, Steuerrichtigkeit/Abnahme nicht belegt.
+5. Rechnungswesen (Issue #7, PR #27 gemergt) auf fachlich freigegebenen Verträgen und Leistungsnachweisen fachlich abnehmen; Steuer-/Buchhaltungsrichtigkeit ist nicht belegt.
 6. E2E-/Last-/Sicherheits-/Restoretests und eine eigenständige Betriebsabnahme.
 
-PR #26 ist gemergt und hat wöchentliche Verfügbarkeiten, Dienstwünsche/Sperrzeiten und Vertretungen in `main` ergänzt; Issue #10 bleibt für fachliche Abnahme offen. PR #27 ist offen und direkt gegen `main` gerichtet. Seine vorgeschlagene Migration `0017_billing` folgt auf den gemergten Head `0016_scheduling_availability`; eine offene Stapelabhängigkeit zu #26 besteht nicht.
+PR #26 ist gemergt und hat wöchentliche Verfügbarkeiten, Dienstwünsche/Sperrzeiten und Vertretungen in `main` ergänzt; Issue #10 bleibt für fachliche Abnahme offen. PR #27 ist gemergt; Migration `0017_billing` folgt auf `0016_scheduling_availability` und Rechnungswesen ist in `main`. Issue #7 bleibt trotz Merge offen, bis die fachlichen Kriterien abgeglichen sind.
 
-PR #28 ist gemergt und hat Produktions-Compose, Redis-Rate-Limiting, separate Release-Migrationen, verschlüsselte Backup-/Restorewerkzeuge und Security-Scanning ergänzt. Issue #9 bleibt offen. CI- und synthetische Restoreprüfungen sind keine produktive Betriebsabnahme oder regelmäßige Restoreübung.
+PR #28 ist gemergt und hat Produktions-Compose, Redis-Rate-Limiting, separate Release-Migrationen, verschlüsselte Backup-/Restorewerkzeuge und Security-Scanning ergänzt. PR #31 ist ebenfalls gemergt und ergänzt optionales TOTP-MFA, Recovery-Codes, Sitzungsliste/-widerruf und administrativen Passwortreset. Issue #9 bleibt offen. CI- und synthetische Restoreprüfungen sind keine produktive Betriebsabnahme oder regelmäßige Restoreübung; MFA ist keine unabhängige Sicherheitsabnahme.
 
 Reihenfolge stellt keinen Implementierungs- oder Rechtsstatus dar. Keine Produktions-, Rechts- oder Steuerfreigabe wird behauptet.

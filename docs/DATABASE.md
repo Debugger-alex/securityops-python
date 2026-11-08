@@ -2,7 +2,7 @@
 
 ## Quelle und Stand
 
-Diese Referenz beschreibt den Quellcode auf `main` (`3deebd16e368733f9595cd39f7e38b6354c1a88d`), insbesondere `backend/app/models.py` und `backend/migrations/versions/`. Die Tabellen-/Spaltenlisten sind aus den SQLAlchemy-Metadaten abgeleitet, die Migrationshistorie aus den Alembic-Dateien. Das Metadateninventar umfasst 54 Tabellen; der Alembic-Head ist `0016_scheduling_availability`. PR #23, #24 und #26 sind gemergt; ihre Revisionen `0014_owks_wachbuch`, `0015_documents_contracts` und `0016_scheduling_availability` gehören zum aktuellen Schema.
+Diese Referenz beschreibt den Quellcode auf `main` (`edad05f3b3029370a62b51a6508962f1dd156592`), insbesondere `backend/app/models.py` und `backend/migrations/versions/`. Die Tabellen-/Spaltenlisten sind aus den SQLAlchemy-Metadaten abgeleitet, die Migrationshistorie aus den Alembic-Dateien. Das Metadateninventar umfasst 60 Tabellen; der Alembic-Head ist `0018_identity_security`. PRs #23, #24, #26, #27 und #31 sind gemergt; ihre Revisionen `0014_owks_wachbuch`, `0015_documents_contracts`, `0016_scheduling_availability`, `0017_billing` und `0018_identity_security` gehören zum aktuellen Schema.
 
 UUID-Primärschlüssel werden in PostgreSQL als UUID geführt. Datums-/Zeitpunktfelder mit `DateTime(timezone=True)` werden als zeitzonenbewusste Zeitpunkte (`TIMESTAMPTZ`) abgebildet; APIs normalisieren Zeitpunkte für operative Zeitdaten nach UTC. JSON-Spalten und Binärdaten verwenden PostgreSQL-JSON bzw. `BYTEA`. Nicht aufgeführte `CHECK`-Regeln können zusätzlich in Schemas/Service-Code validiert werden; hier werden Datenbankconstraints und -indizes dokumentiert.
 
@@ -43,12 +43,13 @@ UUID-Primärschlüssel werden in PostgreSQL als UUID geführt. Datums-/Zeitpunkt
 | `time_surcharge_rules` | PK `id`; `code`, `name`, `category`, `calculation_type`, `value`, `currency`, `basis_description`, `valid_from`, `valid_to`, `priority`, `combination_mode`, `weekdays`, `starts_local`, `ends_local`, `created_by_id`, `created_at` |
 | `time_surcharge_calculations` | PK `id`; `entry_id`, `version`, `gross_work_seconds`, `time_zone`, `federal_state`, `rule_snapshot`, `allocation_snapshot`, `source_segments`, `created_by_id`, `created_at` |
 | `time_tracking_periods` | PK `id`; `from_date`, `to_date`, `time_zone`, `federal_state`, `locked_by_id`, `locked_at` |
-| `users` | PK `id`; `username`, `email`, `full_name`, `password_hash`, `is_active`, `created_at`, `updated_at` |
+| `users` | PK `id`; `username`, `email`, `full_name`, `password_hash`, `is_active`, `mfa_enabled`, `mfa_secret_encrypted`, `mfa_last_counter`, `force_password_change`, `created_at`, `updated_at` |
 | `roles` | PK `id`; `code`, `name`, `description` |
 | `permissions` | PK `id`; `code`, `description` |
 | `user_roles` | zusammengesetzter PK (`user_id`, `role_id`) |
 | `role_permissions` | zusammengesetzter PK (`role_id`, `permission_id`) |
-| `user_sessions` | PK `id`; `user_id`, `token_hash`, `csrf_token_hash`, `created_at`, `last_seen_at`, `expires_at`, `absolute_expires_at` |
+| `user_sessions` | PK `id`; `user_id`, `token_hash`, `csrf_token_hash`, `created_at`, `last_seen_at`, `expires_at`, `absolute_expires_at`, `ip_address`, `user_agent` |
+| `user_mfa_recovery_codes` | PK `id`; `user_id`, `code_hash`, `created_at` |
 | `audit_logs` | PK `id`; `actor_id`, `action`, `entity_type`, `entity_id`, `ip_address`, `details`, `created_at` |
 | `owks_control_points` | PK `id`; `object_id`, `name`, `identifier_type`, `identifier_hash`, `is_active`, `created_by_id`, `created_at` |
 | `owks_routes` | PK `id`; `object_id`, `name`, `interval_minutes`, `is_active`, `created_by_id`, `created_at` |
@@ -66,6 +67,11 @@ UUID-Primärschlüssel werden in PostgreSQL als UUID geführt. Datums-/Zeitpunkt
 | `contract_history` | PK `id`; `contract_id`, `actor_id`, `action`, `changed_fields`, `details`, `created_at` |
 | `document_contract_reminder_settings` | PK `id` (Singleton); `lead_days`, `updated_by_id`, `updated_at` |
 | `document_contract_reminders` | PK `id`; `document_id`, `contract_id`, `reminder_type`, `event_on`, `remind_on`, `deduplication_key`, `status`, `created_at` |
+| `billing_rates` | PK `id`; `code`, `name`, `kind`, `unit`, `unit_price`, `tax_code`, `tax_rate`, `currency`, `is_active`, `created_by_id`, `created_at` |
+| `billing_invoices` | PK `id`; `invoice_number`, `idempotency_key`, `customer_id`, `contract_id`, `kind`, `status`, `payment_status`, `dunning_status`, `currency`, `issued_on`, `due_on`, `correction_of_id`, `correction_reason`, `customer_snapshot`, `inputs_snapshot`, `net_amount`, `tax_amount`, `gross_amount`, `created_by_id`, `approved_by_id`, `approved_at`, `archived_at`, `created_at` |
+| `billing_invoice_lines` | PK `id`; `invoice_id`, `rate_id`, `position`, `description`, `kind`, `quantity`, `unit`, `unit_price`, `tax_code`, `tax_rate`, `net_amount`, `tax_amount`, `gross_amount`, `inputs_snapshot` |
+| `billing_payments` | PK `id`; `invoice_id`, `idempotency_key`, `amount`, `paid_on`, `reference`, `created_by_id`, `created_at` |
+| `billing_exports` | PK `id`; `invoice_id`, `format_version`, `idempotency_key`, `payload`, `payload_sha256`, `created_by_id`, `created_at` |
 
 ### Nullable Spalten
 
@@ -116,6 +122,13 @@ Alle nicht in dieser Liste enthaltenen Spalten sind in den Modellen `nullable=Fa
 | `contract_history` | `actor_id` |
 | `document_contract_reminder_settings` | `updated_by_id` |
 | `document_contract_reminders` | `document_id`, `contract_id` |
+| `user_sessions` | `ip_address`, `user_agent` |
+| `users` | `mfa_secret_encrypted`, `mfa_last_counter` |
+| `billing_rates` | `created_by_id` |
+| `billing_invoices` | `contract_id`, `correction_of_id`, `correction_reason`, `created_by_id`, `approved_by_id`, `approved_at`, `archived_at` |
+| `billing_invoice_lines` | `rate_id` |
+| `billing_payments` | `reference`, `created_by_id` |
+| `billing_exports` | `created_by_id` |
 
 ## Fremdschlüssel und Löschverhalten
 
@@ -156,6 +169,13 @@ Alle nicht in dieser Liste enthaltenen Spalten sind in den Modellen `nullable=Fa
 | `contracts.document_id` | `documents.id` | `SET NULL` |
 | `document_contract_reminders.document_id` | `documents.id` | `RESTRICT` |
 | `document_contract_reminders.contract_id` | `contracts.id` | `RESTRICT` |
+| `user_mfa_recovery_codes.user_id` | `users.id` | `CASCADE` |
+| `billing_rates.created_by_id`, `billing_invoices.created_by_id`, `billing_invoices.approved_by_id`, `billing_payments.created_by_id`, `billing_exports.created_by_id` | `users.id` | jeweils `SET NULL` |
+| `billing_invoices.customer_id` | `customers.id` | `RESTRICT` |
+| `billing_invoices.contract_id` | `contracts.id` | `RESTRICT` |
+| `billing_invoices.correction_of_id` | `billing_invoices.id` | `RESTRICT` |
+| `billing_invoice_lines.invoice_id`, `billing_payments.invoice_id`, `billing_exports.invoice_id` | `billing_invoices.id` | jeweils `RESTRICT` |
+| `billing_invoice_lines.rate_id` | `billing_rates.id` | `SET NULL` |
 
 ## Constraints und Indizes
 
@@ -173,9 +193,10 @@ Primärschlüssel sind in der Tabellenübersicht aufgeführt. Die folgenden bena
 | `object_history` | Index `ix_object_history_object_created` |
 | `object_assignments` | Unique `uq_object_assignments_object_user`; Index `ix_object_assignments_user_object` |
 | `object_security_details` | Checks `ck_object_security_requirements_nonblank`, `ck_object_access_information_nonblank` |
-| `users` | Unique-Indizes `ix_users_username`, `ix_users_email`; Checks `ck_users_username`, `ck_users_full_name` |
+| `users` | Unique-Indizes `ix_users_username`, `ix_users_email`; Checks `ck_users_username`, `ck_users_full_name`, `ck_users_mfa_secret` |
 | `roles`, `permissions` | jeweils `code` unique |
 | `user_sessions` | `token_hash` unique; Index `ix_user_sessions_user_expires` |
+| `user_mfa_recovery_codes` | `code_hash` unique; Index `ix_user_mfa_recovery_codes_user_id` (migration 0018) |
 | `audit_logs` | Indizes `ix_audit_logs_entity_created`, `ix_audit_logs_actor_created` |
 | `employees` | Unique `employee_number`, Unique `user_id`; Checks `ck_employees_employment_status`, `ck_employees_number`, `ck_employees_full_name`, `ck_employees_weekly_hours`, `ck_employees_end_date`; Index `ix_employees_status_name` |
 | `employee_qualifications` | Checks `ck_employee_qualifications_name`, `ck_employee_qualifications_dates`; Indizes `ix_employee_qualifications_expiry`, `ix_employee_qualifications_employee` |
@@ -214,6 +235,11 @@ Primärschlüssel sind in der Tabellenübersicht aufgeführt. Die folgenden bena
 | `contract_history` | Index `ix_contract_history_contract_created` |
 | `document_contract_reminder_settings` | Check `ck_doc_contract_reminder_settings_singleton` (`id = 1`) |
 | `document_contract_reminders` | Unique `uq_doc_contract_reminders_dedupe`; Checks `ck_doc_contract_reminders_single_target`, `ck_doc_contract_reminders_type`, `ck_doc_contract_reminders_status`; Index `ix_doc_contract_reminders_due_status` |
+| `billing_rates` | Unique `uq_billing_rates_code`; Checks `ck_billing_rates_unit_price`, `ck_billing_rates_kind`, `ck_billing_rates_tax_rate` |
+| `billing_invoices` | Unique `uq_billing_invoices_number(invoice_number)`, `uq_billing_invoices_idempotency(idempotency_key)`; Checks `ck_billing_invoices_payment_status`, `ck_billing_invoices_currency`, `ck_billing_invoices_kind`, `ck_billing_invoices_dunning_status`, `ck_billing_invoices_status`, `ck_billing_invoices_due_date`, `ck_billing_invoices_correction_link`; Indizes `ix_billing_invoices_status_due`, `ix_billing_invoices_customer_date` |
+| `billing_invoice_lines` | Unique `uq_billing_invoice_lines_position(invoice_id, position)`; Checks `ck_billing_invoice_lines_tax_rate`, `ck_billing_invoice_lines_position` |
+| `billing_payments` | Unique `uq_billing_payments_idempotency(invoice_id, idempotency_key)`; Check `ck_billing_payments_amount`; Index `ix_billing_payments_invoice_date` |
+| `billing_exports` | Unique `uq_billing_exports_invoice_version(invoice_id, format_version)`, `uq_billing_exports_idempotency(idempotency_key)` |
 
 Die `user_roles`- und `role_permissions`-Join-Tabellen haben zusammengesetzte Primärschlüssel; ihre beiden Fremdschlüssel sind jeweils `ON DELETE CASCADE`. Einige modelldeklarierte, nicht benannte Einzelspalten-Unique-Constraints (zum Beispiel `roles.code`) sind oben als Feld-Unique erwähnt. Migrationsspezifische PostgreSQL- und partielle Indizes sind zusätzlich aufgeführt, auch wenn sie nicht vollständig in `Base.metadata` als Modell-Index gespiegelt sind.
 
@@ -236,6 +262,7 @@ erDiagram
     ROLES ||--o{ ROLE_PERMISSIONS : grants
     PERMISSIONS ||--o{ ROLE_PERMISSIONS : granted
     USERS ||--o{ USER_SESSIONS : sessions
+    USERS ||--o{ USER_MFA_RECOVERY_CODES : recovery_codes
     USERS ||--o{ AUDIT_LOGS : actor
     EMPLOYEES o|--o| USERS : account
     EMPLOYEES ||--o{ EMPLOYEE_QUALIFICATIONS : qualifications
@@ -285,9 +312,18 @@ erDiagram
     CONTRACTS ||--o{ CONTRACT_HISTORY : history
     DOCUMENTS o|--o{ DOCUMENT_CONTRACT_REMINDERS : document_reminders
     CONTRACTS o|--o{ DOCUMENT_CONTRACT_REMINDERS : contract_reminders
+    USERS o|--o{ BILLING_RATES : created_by
+    CUSTOMERS ||--o{ BILLING_INVOICES : invoiced
+    CONTRACTS o|--o{ BILLING_INVOICES : contract
+    BILLING_INVOICES o|--o{ BILLING_INVOICES : correction_of
+    USERS o|--o{ BILLING_INVOICES : created_or_approved_by
+    BILLING_INVOICES ||--o{ BILLING_INVOICE_LINES : lines
+    BILLING_RATES o|--o{ BILLING_INVOICE_LINES : source_rate
+    BILLING_INVOICES ||--o{ BILLING_PAYMENTS : payments
+    BILLING_INVOICES ||--o{ BILLING_EXPORTS : exports
 ```
 
-`schedule_settings`, `time_tracking_settings` und `document_contract_reminder_settings` sind Singleton-Konfigurationen. Beziehungen zu `users` als Ersteller/Prüfer/Sperrer sowie einzelne selbstreferenzielle/optionale OWKS-Beziehungen sind aus Gründen der Lesbarkeit nicht sämtlich im Diagramm gezeichnet; die Fremdschlüsselliste oben ist vollständig.
+`schedule_settings`, `time_tracking_settings` und `document_contract_reminder_settings` sind Singleton-Konfigurationen. Beziehungen zu `users` als Ersteller/Prüfer/Sperrer sowie einzelne optionale Beziehungen sind aus Gründen der Lesbarkeit nicht sämtlich im Diagramm gezeichnet; die Fremdschlüsselliste oben ist vollständig.
 
 ## Alembic-Kette auf `main`
 
@@ -309,12 +345,12 @@ erDiagram
 | `0014_owks_wachbuch` | `0013_time_tracking_surcharges` | Objektgebundene Kontrollpunkte/Routen, Challenges, Wachbuchereignisse, Statusverlauf und Anhänge; append-only Trigger für OWKS-Ereignisse/Status/Anhänge, OWKS-Recht |
 | `0015_documents_contracts` | `0014_owks_wachbuch` | Dokumente/-versionen, Freigaben, Lesebestätigungen, Verträge/-historie, Erinnerungen und Rollenrechte |
 | `0016_scheduling_availability` | `0015_documents_contracts` | Wöchentliche Mitarbeiter-Verfügbarkeitsfenster, Dienstwünsche/Sperrzeiten, Vertretungsdetails in der Schichthistorie und Recht `scheduling.availability.request` |
+| `0017_billing` | `0016_scheduling_availability` | Preisstammdaten, Rechnungen/-positionen, Zahlungen und idempotente Export-Snapshots; ergänzt `billing.*`-Rechte |
+| `0018_identity_security` | `0017_billing` | TOTP-MFA, verschlüsselte MFA-Secrets, einmalige gehashte Recovery-Codes, Sitzungs-IP/User-Agent, Passwortwechselpflicht und administrative Passwortzurücksetzung; ergänzt Session-/Reset-Rechte |
 
 Neue Schemaänderungen benötigen eine neue Alembic-Migration. Ein `Base.metadata.create_all` ist nur in Tests zulässig. Migrationen sollten vor Rollout in PostgreSQL geprüft werden; Daten-destruktive Downgrades sind keine sichere Rollbackstrategie. Release-Migrationen und verschlüsselte Backup-/Restore-Skripte sind vorhanden; produktive Rollouts und Wiederherstellungen sind nicht unabhängig nachgewiesen.
 
-### Nicht gemergter Migrationsvorschlag
-
-PR #27 schlägt `0017_billing` mit `0016_scheduling_availability` als Vorgänger vor. PR #26 ist bereits gemergt und `0016` ist der Main-Head; #27 zielt aktuell direkt auf `main` und ist nicht mehr auf einem offenen PR gestapelt. Die Migrationsfolge `0015` → `0016` → vorgeschlagenes `0017_billing` ist damit eindeutig. Das Billing-Schema bleibt bis zum Merge außerhalb des Main-Inventars.
+PR #27 und #31 sind gemergt; die Migrationsfolge `0016_scheduling_availability` → `0017_billing` → `0018_identity_security` ist der aktuelle Main-Stand. Issue #7 bleibt trotz des Billing-Merges offen zur fachlichen Abnahme. PR #25 ist die einzige offene PR und ändert ausschließlich Dokumentation.
 
 ## Datenhaltungsgrenzen
 

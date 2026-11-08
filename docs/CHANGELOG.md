@@ -1,6 +1,15 @@
 # Änderungsprotokoll
 
-## 2026-11-09 – Dokumentation mit aktuellem `main` synchronisiert
+## 2026-11-08 – Dokumentation auf Billing-/MFA-Main synchronisiert
+
+- Maßgeblicher `main`-Stand: `edad05f3b3029370a62b51a6508962f1dd156592`, Alembic-Head `0018_identity_security`, 60 SQLAlchemy-Tabellen und 160 `/api/v1`-Operationen.
+- PR #27 (Rechnungswesen, Migration `0017_billing`) und PR #31 (MFA/Sitzungsverwaltung, Migration `0018_identity_security`) sind gemergt. Rechnungswesen ist implementiert, aber nicht steuerlich/buchhalterisch abgenommen; TOTP-MFA ist optional, E-Mail-Selbstreset fehlt.
+- Frisch geprüft: PR #25 ist die einzige offene PR; Issues #7–#10 sind offen, #2–#6 geschlossen. Issue #8 bleibt trotz Merge der Dokumentenfunktionen offen.
+- `PROJECT_STATUS`, Architektur-, API-, Datenbank-, Audit-, Roadmap-, Sicherheits- und README-Dokumentation auf den tatsächlichen Main-Stand abgeglichen; kein Anwendungscode, Schema oder Migration geändert.
+
+## Vorangegangene Synchronisierung auf Zwischenstand (überholt)
+
+Die folgenden Angaben dokumentieren den damaligen Stand vor Billing-/MFA-Merge und sind kein aktueller Repository-Status.
 
 - `main` auf SHA `3deebd16e368733f9595cd39f7e38b6354c1a88d`, Alembic-Head `0016_scheduling_availability`, 54 Tabellen und 140 `/api/v1`-Operationen aktualisiert; Verfügbarkeitsfenster, Anträge und Schichtvertretungen in API-/Datenbankinventar ergänzt.
 - PRs #26, #28 und #29 als gemergt und in `main` aufgenommen dokumentiert. PR #27 bleibt offen und zielt nach dem Merge von #26 direkt auf `main`; `0017_billing` folgt eindeutig auf `0016_scheduling_availability`.
