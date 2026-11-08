@@ -16,13 +16,13 @@ Stand: 2026-11-08. Diese Roadmap beschreibt den geprüften Ist-Stand und die pri
 | OWKS | Nicht implementiert | Kontrollpunkte, QR/NFC, Rundgänge und Offline-Synchronisierung fehlen ([#3](https://github.com/Xonni-star/securityops-python/issues/3)). |
 | Dokumente und Verträge | Nicht implementiert | Geschützte Ablage, Berechtigungen und Versionierung fehlen ([#8](https://github.com/Xonni-star/securityops-python/issues/8)). |
 | Rechnungswesen | Nicht implementiert | Vertragsbasierte, freigegebene und nicht doppelt abgerechnete Leistungen fehlen ([#7](https://github.com/Xonni-star/securityops-python/issues/7)). |
-| CI und Datenbankqualität | In Umsetzung | GitHub Actions führt Backendtests auf SQLite und PostgreSQL, Migrationen auf PostgreSQL, Frontend-Build und Docker-Image-Builds aus. Der erste gehostete Lauf steht nach Push noch aus ([#9](https://github.com/Xonni-star/securityops-python/issues/9)). |
+| CI und Datenbankqualität | In Umsetzung | GitHub Actions führt Backendtests auf SQLite und PostgreSQL, Migrationen auf PostgreSQL, Frontend-Build und Docker-Image-Builds aus. Der erste Lauf fand einen Test-Fixture-Konflikt mit migrierten Rollen; die Fixture ist korrigiert, der erneute Lauf steht aus ([#9](https://github.com/Xonni-star/securityops-python/issues/9)). |
 
 ## Priorisierte Umsetzung
 
 ### P0 – Stabilisierung und Sicherheitsgrundlagen
 
-1. **CI und PostgreSQL-Integration:** Workflow für Pull Requests; Migration und Backendtests auf einer kurzlebigen Datenbank `securityops_test`; Frontend- und Docker-Build. Workflow-Ergebnis nach Push prüfen ([#9](https://github.com/Xonni-star/securityops-python/issues/9)).
+1. **CI und PostgreSQL-Integration:** Workflow für Pull Requests; Migration und Backendtests auf einer kurzlebigen Datenbank `securityops_test`; Frontend- und Docker-Build. Den korrigierten Lauf prüfen ([#9](https://github.com/Xonni-star/securityops-python/issues/9)).
 2. **Produktionshärtung:** Frontend nicht über den Vite-Entwicklungsserver ausliefern, TLS/Reverse Proxy und Security-Header dokumentieren, Secrets ohne Standardwerte, gemeinsames Rate-Limit für mehrere Instanzen, SCA/SAST und Wiederherstellung praktisch testen ([#9](https://github.com/Xonni-star/securityops-python/issues/9)).
 3. **Zugriffsgrenzen und Audit:** Rollenrechte mit Regressionstests absichern; vor operativen Daten objektbezogene Autorisierung einführen; Grenzen der Audit-Unveränderbarkeit und Aufbewahrung festlegen.
 4. **Datenbankverträglichkeit:** Migrationen gegen PostgreSQL validieren; SQLite bleibt für schnelle isolierte API-Tests, ersetzt aber keine Integrationstests.

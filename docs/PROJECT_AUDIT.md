@@ -8,7 +8,7 @@ Stand: 2026-11-08. Grundlage ist der tatsächlich geprüfte Quellcode im Reposit
 |---|---|---|
 | Backend-Struktur | TEILWEISE | Ein FastAPI-Monolith mit `api.py`, `identity_api.py`, `auth.py`, zentralen SQLAlchemy-Modellen und Konfiguration. Noch keine fachlichen Modulgrenzen für Objekte, Personal, Planung, OWKS, Dokumente oder Abrechnung. |
 | Frontend | TEILWEISE | Eine React-Seite mit Anmeldung, Kundenliste, Suche, Neuanlage, Statusänderung und Kennzahlen. Noch keine modulare Navigation, Detailseiten, Formularbibliothek oder UI-Test-Suite. |
-| PostgreSQL/ORM | TEILWEISE | SQLAlchemy-Modelle und drei Migrationen im aktuellen Arbeitsstand; die dritte ergänzt Rollen/Rechte. Lokale API-Tests benutzen SQLite; GitHub Actions führt Migrationen und API-Tests zusätzlich auf einem temporären PostgreSQL-Dienst aus. Der gehostete Lauf steht noch aus. |
+| PostgreSQL/ORM | TEILWEISE | SQLAlchemy-Modelle und drei Migrationen im aktuellen Arbeitsstand; die dritte ergänzt Rollen/Rechte. Lokale API-Tests benutzen SQLite; GitHub Actions führt Migrationen und API-Tests zusätzlich auf einem temporären PostgreSQL-Dienst aus. Der erste Lauf bestätigte Migrationen, fand aber einen inzwischen behobenen Test-Fixture-Konflikt; Wiederholung steht aus. |
 | Alembic | TEILWEISE | Migrationsumgebung und explizite Migrationen vorhanden. Migrationen wurden offline in PostgreSQL-SQL übersetzt, nicht gegen einen laufenden PostgreSQL-Server angewandt. |
 | Anmeldung | TEILWEISE | Benutzername/Passwort, Argon2id, serverseitig widerrufbare opaque Sitzung, generische Fehlermeldung. MFA und Passwortzurücksetzung fehlen. |
 | Sitzungen/CSRF | TEILWEISE | HttpOnly-Sitzungscookie, CSRF-Cookie/Header-Abgleich, SameSite=Strict, Idle-/Absolute-Timeout, Logout und Widerruf beim Passwortwechsel. Keine Sitzungsübersicht oder gezielte Einzelwiderruf-UI. |
@@ -25,7 +25,7 @@ Stand: 2026-11-08. Grundlage ist der tatsächlich geprüfte Quellcode im Reposit
 | Dokumente/Verträge/Rechnungen | FEHLT | Kein Dateiablage-, Vertrags- oder Rechnungsmodell. |
 | Dashboard | TEILWEISE | Kundenanzahl, aktive Kunden und Interessenten werden aus der Datenbank gezählt; operative Kennzahlen fehlen. |
 | Docker/Deployment | TEILWEISE | Compose startet PostgreSQL, API und Vite-Entwicklungsserver. Es gibt keinen produktionsfähigen React-Static-Build, Reverse Proxy, TLS- oder Backup-Aufbau. Docker wurde in der Umgebung nicht ausgeführt. |
-| Tests | TEILWEISE | 9 Backend-API-/Auth-/RBAC-/Konfigurationstests und erfolgreicher TypeScript-/Vite-Build. CI führt Migrationen und Backendtests gegen temporäres PostgreSQL aus und baut Docker-Images; der erste gehostete Lauf steht noch aus. Keine E2E-, Last-, Backup-/Restore- oder Frontend-Komponententests. |
+| Tests | TEILWEISE | 9 Backend-API-/Auth-/RBAC-/Konfigurationstests und erfolgreicher TypeScript-/Vite-Build. CI führt Migrationen und Backendtests gegen temporäres PostgreSQL aus und baut Docker-Images; erster Lauf migrierte erfolgreich, API-Tests werden nach einem Fixture-Fix wiederholt. Keine E2E-, Last-, Backup-/Restore- oder Frontend-Komponententests. |
 
 ## Fehler und Risiken
 

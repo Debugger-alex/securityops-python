@@ -5,7 +5,7 @@ os.environ.setdefault("POSTGRES_PASSWORD", "test-only-not-for-production")
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, delete, select
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -13,7 +13,16 @@ from sqlalchemy.pool import StaticPool
 from app.database import get_db
 from app.identity_api import password_hasher
 from app.main import app
-from app.models import Base, Permission, Role, User
+from app.models import (
+    Base,
+    AuditLog,
+    Customer,
+    Permission,
+    Role,
+    User,
+    UserSession,
+    user_roles,
+)
 from app.rate_limit import limiter
 
 ADMIN_PASSWORD = "sicheres-test-passwort-2026"
@@ -51,6 +60,13 @@ def client() -> Generator[TestClient, None, None]:
     limiter.reset()
     Base.metadata.create_all(bind=test_engine)
     with TestingSessionLocal() as db:
+        db.execute(delete(UserSession))
+        db.execute(delete(AuditLog))
+        db.execute(delete(Customer))
+        db.execute(delete(user_roles))
+        db.execute(delete(User))
+        db.commit()
+
         permission_codes = (
             "customers.read",
             "customers.create",
@@ -62,30 +78,50 @@ def client() -> Generator[TestClient, None, None]:
             "audit.read",
             "owks.read",
         )
-        permissions = {code: Permission(code=code, description=code) for code in permission_codes}
-        administrator = Role(
-            code="administrator",
-            name="Administrator",
-            description="Testrolle",
-            permissions=list(permissions.values()),
+        permissions = {}
+        for code in permission_codes:
+            permission = db.scalar(select(Permission).where(Permission.code == code))
+            if permission is None:
+                permission = Permission(code=code, description=code)
+                db.add(permission)
+            permissions[code] = permission
+
+        def get_or_create_role(
+            code: str,
+            name: str,
+            description: str,
+            permission_codes: tuple[str, ...],
+        ) -> Role:
+            role = db.scalar(select(Role).where(Role.code == code))
+            if role is None:
+                role = Role(code=code, name=name, description=description)
+                db.add(role)
+            existing_codes = {permission.code for permission in role.permissions}
+            role.permissions.extend(
+                permissions[permission_code]
+                for permission_code in permission_codes
+                if permission_code not in existing_codes
+            )
+            return role
+
+        administrator = get_or_create_role(
+            "administrator",
+            "Administrator",
+            "Testrolle",
+            permission_codes,
         )
-        management = Role(
-            code="management",
-            name="Geschäftsführung",
-            description="Testrolle ohne Administratorrechte",
-            permissions=[
-                permissions["users.read"],
-                permissions["users.manage"],
-                permissions["customers.read"],
-            ],
+        management = get_or_create_role(
+            "management",
+            "Geschäftsführung",
+            "Testrolle ohne Administratorrechte",
+            ("users.read", "users.manage", "customers.read"),
         )
-        employee = Role(
-            code="employee",
-            name="Mitarbeiter",
-            description="Operative Testrolle",
-            permissions=[permissions["owks.read"]],
+        employee = get_or_create_role(
+            "employee",
+            "Mitarbeiter",
+            "Operative Testrolle",
+            ("owks.read",),
         )
-        db.add_all([administrator, management, employee])
         db.add(
             User(
                 username="admin",
@@ -109,5 +145,4 @@ def client() -> Generator[TestClient, None, None]:
     with TestClient(app, base_url="https://testserver") as test_client:
         yield test_client
     app.dependency_overrides.clear()
-    Base.metadata.drop_all(bind=test_engine)
     limiter.reset()
