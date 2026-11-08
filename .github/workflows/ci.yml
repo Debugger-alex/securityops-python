@@ -76,6 +76,8 @@ jobs:
         run: npm ci
       - name: Typprüfung und Produktionsbuild
         run: npm run build
+      - name: Frontend-Tests
+        run: npm test
 
   container-build:
     name: Docker-Images bauen

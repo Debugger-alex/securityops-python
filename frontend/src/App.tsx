@@ -5,6 +5,7 @@ import {
   createCustomerContact,
   deleteCustomerContact,
   getCustomer,
+  getCustomerObjects,
   getCustomerHistory,
   getCustomers,
   getDashboard,
@@ -22,10 +23,12 @@ import type {
   Customer,
   CustomerAddress,
   CustomerAddressInput,
+  CustomerContractStatus,
   CustomerHistory,
   CustomerSort,
   CustomerStatus,
   Dashboard,
+  SecurityObject,
 } from "./types";
 
 const statusNames: Record<CustomerStatus, string> = {
@@ -33,6 +36,19 @@ const statusNames: Record<CustomerStatus, string> = {
   inactive: "Inaktiv",
   lead: "Interessent",
 };
+
+const contractStatusNames: Record<CustomerContractStatus, string> = {
+  none: "Kein Vertrag",
+  draft: "In Vorbereitung",
+  active: "Aktiv",
+  expired: "Abgelaufen",
+  terminated: "Beendet",
+};
+
+const objectStatusNames = {
+  active: "Aktiv",
+  inactive: "Inaktiv",
+} as const;
 
 const actionNames: Record<string, string> = {
   created: "Kunde angelegt",
@@ -98,12 +114,14 @@ export default function App() {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<CustomerStatus | "">("");
+  const [contractStatusFilter, setContractStatusFilter] = useState<CustomerContractStatus | "">("");
   const [includeArchived, setIncludeArchived] = useState(false);
   const [sortBy, setSortBy] = useState<CustomerSort>("company_name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [offset, setOffset] = useState(0);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [history, setHistory] = useState<CustomerHistory[]>([]);
+  const [customerObjects, setCustomerObjects] = useState<SecurityObject[]>([]);
   const [activeModule, setActiveModule] = useState<"customers" | "objects" | "employees">("customers");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -128,6 +146,7 @@ export default function App() {
           ? getCustomers({
             q: search,
             status: statusFilter,
+            contractStatus: contractStatusFilter,
             includeArchived,
             sortBy,
             sortOrder,
@@ -144,17 +163,21 @@ export default function App() {
     } catch (reason) {
       setError(messageFrom(reason, "Daten konnten nicht geladen werden."));
     }
-  }, [canReadCustomers, includeArchived, offset, search, sortBy, sortOrder, statusFilter, user]);
+  }, [canReadCustomers, contractStatusFilter, includeArchived, offset, search, sortBy, sortOrder, statusFilter, user]);
 
   const refreshSelected = useCallback(async (customerId: string) => {
-    const [customer, customerHistory] = await Promise.all([
+    const [customer, customerHistory, objectPage] = await Promise.all([
       getCustomer(customerId),
       getCustomerHistory(customerId),
+      canReadObjects
+        ? getCustomerObjects(customerId)
+        : Promise.resolve({ items: [] as SecurityObject[] }),
     ]);
     setSelectedCustomer(customer);
     setHistory(customerHistory);
+    setCustomerObjects(objectPage.items);
     return customer;
-  }, []);
+  }, [canReadObjects]);
 
   useEffect(() => {
     if (user) void loadData();
@@ -190,6 +213,7 @@ export default function App() {
       setCustomers([]);
       setSelectedCustomer(null);
       setHistory([]);
+      setCustomerObjects([]);
       setDashboard(null);
     }
   }
@@ -203,9 +227,11 @@ export default function App() {
       const payload = {
         company_name: String(data.get("company_name")).trim(),
         status: String(data.get("status")) as CustomerStatus,
+        contract_status: String(data.get("contract_status")) as CustomerContractStatus,
         email: optionalValue(data, "email"),
         phone: optionalValue(data, "phone"),
         legal_form: optionalValue(data, "legal_form"),
+        website: optionalValue(data, "website"),
         vat_number: optionalValue(data, "vat_number"),
         tax_number: optionalValue(data, "tax_number"),
         internal_notes: optionalValue(data, "internal_notes"),
@@ -234,9 +260,11 @@ export default function App() {
       const payload = {
         company_name: String(data.get("company_name")).trim(),
         status: String(data.get("status")) as CustomerStatus,
+        contract_status: String(data.get("contract_status")) as CustomerContractStatus,
         email: optionalValue(data, "email") ?? null,
         phone: optionalValue(data, "phone") ?? null,
         legal_form: optionalValue(data, "legal_form") ?? null,
+        website: optionalValue(data, "website") ?? null,
         vat_number: optionalValue(data, "vat_number") ?? null,
         tax_number: optionalValue(data, "tax_number") ?? null,
         internal_notes: optionalValue(data, "internal_notes") ?? null,
@@ -436,12 +464,24 @@ export default function App() {
                 )}
               </select>
             </label>
+            <label>Vertragsstatus
+              <select value={contractStatusFilter} onChange={(event) => {
+                setContractStatusFilter(event.target.value as CustomerContractStatus | "");
+                setOffset(0);
+              }}>
+                <option value="">Alle Vertragsstatus</option>
+                {Object.entries(contractStatusNames).map(([value, name]) =>
+                  <option key={value} value={value}>{name}</option>,
+                )}
+              </select>
+            </label>
             <label>Sortieren nach
               <select value={sortBy} onChange={(event) => setSortBy(event.target.value as CustomerSort)}>
                 <option value="company_name">Unternehmen</option>
                 <option value="customer_number">Kundennummer</option>
                 <option value="created_at">Angelegt am</option>
                 <option value="status">Status</option>
+                <option value="contract_status">Vertragsstatus</option>
               </select>
             </label>
             <label>Reihenfolge
@@ -521,9 +561,17 @@ export default function App() {
                 {Object.entries(statusNames).map(([value, name]) => <option key={value} value={value}>{name}</option>)}
               </select>
             </label>
+            <label>Vertragsstatus
+              <select name="contract_status" defaultValue="none">
+                {Object.entries(contractStatusNames).map(([value, name]) =>
+                  <option key={value} value={value}>{name}</option>,
+                )}
+              </select>
+            </label>
             <label>E-Mail<input name="email" type="email" maxLength={254} /></label>
             <label>Telefon<input name="phone" type="tel" maxLength={40} /></label>
             <label>Rechtsform<input name="legal_form" maxLength={100} placeholder="GmbH, e.K. …" /></label>
+            <label>Website<input name="website" type="url" maxLength={2048} placeholder="https://beispiel.de" /></label>
             <label>Umsatzsteuer-ID<input name="vat_number" maxLength={32} /></label>
             <label>Steuernummer<input name="tax_number" maxLength={32} /></label>
             <AddressFields prefix="business" title="Geschäftsanschrift" />
@@ -552,9 +600,13 @@ export default function App() {
             <label>Status<select name="status" defaultValue={selectedCustomer.status}>
               {Object.entries(statusNames).map(([value, name]) => <option key={value} value={value}>{name}</option>)}
             </select></label>
+            <label>Vertragsstatus<select name="contract_status" defaultValue={selectedCustomer.contract_status}>
+              {Object.entries(contractStatusNames).map(([value, name]) => <option key={value} value={value}>{name}</option>)}
+            </select></label>
             <label>E-Mail<input name="email" type="email" maxLength={254} defaultValue={selectedCustomer.email ?? ""} /></label>
             <label>Telefon<input name="phone" maxLength={40} defaultValue={selectedCustomer.phone ?? ""} /></label>
             <label>Rechtsform<input name="legal_form" maxLength={100} defaultValue={selectedCustomer.legal_form ?? ""} /></label>
+            <label>Website<input name="website" type="url" maxLength={2048} defaultValue={selectedCustomer.website ?? ""} /></label>
             <label>Umsatzsteuer-ID<input name="vat_number" maxLength={32} defaultValue={selectedCustomer.vat_number ?? ""} /></label>
             <label>Steuernummer<input name="tax_number" maxLength={32} defaultValue={selectedCustomer.tax_number ?? ""} /></label>
             <AddressFields prefix="edit_business" title="Geschäftsanschrift" address={selectedCustomer.business_address} />
@@ -570,7 +622,9 @@ export default function App() {
             <button type="submit" disabled={busy}>Änderungen speichern</button>
           </form> : <div className="detail-summary">
             <p><strong>Status:</strong> {selectedCustomer.archived_at ? "Archiviert" : statusNames[selectedCustomer.status]}</p>
+            <p><strong>Vertragsstatus:</strong> {contractStatusNames[selectedCustomer.contract_status]}</p>
             {selectedCustomer.legal_form && <p><strong>Rechtsform:</strong> {selectedCustomer.legal_form}</p>}
+            {selectedCustomer.website && <p><strong>Website:</strong> <a href={selectedCustomer.website} target="_blank" rel="noreferrer">{selectedCustomer.website}</a></p>}
             {selectedCustomer.vat_number && <p><strong>USt-IdNr.:</strong> {selectedCustomer.vat_number}</p>}
             {selectedCustomer.tax_number && <p><strong>Steuernummer:</strong> {selectedCustomer.tax_number}</p>}
             {selectedCustomer.internal_notes && <p><strong>Interne Notizen:</strong><br />{selectedCustomer.internal_notes}</p>}
@@ -633,6 +687,19 @@ export default function App() {
             </ol>
           )}
         </section>
+      </section>}
+      {selectedCustomer && canReadObjects && <section className="panel related-objects" aria-labelledby="related-objects-title">
+        <h3 id="related-objects-title">Zugeordnete Objekte</h3>
+        {customerObjects.length === 0
+          ? <p className="muted">Keine erreichbaren Objekte zugeordnet.</p>
+          : <ul className="related-object-list">{customerObjects.map((object) => (
+            <li key={object.id}>
+              <span><strong>{object.name}</strong><small>{object.code}</small></span>
+              <span className={object.archived_at ? "muted" : `status status-${object.status}`}>
+                {object.archived_at ? "Archiviert" : objectStatusNames[object.status]}
+              </span>
+            </li>
+          ))}</ul>}
       </section>}
       </>}
       <footer>SecurityOps <span>·</span> Verwaltung</footer>

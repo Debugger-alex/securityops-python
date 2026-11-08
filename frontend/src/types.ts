@@ -1,5 +1,11 @@
 export type CustomerStatus = "active" | "inactive" | "lead";
-export type CustomerSort = "company_name" | "customer_number" | "created_at" | "status";
+export type CustomerContractStatus = "none" | "draft" | "active" | "expired" | "terminated";
+export type CustomerSort =
+  | "company_name"
+  | "customer_number"
+  | "created_at"
+  | "status"
+  | "contract_status";
 export type ObjectStatus = "active" | "inactive";
 export type ObjectSort = "name" | "code" | "created_at" | "status";
 export type EmployeeStatus = "active" | "inactive" | "leave" | "terminated";
@@ -39,9 +45,11 @@ export interface Customer {
   customer_number: string;
   company_name: string;
   status: CustomerStatus;
+  contract_status: CustomerContractStatus;
   email: string | null;
   phone: string | null;
   legal_form: string | null;
+  website: string | null;
   vat_number: string | null;
   tax_number: string | null;
   internal_notes: string | null;

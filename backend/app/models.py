@@ -155,6 +155,10 @@ class Customer(Base):
     __tablename__ = "customers"
     __table_args__ = (
         CheckConstraint("status IN ('active', 'inactive', 'lead')", name="ck_customers_status"),
+        CheckConstraint(
+            "contract_status IN ('none', 'draft', 'active', 'expired', 'terminated')",
+            name="ck_customers_contract_status",
+        ),
         CheckConstraint("length(trim(company_name)) > 0", name="ck_customers_company_name"),
     )
 
@@ -165,6 +169,8 @@ class Customer(Base):
     email: Mapped[str | None] = mapped_column(String(254), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(40), nullable=True)
     legal_form: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    website: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    contract_status: Mapped[str] = mapped_column(String(20), default="none", nullable=False)
     vat_number: Mapped[str | None] = mapped_column(String(32), nullable=True)
     tax_number: Mapped[str | None] = mapped_column(String(32), nullable=True)
     internal_notes: Mapped[str | None] = mapped_column(Text, nullable=True)

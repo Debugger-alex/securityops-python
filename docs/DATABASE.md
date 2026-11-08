@@ -6,7 +6,7 @@ PostgreSQL ist für den Betrieb vorgesehen. Verbindungsdaten werden über `POSTG
 
 ## Derzeitige Tabellen
 
-- `customers`: Kundennummer, Firmenname, Status, Kontakt-E-Mail/Telefon, Rechtsform, Umsatzsteuer-ID, Steuernummer, interne Notizen, Archivierungs- sowie Erstellungs-/Änderungszeitpunkt.
+- `customers`: Kundennummer, Firmenname, Status, Vertragsstatus, Kontakt-E-Mail/Telefon, Rechtsform, Website, Umsatzsteuer-ID, Steuernummer, interne Notizen, Archivierungs- sowie Erstellungs-/Änderungszeitpunkt.
 - `customer_addresses`: Geschäfts- und Rechnungsanschriften eines Kunden; Kunden- und Adressdatensätze werden nicht physisch gelöscht.
 - `customer_contacts`: Ansprechpartner mit Kontaktdaten und Primärkennzeichnung. Ein partieller eindeutiger Index erzwingt höchstens einen primären Ansprechpartner pro Kunde.
 - `customer_history`: Kundenereignisse mit Akteur, Ereignis, Zeit und geänderten Feldnamen; keine Feldwerte.
@@ -29,6 +29,6 @@ PostgreSQL ist für den Betrieb vorgesehen. Verbindungsdaten werden über `POSTG
 
 ## Integrität und offene Erweiterungen
 
-UUIDs, Fremdschlüssel, eindeutige Benutzer-/Kundennummern und Status-Constraints sind vorhanden. Kunden, Objekte, Mitarbeiter und Qualifikationen werden archiviert statt physisch gelöscht; FK-Constraints schützen referenzierte Datensätze. Kontakte und Adressen sind relational gebunden. Migration 0008 ergänzt Personal, Qualifikationen, Abwesenheiten, getrennte sensible Personaldaten und Historie. Migration 0009 ergänzt den Verlauf bestehender Objektzuweisungen für Personalakten, versionierte Qualifikationsdateien und separate Dokumentrechte. Der Upgrade-/Downgrade-SQL wurde offline erzeugt; echte PostgreSQL-Integrationsprüfung steht für die aktuellen, noch uncommitteten Änderungen aus. Dateiinhalte liegen in der Datenbank; externe private Dateiablage und Anwendungsebene-Verschlüsselung sind nicht implementiert. Dienstplanung, Zeitbuchungen, OWKS, Vertragsverwaltung und Rechnungen fehlen. Eine Restore-Prüfung wurde nicht ausgeführt.
+UUIDs, Fremdschlüssel, eindeutige Benutzer-/Kundennummern und Status-Constraints sind vorhanden. Kunden, Objekte, Mitarbeiter und Qualifikationen werden archiviert statt physisch gelöscht; FK-Constraints schützen referenzierte Datensätze. Kontakte und Adressen sind relational gebunden. Migration 0008 ergänzt Personal, Qualifikationen, Abwesenheiten, getrennte sensible Personaldaten und Historie; Migration 0009 ergänzt den Verlauf bestehender Objektzuweisungen für Personalakten, versionierte Qualifikationsdateien und separate Dokumentrechte. Migration 0010 ergänzt die optionale Kunden-Website und den Vertragsstatus additiv; vorhandene Kunden erhalten den Status `none`, bestehende Datensätze und andere Felder bleiben erhalten. Dateiinhalte liegen in der Datenbank; externe private Dateiablage und Anwendungsebene-Verschlüsselung sind nicht implementiert. Dienstplanung, Zeitbuchungen, OWKS, Vertragsverwaltung und Rechnungen fehlen. Eine Restore-Prüfung wurde nicht ausgeführt.
 
 Jede Schemaänderung benötigt eine neue Alembic-Migration. Datenlöschungen müssen mit Aufbewahrungsregeln abgestimmt werden; produktive Downgrades mit Datenverlust dürfen nicht automatisch ausgeführt werden.
