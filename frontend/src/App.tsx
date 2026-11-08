@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { createCustomer, getCustomers, getDashboard, updateCustomerStatus } from "./api";
-import type { Customer, CustomerStatus, Dashboard } from "./types";
+import { createCustomer, getCustomers, getDashboard, getSession, login, logout, updateCustomerStatus } from "./api";
+import type { AuthUser, Customer, CustomerStatus, Dashboard } from "./types";
 
 const statusNames: Record<CustomerStatus, string> = {
   active: "Aktiv",
@@ -9,28 +9,68 @@ const statusNames: Record<CustomerStatus, string> = {
 };
 
 export default function App() {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [matchingCustomers, setMatchingCustomers] = useState(0);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const canReadCustomers = user?.permissions.includes("customers.read") ?? false;
+  const canCreateCustomers = user?.permissions.includes("customers.create") ?? false;
+  const canUpdateCustomers = user?.permissions.includes("customers.update") ?? false;
+
+  useEffect(() => {
+    getSession()
+      .then((session) => setUser(session.user))
+      .catch(() => setUser(null))
+      .finally(() => setAuthLoading(false));
+  }, []);
 
   const loadData = useCallback(async () => {
     try {
-      const [page, stats] = await Promise.all([getCustomers(search), getDashboard()]);
-      setCustomers(page.items);
-      setMatchingCustomers(page.total);
+      const [page, stats] = await Promise.all([
+        canReadCustomers ? getCustomers(search) : Promise.resolve(null),
+        user?.permissions.includes("dashboard.read") ? getDashboard() : Promise.resolve(null),
+      ]);
+      setCustomers(page?.items ?? []);
+      setMatchingCustomers(page?.total ?? 0);
       setDashboard(stats);
       setError("");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Daten konnten nicht geladen werden.");
     }
-  }, [search]);
+  }, [canReadCustomers, search, user]);
 
   useEffect(() => {
-    void loadData();
-  }, [loadData]);
+    if (user) void loadData();
+  }, [loadData, user]);
+
+  async function submitLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    setBusy(true);
+    try {
+      const session = await login(String(data.get("username")), String(data.get("password")));
+      setUser(session.user);
+      setError("");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Anmeldung fehlgeschlagen.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function signOut() {
+    try {
+      await logout();
+    } finally {
+      setUser(null);
+      setCustomers([]);
+      setDashboard(null);
+    }
+  }
 
   async function submitCustomer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -61,6 +101,38 @@ export default function App() {
     }
   }
 
+  if (authLoading) {
+    return <main className="shell auth-shell"><p className="muted">Sitzung wird geprüft …</p></main>;
+  }
+
+  if (!user) {
+    return (
+      <main className="shell auth-shell">
+        <header className="topbar">
+          <a className="brand" href="/" aria-label="SecurityOps Startseite">
+            <span className="brand-mark">S</span>
+            <span>SECURITY<span className="brand-light">OPS</span></span>
+          </a>
+        </header>
+        <section className="panel login-panel">
+          <p className="eyebrow">SICHERER ZUGANG</p>
+          <h1>Anmelden</h1>
+          <p className="muted">Melde dich mit deinem SecurityOps-Konto an.</p>
+          {error && <p className="alert" role="alert">{error}</p>}
+          <form onSubmit={submitLogin}>
+            <label>Benutzername
+              <input name="username" required autoComplete="username" />
+            </label>
+            <label>Passwort
+              <input name="password" type="password" required autoComplete="current-password" />
+            </label>
+            <button type="submit" disabled={busy}>{busy ? "Anmeldung läuft …" : "Anmelden"}</button>
+          </form>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="shell">
       <header className="topbar">
@@ -68,7 +140,10 @@ export default function App() {
           <span className="brand-mark">S</span>
           <span>SECURITY<span className="brand-light">OPS</span></span>
         </a>
-        <span className="topbar-label">Verwaltungsplattform</span>
+        <div className="account">
+          <span className="topbar-label">{user.full_name}</span>
+          <button className="sign-out" onClick={() => void signOut()}>Abmelden</button>
+        </div>
       </header>
 
       <section className="intro">
@@ -90,7 +165,7 @@ export default function App() {
       </section>
 
       <section className="content-grid">
-        <section className="panel">
+        {canReadCustomers && <section className="panel">
           <div className="panel-heading">
             <div><p className="eyebrow">STAMMDATEN</p><h2>Kunden</h2></div>
             <span className="result-count">{matchingCustomers} Einträge</span>
@@ -121,16 +196,18 @@ export default function App() {
                       {!customer.email && !customer.phone && <span className="muted">Keine Kontaktdaten</span>}
                     </td>
                     <td>
-                      <label className="sr-only" htmlFor={`status-${customer.id}`}>Status für {customer.company_name}</label>
-                      <select
-                        id={`status-${customer.id}`}
-                        value={customer.status}
-                        onChange={(event) => void changeStatus(customer, event.target.value as CustomerStatus)}
-                      >
-                        {Object.entries(statusNames).map(([value, name]) =>
-                          <option key={value} value={value}>{name}</option>,
-                        )}
-                      </select>
+                      {canUpdateCustomers ? <>
+                        <label className="sr-only" htmlFor={`status-${customer.id}`}>Status für {customer.company_name}</label>
+                        <select
+                          id={`status-${customer.id}`}
+                          value={customer.status}
+                          onChange={(event) => void changeStatus(customer, event.target.value as CustomerStatus)}
+                        >
+                          {Object.entries(statusNames).map(([value, name]) =>
+                            <option key={value} value={value}>{name}</option>,
+                          )}
+                        </select>
+                      </> : <span className={`status status-${customer.status}`}>{statusNames[customer.status]}</span>}
                     </td>
                   </tr>
                 ))}
@@ -140,9 +217,9 @@ export default function App() {
               </tbody>
             </table>
           </div>
-        </section>
+        </section>}
 
-        <aside className="panel form-panel">
+        {canCreateCustomers && <aside className="panel form-panel">
           <div className="panel-heading">
             <div><p className="eyebrow">NEU ANLEGEN</p><h2>Kunde hinzufügen</h2></div>
           </div>
@@ -158,7 +235,10 @@ export default function App() {
             </label>
             <button type="submit" disabled={busy}>{busy ? "Wird gespeichert …" : "Kunden speichern"}</button>
           </form>
-        </aside>
+        </aside>}
+        {!canReadCustomers && !canCreateCustomers && (
+          <section className="panel"><h2>Kein Modulzugriff</h2><p className="muted">Deinem Konto sind aktuell keine Kundenverwaltungsrechte zugewiesen.</p></section>
+        )}
       </section>
       <footer>SecurityOps <span>·</span> Erste Ausbaustufe</footer>
     </main>

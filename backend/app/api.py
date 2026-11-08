@@ -5,6 +5,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.auth import add_audit_entry, require_permission
 from app.models import Customer
 from app.schemas import (
     CustomerCreate,
@@ -23,6 +24,7 @@ def list_customers(
     limit: int = Query(default=25, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
+    _principal=Depends(require_permission("customers.read")),
 ) -> CustomerPage:
     query = select(Customer)
     count_query = select(func.count()).select_from(Customer)
@@ -49,7 +51,11 @@ def list_customers(
 @router.post(
     "/customers", response_model=CustomerRead, status_code=status.HTTP_201_CREATED
 )
-def create_customer(payload: CustomerCreate, db: Session = Depends(get_db)) -> Customer:
+def create_customer(
+    payload: CustomerCreate,
+    db: Session = Depends(get_db),
+    principal=Depends(require_permission("customers.create")),
+) -> Customer:
     customer = Customer(
         customer_number=f"K-{uuid4().hex.upper()}",
         company_name=payload.company_name.strip(),
@@ -58,13 +64,25 @@ def create_customer(payload: CustomerCreate, db: Session = Depends(get_db)) -> C
         phone=payload.phone,
     )
     db.add(customer)
+    db.flush()
+    add_audit_entry(
+        db,
+        actor_id=principal.user.id,
+        action="customers.created",
+        entity_type="customer",
+        entity_id=str(customer.id),
+    )
     db.commit()
     db.refresh(customer)
     return customer
 
 
 @router.get("/customers/{customer_id}", response_model=CustomerRead)
-def get_customer(customer_id: UUID, db: Session = Depends(get_db)) -> Customer:
+def get_customer(
+    customer_id: UUID,
+    db: Session = Depends(get_db),
+    _principal=Depends(require_permission("customers.read")),
+) -> Customer:
     customer = db.get(Customer, customer_id)
     if customer is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Kunde nicht gefunden")
@@ -76,6 +94,7 @@ def update_customer(
     customer_id: UUID,
     payload: CustomerUpdate,
     db: Session = Depends(get_db),
+    principal=Depends(require_permission("customers.update")),
 ) -> Customer:
     customer = db.get(Customer, customer_id)
     if customer is None:
@@ -88,13 +107,24 @@ def update_customer(
         changes["email"] = str(changes["email"])
     for field, value in changes.items():
         setattr(customer, field, value)
+    add_audit_entry(
+        db,
+        actor_id=principal.user.id,
+        action="customers.updated",
+        entity_type="customer",
+        entity_id=str(customer.id),
+        details={"fields": sorted(changes)},
+    )
     db.commit()
     db.refresh(customer)
     return customer
 
 
 @router.get("/dashboard", response_model=DashboardRead)
-def get_dashboard(db: Session = Depends(get_db)) -> DashboardRead:
+def get_dashboard(
+    db: Session = Depends(get_db),
+    _principal=Depends(require_permission("dashboard.read")),
+) -> DashboardRead:
     totals = db.execute(
         select(
             func.count(Customer.id),

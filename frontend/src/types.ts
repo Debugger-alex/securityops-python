@@ -23,3 +23,17 @@ export interface Dashboard {
   customers_active: number;
   customers_leads: number;
 }
+
+export interface AuthUser {
+  id: string;
+  username: string;
+  email: string;
+  full_name: string;
+  is_active: boolean;
+  roles: string[];
+  permissions: string[];
+}
+
+export interface Session {
+  user: AuthUser;
+}
