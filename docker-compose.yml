@@ -40,6 +40,16 @@ services:
       CLAMD_CONF_ReadTimeout: "120"
     networks:
       - data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "printf 'PING\\n' | nc -w 2 127.0.0.1 3310 | grep --quiet --line-regexp PONG && printf 'VERSION\\n' | nc -w 2 127.0.0.1 3310 | grep --extended-regexp --quiet '^ClamAV [0-9]+\\.[0-9]+\\.[0-9]+/[1-9][0-9]*/'",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30m
 
   api:
     build: ./backend
