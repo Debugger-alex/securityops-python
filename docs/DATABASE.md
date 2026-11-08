@@ -17,6 +17,6 @@ PostgreSQL ist für den Betrieb vorgesehen. Verbindungsdaten werden über `POSTG
 
 ## Integrität und offene Erweiterungen
 
-UUIDs, Fremdschlüssel, eindeutige Benutzer-/Kundennummern und Status-Constraints sind vorhanden. Kundenarchivierung ist ein Zeitstempel statt einer Löschung; archivierte Kunden werden standardmäßig aus Listen und Dashboard ausgeschlossen. Adressen und Ansprechpartner sind relational an Kunden gebunden. Objekte, Mitarbeiter, Dienste, Zeitbuchungen, OWKS, Dokumente, Verträge und Rechnungen fehlen. Die Migration 0004 ist lokal für Offline-PostgreSQL-SQL validiert; die neue Migration muss noch in gehosteter PostgreSQL-CI ausgeführt werden. Eine Restore-Prüfung wurde nicht ausgeführt.
+UUIDs, Fremdschlüssel, eindeutige Benutzer-/Kundennummern und Status-Constraints sind vorhanden. Kundenarchivierung ist ein Zeitstempel statt einer Löschung; archivierte Kunden werden standardmäßig aus Listen und Dashboard ausgeschlossen. Adressen und Ansprechpartner sind relational an Kunden gebunden. Objekte, Mitarbeiter, Dienste, Zeitbuchungen, OWKS, Dokumente, Verträge und Rechnungen fehlen. Migration 0004 wurde lokal offline und in der gehosteten PostgreSQL-CI erfolgreich geprüft. Eine Restore-Prüfung wurde nicht ausgeführt.
 
 Jede Schemaänderung benötigt eine neue Alembic-Migration. Datenlöschungen müssen mit Aufbewahrungsregeln abgestimmt werden; produktive Downgrades mit Datenverlust dürfen nicht automatisch ausgeführt werden.
