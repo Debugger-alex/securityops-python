@@ -224,6 +224,14 @@ def create_user(
     roles = db.scalars(select(Role).where(Role.code.in_(normalized_codes))).all()
     if len(roles) != len(normalized_codes):
         raise HTTPException(status_code=422, detail="Mindestens eine Rolle ist unbekannt")
+    if (
+        any(role.code == "administrator" for role in roles)
+        and "users.manage_admin" not in principal.permission_codes
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Nur Administratoren dürfen Administratorrechte vergeben",
+        )
 
     user = User(
         username=payload.username.strip().lower(),
@@ -290,7 +298,18 @@ def update_user(
         if len(new_roles) != len(role_codes):
             raise HTTPException(status_code=422, detail="Mindestens eine Rolle ist unbekannt")
 
-    was_active_admin = user.is_active and any(role.code == "administrator" for role in user.roles)
+    current_admin = any(role.code == "administrator" for role in user.roles)
+    desired_admin = any(role.code == "administrator" for role in new_roles)
+    if (
+        (current_admin or desired_admin)
+        and "users.manage_admin" not in principal.permission_codes
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Nur Administratoren dürfen Administratorrechte ändern",
+        )
+
+    was_active_admin = user.is_active and current_admin
     will_be_active = changes.get("is_active", user.is_active)
     will_be_admin = any(role.code == "administrator" for role in new_roles)
     if was_active_admin and (not will_be_active or not will_be_admin):

@@ -52,13 +52,23 @@ def client() -> Generator[TestClient, None, None]:
             description="Testrolle",
             permissions=list(permissions.values()),
         )
+        management = Role(
+            code="management",
+            name="Geschäftsführung",
+            description="Testrolle ohne Administratorrechte",
+            permissions=[
+                permissions["users.read"],
+                permissions["users.manage"],
+                permissions["customers.read"],
+            ],
+        )
         employee = Role(
             code="employee",
             name="Mitarbeiter",
             description="Operative Testrolle",
             permissions=[permissions["owks.read"]],
         )
-        db.add_all([administrator, employee])
+        db.add_all([administrator, management, employee])
         db.add(
             User(
                 username="admin",
@@ -66,6 +76,15 @@ def client() -> Generator[TestClient, None, None]:
                 full_name="Test Administration",
                 password_hash=password_hasher.hash(ADMIN_PASSWORD),
                 roles=[administrator],
+            )
+        )
+        db.add(
+            User(
+                username="geschaeftsfuehrung",
+                email="management@example.com",
+                full_name="Test Geschäftsführung",
+                password_hash=password_hasher.hash("management-test-passwort-2026"),
+                roles=[management],
             )
         )
         db.commit()

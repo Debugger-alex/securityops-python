@@ -123,6 +123,40 @@ def test_employee_role_is_restricted_to_assigned_permissions(client: TestClient)
     assert client.get("/api/v1/customers").status_code == 403
 
 
+def test_management_cannot_grant_or_change_administrator_role(client: TestClient) -> None:
+    login = client.post(
+        "/api/v1/auth/login",
+        json={
+            "username": "geschaeftsfuehrung",
+            "password": "management-test-passwort-2026",
+        },
+    )
+    assert login.status_code == 200
+    csrf = login.cookies.get("securityops_csrf", "")
+    headers = {"X-CSRF-Token": csrf}
+
+    elevated_user = client.post(
+        "/api/v1/users",
+        headers=headers,
+        json={
+            "username": "solladminwerden",
+            "email": "newadmin@example.com",
+            "full_name": "Unberechtigter Administrator",
+            "password": "langes-testpasswort-2026",
+            "role_codes": ["administrator"],
+        },
+    )
+    assert elevated_user.status_code == 403
+
+    with TestingSessionLocal() as db:
+        admin_id = str(db.query(User).filter_by(username="admin").one().id)
+    assert client.patch(
+        f"/api/v1/users/{admin_id}",
+        headers=headers,
+        json={"role_codes": ["employee"]},
+    ).status_code == 403
+
+
 def test_login_rate_limit(client: TestClient) -> None:
     responses = [
         client.post(
