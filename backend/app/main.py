@@ -1,4 +1,6 @@
+import asyncio
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,6 +14,8 @@ from app.api import router
 from app.config import get_settings
 from app.database import engine
 from app.identity_api import router as identity_router
+from app.owks_api import router as owks_router
+from app.owks_scheduler import run_monitoring_scheduler
 from app.personnel_api import router as personnel_router
 from app.rate_limit import limiter
 from app.scheduling_api import router as scheduling_router
@@ -20,7 +24,20 @@ from app.time_tracking_surcharges import router as time_tracking_surcharges_rout
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
-app = FastAPI(title=settings.app_name, version="0.1.0")
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    stop_monitor = asyncio.Event()
+    monitor_task = asyncio.create_task(run_monitoring_scheduler(stop_monitor))
+    try:
+        yield
+    finally:
+        stop_monitor.set()
+        await monitor_task
+
+
+app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
@@ -37,6 +54,7 @@ app.include_router(scheduling_router, prefix=settings.api_prefix)
 app.include_router(time_tracking_router, prefix=settings.api_prefix)
 app.include_router(time_tracking_surcharges_router, prefix=settings.api_prefix)
 app.include_router(identity_router, prefix=settings.api_prefix)
+app.include_router(owks_router, prefix=settings.api_prefix)
 
 
 @app.get("/health/live", tags=["System"])

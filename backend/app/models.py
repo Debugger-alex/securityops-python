@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     CheckConstraint,
     Column,
     DateTime,
@@ -1110,5 +1111,204 @@ class TimeTrackingPeriod(Base):
         Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     locked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class OWKSControlPoint(Base):
+    __tablename__ = "owks_control_points"
+    __table_args__ = (
+        CheckConstraint("identifier_type IN ('qr', 'nfc')", name="ck_owks_control_point_type"),
+        CheckConstraint("length(trim(name)) > 0", name="ck_owks_control_point_name"),
+        Index("ix_owks_control_points_object_active", "object_id", "is_active"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    object_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("objects.id", ondelete="RESTRICT"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    identifier_type: Mapped[str] = mapped_column(String(10), nullable=False)
+    identifier_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
+    created_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class OWKSRoute(Base):
+    __tablename__ = "owks_routes"
+    __table_args__ = (
+        CheckConstraint("length(trim(name)) > 0", name="ck_owks_route_name"),
+        CheckConstraint("interval_minutes > 0", name="ck_owks_route_interval"),
+        Index("ix_owks_routes_object_active", "object_id", "is_active"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    object_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("objects.id", ondelete="RESTRICT"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    interval_minutes: Mapped[int] = mapped_column(nullable=False)
+    is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
+    created_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class OWKSRoutePoint(Base):
+    __tablename__ = "owks_route_points"
+    __table_args__ = (
+        UniqueConstraint("route_id", "position", name="uq_owks_route_points_position"),
+        UniqueConstraint("route_id", "control_point_id", name="uq_owks_route_points_point"),
+        CheckConstraint("position >= 0", name="ck_owks_route_points_position"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    route_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("owks_routes.id", ondelete="RESTRICT"), nullable=False
+    )
+    control_point_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("owks_control_points.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    position: Mapped[int] = mapped_column(nullable=False)
+
+
+class OWKSChallenge(Base):
+    __tablename__ = "owks_challenges"
+    __table_args__ = (Index("ix_owks_challenges_expires", "expires_at"),)
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    object_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("objects.id", ondelete="RESTRICT"), nullable=False
+    )
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class OWKSEvent(Base):
+    __tablename__ = "owks_events"
+    __table_args__ = (
+        CheckConstraint(
+            "event_type IN ('entry', 'handover', 'control', 'manipulation', 'deviation', 'missed', 'notification', 'correction')",
+            name="ck_owks_events_type",
+        ),
+        CheckConstraint(
+            "severity IN ('info', 'warning', 'critical')", name="ck_owks_events_severity"
+        ),
+        CheckConstraint("sync_status IN ('synced', 'conflict')", name="ck_owks_events_sync_status"),
+        UniqueConstraint("actor_id", "client_event_id", name="uq_owks_events_idempotency"),
+        Index("ix_owks_events_object_occurred", "object_id", "occurred_at"),
+        Index("ix_owks_events_object_created", "object_id", "created_at"),
+        Index(
+            "uq_owks_missed_event_client_id",
+            "client_event_id",
+            unique=True,
+            postgresql_where=text("event_type = 'missed'"),
+            sqlite_where=text("event_type = 'missed'"),
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    object_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("objects.id", ondelete="RESTRICT"), nullable=False
+    )
+    route_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("owks_routes.id", ondelete="RESTRICT"), nullable=True
+    )
+    control_point_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("owks_control_points.id", ondelete="RESTRICT"), nullable=True
+    )
+    corrects_event_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("owks_events.id", ondelete="RESTRICT"), nullable=True
+    )
+    employee_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("employees.id", ondelete="RESTRICT"), nullable=True
+    )
+    actor_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )
+    challenge_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("owks_challenges.id", ondelete="RESTRICT"), nullable=True
+    )
+    client_event_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    event_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    severity: Mapped[str] = mapped_column(String(20), default="info", nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    sync_status: Mapped[str] = mapped_column(String(20), default="synced", nullable=False)
+    presence_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class OWKSEventStatus(Base):
+    __tablename__ = "owks_event_statuses"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('open', 'in_progress', 'resolved')", name="ck_owks_event_status"
+        ),
+        CheckConstraint("sequence_no > 0", name="ck_owks_event_status_sequence"),
+        UniqueConstraint("event_id", "sequence_no", name="uq_owks_event_status_sequence"),
+        Index("ix_owks_event_statuses_event_created", "event_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    event_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("owks_events.id", ondelete="RESTRICT"), nullable=False
+    )
+    sequence_no: Mapped[int] = mapped_column(nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    note: Mapped[str] = mapped_column(String(1000), nullable=False, default="")
+    actor_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class OWKSAttachment(Base):
+    __tablename__ = "owks_attachments"
+    __table_args__ = (
+        CheckConstraint(
+            "media_type IN ('application/pdf', 'image/jpeg', 'image/png')",
+            name="ck_owks_attachments_media_type",
+        ),
+        CheckConstraint(
+            "size_bytes > 0 AND size_bytes <= 10485760", name="ck_owks_attachments_size"
+        ),
+        Index("ix_owks_attachments_event_created", "event_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    event_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("owks_events.id", ondelete="RESTRICT"), nullable=False
+    )
+    file_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    media_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    content: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    uploaded_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )

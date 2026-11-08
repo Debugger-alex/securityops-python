@@ -2,7 +2,7 @@
 
 ## Ziel und aktueller Stand
 
-SecurityOps ist als modularer Monolith mit Python/FastAPI, SQLAlchemy, PostgreSQL, Alembic und React/TypeScript/Vite angelegt. Der aktuelle Code umfasst Identity/RBAC, Kunden- und Objektverwaltung sowie eine React-Oberfläche mit getrennten Verwaltungsansichten. Eigenständige Personal-, Planungs-, Zeiterfassungs-, OWKS-, Dokumenten-, Vertrags- und Rechnungsfunktionen sind noch nicht implementiert.
+SecurityOps ist als modularer Monolith mit Python/FastAPI, SQLAlchemy, PostgreSQL, Alembic und React/TypeScript/Vite angelegt. Der aktuelle Code umfasst Identity/RBAC, Kunden- und Objektverwaltung, Personal, Dienstplanung, Zeiterfassung und das OWKS-Wachbuch mit getrennten Verwaltungsansichten. Dokumenten-, Vertrags- und Rechnungsfunktionen sind noch nicht implementiert.
 
 ## Laufzeitkomponenten
 
