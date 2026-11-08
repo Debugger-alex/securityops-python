@@ -1473,11 +1473,11 @@ def _generate_reminders(db: Session, principal: AuthPrincipal) -> int:
             else sqlite_insert(DocumentContractReminder)
         )
         result = db.execute(
-            insert_stmt.values(candidates).on_conflict_do_nothing(
-                index_elements=["deduplication_key"]
-            )
+            insert_stmt.values(candidates)
+            .on_conflict_do_nothing(index_elements=["deduplication_key"])
+            .returning(DocumentContractReminder.id)
         )
-        created = result.rowcount or 0
+        created = len(result.scalars().all())
     add_audit_entry(
         db,
         actor_id=principal.user.id,
