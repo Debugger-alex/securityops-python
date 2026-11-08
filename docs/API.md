@@ -26,9 +26,24 @@ Die aktuelle API ist unter `/api/v1` versioniert. OpenAPI/Swagger ist während d
 | PATCH | `/api/v1/customers/{customer_id}/contacts/{contact_id}` | `customers.update` + CSRF |
 | DELETE | `/api/v1/customers/{customer_id}/contacts/{contact_id}` | `customers.update` + CSRF |
 | GET | `/api/v1/dashboard` | `dashboard.read` |
+| GET | `/api/v1/objects` | `objects.read`; `q`, `customer_id`, `status`, `include_archived`, `sort_by`, `sort_order`, `limit`, `offset` |
+| POST | `/api/v1/objects` | `objects.create` + CSRF |
+| GET | `/api/v1/objects/assignment-candidates` | `objects.assign` |
+| GET | `/api/v1/objects/{object_id}` | `objects.read` + Objektzuweisung oder `objects.read_all` |
+| PATCH | `/api/v1/objects/{object_id}` | `objects.manage` + Objektzuweisung oder `objects.manage_all` + CSRF |
+| POST | `/api/v1/objects/{object_id}/archive` | `objects.archive` + Objektzugriff + CSRF |
+| GET | `/api/v1/objects/{object_id}/history` | `objects.read` + Objektzugriff |
+| GET | `/api/v1/objects/{object_id}/contacts` | `objects.read` + Objektzugriff |
+| POST/PATCH/DELETE | `/api/v1/objects/{object_id}/contacts[/{contact_id}]` | `objects.manage` + Objektzuweisung oder `objects.manage_all` + CSRF |
+| GET | `/api/v1/objects/{object_id}/assignments` | `objects.assign` + Objektzugriff |
+| POST/DELETE | `/api/v1/objects/{object_id}/assignments[/{user_id}]` | `objects.assign` + Verwaltungszugriff + CSRF |
+| GET | `/api/v1/objects/{object_id}/sensitive-data` | `objects.sensitive.read` + Objektzugriff |
+| PUT | `/api/v1/objects/{object_id}/sensitive-data` | `objects.sensitive.write` + Objektzugriff + CSRF |
 
 Kundenlisten blenden archivierte Datensätze standardmäßig aus. Die Sortierfelder sind `company_name`, `customer_number`, `created_at` und `status`; die Sortierrichtung ist `asc` oder `desc`. Die Suche berücksichtigt Kunden-, Kontakt- und Anschriftendaten.
 
 Kunden können Geschäfts- und Rechnungsanschrift, Rechtsform, Umsatzsteuer-ID, Steuernummer und interne Notizen enthalten. Ansprechpartner werden separat verwaltet; pro Kunde kann höchstens einer als primär markiert sein. Kunden werden archiviert statt physisch gelöscht. Historieneinträge speichern Ereignis, Akteur, Zeitpunkt und geänderte Feldnamen, aber keine vorherigen/neuen Feldwerte.
 
-Schreibzugriffe nutzen den Session-Cookie und müssen `X-CSRF-Token` senden. Archivierte Kunden müssen vor Änderungen reaktiviert werden. Nicht aufgeführte Fachmodule und Endpunkte sind nicht implementiert.
+Objekte sind einem nicht archivierten Kunden zugeordnet. Benutzer ohne globale Objektberechtigung sehen und verwalten nur ihnen zugewiesene Objekte; neue Objekte weisen den Ersteller automatisch zu. Alarm-, Notfall-, Schlüssel- und Zutrittsangaben werden separat AES-GCM-verschlüsselt und nur über die speziell berechtigten Endpunkte geliefert. Dafür muss `OBJECT_DATA_ENCRYPTION_KEY` als URL-sichere Base64-Kodierung eines 32-Byte-Schlüssels gesetzt sein; ohne Schlüssel schlagen diese Zugriffe ausdrücklich fehl.
+
+Schreibzugriffe nutzen den Session-Cookie und müssen `X-CSRF-Token` senden. Archivierte Kunden und Objekte können nicht geändert werden. Nicht aufgeführte Fachmodule und Endpunkte sind nicht implementiert.

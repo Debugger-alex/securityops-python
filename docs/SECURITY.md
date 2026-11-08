@@ -6,6 +6,7 @@
 - Serverseitige opaque Sitzungen mit gleitender und absoluter Ablaufzeit.
 - HttpOnly, SameSite=Strict Sitzungscookie; CSRF-Tokenprüfung für authentifizierte Schreibzugriffe.
 - Server-RBAC und Schutz vor unberechtigter Administratorrollenvergabe.
+- Serverseitige Objektzuweisung und globale Objektberechtigungen; sensible Alarm-, Notfall-, Schlüssel- und Zutrittsangaben werden separat autorisiert und AES-GCM-verschlüsselt.
 - Login-Rate-Limit, derzeit nur im In-Memory-Speicher eines Prozesses.
 - Keine Passworthashes in API-Antworten.
 - Audit-Einträge für implementierte Anmelde-, Benutzer- und Kundenänderungen.
@@ -24,4 +25,6 @@
 
 ## Offene Sicherheitsfunktionen
 
-MFA, Passwortzurücksetzung per geprüftem Einmalprozess, aktive Sitzungsverwaltung, objektbezogene Rechte, zentrale Rate-Limits und revisionsfester Auditbetrieb fehlen. CI ist für PostgreSQL-Migrationen und API-Tests auf einer kurzlebigen Testdatenbank eingerichtet; der erste gehostete Lauf ist noch auszuwerten. Das implementierte System ist nicht sicherheitszertifiziert und noch kein vollständiges Produkt.
+Für sensible Objektdaten ist `OBJECT_DATA_ENCRYPTION_KEY` erforderlich: URL-sichere Base64-Kodierung eines zufällig erzeugten 32-Byte-Schlüssels. Schlüsselverlust verhindert die Entschlüsselung; Schlüsselrotation erfordert einen geplanten Reverschlüsselungsprozess. Schlüssel getrennt von Datenbank-Backups sicher verwahren.
+
+MFA, Passwortzurücksetzung per geprüftem Einmalprozess, aktive Sitzungsverwaltung, zentrale Rate-Limits und revisionsfester Auditbetrieb fehlen. Die Objektmigration 0005 wurde lokal offline generiert; PostgreSQL-CI muss sie noch ausführen. Das implementierte System ist nicht sicherheitszertifiziert und noch kein vollständiges Produkt.

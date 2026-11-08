@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     String,
     Table,
     Text,
@@ -97,6 +98,9 @@ class User(Base):
     roles: Mapped[list[Role]] = relationship(secondary=user_roles, back_populates="users")
     sessions: Mapped[list["UserSession"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
+    )
+    object_assignments: Mapped[list["ObjectUserAssignment"]] = relationship(
+        back_populates="user", foreign_keys="ObjectUserAssignment.user_id"
     )
 
 
@@ -251,3 +255,156 @@ class CustomerHistory(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
+
+
+class SecurityObject(Base):
+    __tablename__ = "objects"
+    __table_args__ = (
+        CheckConstraint("status IN ('active', 'inactive')", name="ck_objects_status"),
+        CheckConstraint("length(trim(name)) > 0", name="ck_objects_name"),
+        CheckConstraint("required_staffing >= 0", name="ck_objects_required_staffing"),
+        Index("ix_objects_customer_status", "customer_id", "status"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    customer_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("customers.id", ondelete="RESTRICT"), nullable=False
+    )
+    object_number: Mapped[str] = mapped_column(String(40), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    service_instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
+    street: Mapped[str] = mapped_column(String(160), nullable=False)
+    house_number: Mapped[str] = mapped_column(String(30), nullable=False)
+    postal_code: Mapped[str] = mapped_column(String(20), nullable=False)
+    city: Mapped[str] = mapped_column(String(100), nullable=False)
+    country_code: Mapped[str] = mapped_column(String(2), default="DE", nullable=False)
+    phone: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    operating_hours: Mapped[dict[str, list[dict[str, str]]]] = mapped_column(
+        JSON, default=dict, nullable=False
+    )
+    required_staffing: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    qualification_requirements: Mapped[list[str]] = mapped_column(
+        JSON, default=list, nullable=False
+    )
+    object_manager_user_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    customer: Mapped[Customer] = relationship()
+    object_manager: Mapped[User | None] = relationship(foreign_keys=[object_manager_user_id])
+    contacts: Mapped[list["ObjectContact"]] = relationship(back_populates="object")
+    assignments: Mapped[list["ObjectUserAssignment"]] = relationship(back_populates="object")
+    history: Mapped[list["ObjectHistory"]] = relationship(back_populates="object")
+    sensitive_data: Mapped["ObjectSensitiveData | None"] = relationship(
+        back_populates="object", uselist=False
+    )
+
+    @property
+    def customer_name(self) -> str:
+        return self.customer.company_name
+
+    @property
+    def object_manager_name(self) -> str | None:
+        return self.object_manager.full_name if self.object_manager else None
+
+
+class ObjectContact(Base):
+    __tablename__ = "object_contacts"
+    __table_args__ = (
+        CheckConstraint(
+            "length(trim(first_name)) > 0 AND length(trim(last_name)) > 0",
+            name="ck_object_contacts_name",
+        ),
+        Index(
+            "uq_object_contacts_primary",
+            "object_id",
+            unique=True,
+            postgresql_where=text("is_primary"),
+            sqlite_where=text("is_primary = 1"),
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    object_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("objects.id", ondelete="RESTRICT"), nullable=False
+    )
+    first_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    last_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    responsibility: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    is_primary: Mapped[bool] = mapped_column(default=False, nullable=False)
+    object: Mapped[SecurityObject] = relationship(back_populates="contacts")
+
+
+class ObjectUserAssignment(Base):
+    __tablename__ = "object_user_assignments"
+
+    object_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("objects.id", ondelete="RESTRICT"),
+        primary_key=True,
+    )
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        primary_key=True,
+    )
+    assigned_by: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    assigned_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    object: Mapped[SecurityObject] = relationship(back_populates="assignments")
+    user: Mapped[User] = relationship(back_populates="object_assignments", foreign_keys=[user_id])
+    assigner: Mapped[User | None] = relationship(foreign_keys=[assigned_by])
+
+
+class ObjectSensitiveData(Base):
+    __tablename__ = "object_sensitive_data"
+
+    object_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("objects.id", ondelete="RESTRICT"),
+        primary_key=True,
+    )
+    ciphertext: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_by: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    object: Mapped[SecurityObject] = relationship(back_populates="sensitive_data")
+
+
+class ObjectHistory(Base):
+    __tablename__ = "object_history"
+    __table_args__ = (Index("ix_object_history_object_created", "object_id", "created_at"),)
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    object_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("objects.id", ondelete="RESTRICT"), nullable=False
+    )
+    actor_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    action: Mapped[str] = mapped_column(String(50), nullable=False)
+    changed_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    object: Mapped[SecurityObject] = relationship(back_populates="history")

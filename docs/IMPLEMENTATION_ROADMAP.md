@@ -7,9 +7,9 @@ Stand: 2026-11-08. Diese Roadmap beschreibt den geprüften Ist-Stand und die pri
 | Bereich | Status | Beleg / nächste Arbeit |
 |---|---|---|
 | Einzelmandanten-Grundgerüst | Teilweise | FastAPI, React/TypeScript, PostgreSQL, Alembic und Compose sind vorhanden; keine Mandantenstrukturen. |
-| Anmeldung und Rollen | Teilweise | Argon2id, serverseitige Sitzungen, CSRF, RBAC und Admin-Bootstrap vorhanden. MFA, Passwortzurücksetzung, Sitzungsverwaltung und objektbezogene Rechte fehlen. |
+| Anmeldung und Rollen | Teilweise | Argon2id, serverseitige Sitzungen, CSRF, RBAC, Admin-Bootstrap und objektbezogene Zuweisungsrechte vorhanden. MFA, Passwortzurücksetzung, Sitzungsverwaltung und revisionsfester Auditbetrieb fehlen. |
 | Kunden | Teilweise umgesetzt | Backend/API/Migration, filter- und sortierbare Liste, Details, Anschriften, Ansprechpartner, Archivierung/Reaktivierung und Historie sind implementiert; Migration 0004 und Backendtests bestehen in gehosteter PostgreSQL-CI. Vertrags-/Dokumentzuordnung fehlt ([#6](https://github.com/Xonni-star/securityops-python/issues/6)). |
-| Objekte | Nicht implementiert | Kundenbezogene Objekte und Zugriffskontrollen fehlen ([#2](https://github.com/Xonni-star/securityops-python/issues/2)). |
+| Objekte | Teilweise umgesetzt | Kundenbeziehung, objektbezogene Berechtigungen, Kontakte, Historie, sensible Daten, API und Oberfläche sind in Arbeit; Migration 0005 braucht noch PostgreSQL-CI und fachliche Abnahme ([#2](https://github.com/Xonni-star/securityops-python/issues/2)). |
 | Personal und Qualifikationen | Nicht implementiert | Personalstammdaten, Nachweise, Verfügbarkeiten und Abwesenheiten fehlen ([#5](https://github.com/Xonni-star/securityops-python/issues/5)). |
 | Dienstplanung | Nicht implementiert | Schichten, Besetzung, Konflikt- und Qualifikationsprüfung fehlen ([#10](https://github.com/Xonni-star/securityops-python/issues/10)). |
 | Zeiterfassung | Nicht implementiert | Nachvollziehbare Buchungen, Korrekturfreigaben und Export fehlen ([#4](https://github.com/Xonni-star/securityops-python/issues/4)). |
@@ -30,7 +30,7 @@ Stand: 2026-11-08. Diese Roadmap beschreibt den geprüften Ist-Stand und die pri
 ### P1 – Kunden und Objekte
 
 1. Kundenverwaltung fachlich prüfen und Vertrags-/Dokumentzuordnung planen ([#6](https://github.com/Xonni-star/securityops-python/issues/6)).
-2. Objekte mit zwingender Kundenbeziehung und objektbezogenen Berechtigungen ergänzen ([#2](https://github.com/Xonni-star/securityops-python/issues/2)).
+2. Objektverwaltung [#2](https://github.com/Xonni-star/securityops-python/issues/2) gegen PostgreSQL-CI und fachliche Akzeptanzkriterien abschließen; anschließend Objektdaten und Zuweisungen als Grundlage für operative Module nutzen.
 
 ### P2 – Personal und Einsatzbetrieb
 
