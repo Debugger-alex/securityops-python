@@ -1,5 +1,6 @@
-from datetime import date, datetime
+from datetime import date, datetime, time
 from decimal import Decimal
+from itertools import pairwise
 from typing import Literal
 from uuid import UUID
 
@@ -796,6 +797,121 @@ class EmployeeAbsenceRead(BaseModel):
     updated_at: datetime
 
 
+class EmployeeAvailabilityWindowInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    weekday: int = Field(ge=0, le=6)
+    starts_at: time
+    ends_at: time
+
+    @field_validator("starts_at", "ends_at")
+    @classmethod
+    def window_times_must_not_have_time_zones(cls, value: time) -> time:
+        if value.tzinfo is not None and value.utcoffset() is not None:
+            raise ValueError("Verfügbarkeitszeiten dürfen keinen UTC-Offset enthalten.")
+        return value
+
+    @model_validator(mode="after")
+    def end_must_follow_start(self):
+        if self.ends_at <= self.starts_at:
+            raise ValueError("Das Ende des Verfügbarkeitsfensters muss nach dem Beginn liegen.")
+        return self
+
+
+class EmployeeAvailabilityWindowRead(EmployeeAvailabilityWindowInput):
+    id: UUID
+    employee_id: UUID
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EmployeeAvailabilityUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    windows: list[EmployeeAvailabilityWindowInput] = Field(max_length=70)
+
+    @model_validator(mode="after")
+    def windows_must_not_overlap(self):
+        by_weekday: dict[int, list[EmployeeAvailabilityWindowInput]] = {}
+        for window in self.windows:
+            by_weekday.setdefault(window.weekday, []).append(window)
+        for windows in by_weekday.values():
+            windows.sort(key=lambda item: item.starts_at)
+            if any(left.ends_at > right.starts_at for left, right in pairwise(windows)):
+                raise ValueError(
+                    "Verfügbarkeitsfenster desselben Wochentags dürfen sich nicht überschneiden."
+                )
+        return self
+
+
+ScheduleAvailabilityRequestKind = Literal["preferred", "blocked"]
+ScheduleAvailabilityRequestStatus = Literal["open", "accepted", "rejected"]
+
+
+class ScheduleAvailabilityRequestCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    employee_id: UUID | None = None
+    kind: ScheduleAvailabilityRequestKind
+    starts_at_local: datetime
+    ends_at_local: datetime
+    starts_at_fold: int = Field(default=0, ge=0, le=1)
+    ends_at_fold: int = Field(default=0, ge=0, le=1)
+
+    @field_validator("starts_at_local", "ends_at_local")
+    @classmethod
+    def local_times_must_not_have_an_offset(cls, value: datetime) -> datetime:
+        if value.tzinfo is not None and value.utcoffset() is not None:
+            raise ValueError("Lokale Wunsch- und Sperrzeiten dürfen keinen UTC-Offset enthalten.")
+        return value
+
+    @model_validator(mode="after")
+    def end_must_follow_start(self):
+        if self.ends_at_local <= self.starts_at_local:
+            raise ValueError("Das Ende des Zeitraums muss nach dem Beginn liegen.")
+        return self
+
+
+class ScheduleAvailabilityRequestUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["accepted", "rejected"]
+
+
+class ScheduleAvailabilityRequestRead(BaseModel):
+    id: UUID
+    employee_id: UUID
+    employee_name: str
+    employee_number: str
+    kind: ScheduleAvailabilityRequestKind
+    starts_at: datetime
+    ends_at: datetime
+    time_zone: str
+    status: ScheduleAvailabilityRequestStatus
+    conflicting_shift_ids: list[UUID]
+    created_by_id: UUID | None
+    reviewed_by_id: UUID | None
+    reviewed_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+
+ScheduleReplacementReason = Literal[
+    "short_notice",
+    "schedule_change",
+    "employee_request",
+    "qualification",
+    "other",
+]
+
+
+class ScheduleShiftReplacementCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    employee_id: UUID
+    reason: ScheduleReplacementReason
+
+
 class ScheduleSettingsRead(BaseModel):
     time_zone: str
     minimum_rest_hours: int
@@ -933,6 +1049,7 @@ class ScheduleShiftHistoryRead(BaseModel):
     actor_id: UUID | None
     action: str
     changed_fields: list[str]
+    details: dict[str, object] = Field(default_factory=dict)
     created_at: datetime
 
 

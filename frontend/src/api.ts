@@ -15,6 +15,7 @@ import type {
   EmployeeAbsence,
   EmployeeAbsenceStatus,
   EmployeeAbsenceType,
+  EmployeeAvailabilityWindow,
   EmployeeHistory,
   EmployeeObjectAssignment,
   EmployeeObjectAssignmentHistory,
@@ -37,6 +38,9 @@ import type {
   SecurityObject,
   Session,
   ScheduleSettings,
+  ScheduleAvailabilityRequest,
+  ScheduleAvailabilityRequestKind,
+  ScheduleReplacementReason,
   ScheduleShift,
   ScheduleShiftHistory,
   TimeEntry,
@@ -553,6 +557,45 @@ export type ScheduleShiftInput = {
 export const getScheduleSettings = () =>
   request<ScheduleSettings>("/scheduling/settings");
 
+export const getEmployeeAvailability = (employeeId: string) =>
+  request<EmployeeAvailabilityWindow[]>(`/scheduling/employees/${employeeId}/availability`);
+
+export const updateEmployeeAvailability = (
+  employeeId: string,
+  windows: Array<Pick<EmployeeAvailabilityWindow, "weekday" | "starts_at" | "ends_at">>,
+) =>
+  request<EmployeeAvailabilityWindow[]>(`/scheduling/employees/${employeeId}/availability`, {
+    method: "PUT",
+    body: JSON.stringify({ windows }),
+  });
+
+export const getScheduleAvailabilityRequests = (fromDate: string, toDate: string) => {
+  const params = new URLSearchParams({ from_date: fromDate, to_date: toDate });
+  return request<ScheduleAvailabilityRequest[]>(`/scheduling/availability-requests?${params}`);
+};
+
+export const createScheduleAvailabilityRequest = (data: {
+  employee_id?: string;
+  kind: ScheduleAvailabilityRequestKind;
+  starts_at_local: string;
+  ends_at_local: string;
+  starts_at_fold: number;
+  ends_at_fold: number;
+}) =>
+  request<ScheduleAvailabilityRequest>("/scheduling/availability-requests", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const updateScheduleAvailabilityRequest = (
+  id: string,
+  status: "accepted" | "rejected",
+) =>
+  request<ScheduleAvailabilityRequest>(`/scheduling/availability-requests/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+
 export const updateScheduleSettings = (
   data: Pick<ScheduleSettings, "time_zone" | "minimum_rest_hours">,
 ) =>
@@ -596,6 +639,16 @@ export const cancelScheduleShift = (id: string) =>
 
 export const getScheduleShiftHistory = (id: string) =>
   request<ScheduleShiftHistory[]>(`/scheduling/shifts/${id}/history?limit=100`);
+
+export const replaceScheduleShiftEmployee = (
+  id: string,
+  employeeId: string,
+  reason: ScheduleReplacementReason,
+) =>
+  request<ScheduleShift>(`/scheduling/shifts/${id}/replacement`, {
+    method: "POST",
+    body: JSON.stringify({ employee_id: employeeId, reason }),
+  });
 
 export interface TimeEntryFilters {
   fromDate: string;

@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -495,6 +495,12 @@ class Employee(Base):
     user: Mapped[User | None] = relationship(back_populates="employee_record")
     qualifications: Mapped[list["EmployeeQualification"]] = relationship(back_populates="employee")
     absences: Mapped[list["EmployeeAbsence"]] = relationship(back_populates="employee")
+    availability_windows: Mapped[list["EmployeeAvailabilityWindow"]] = relationship(
+        back_populates="employee"
+    )
+    schedule_requests: Mapped[list["ScheduleAvailabilityRequest"]] = relationship(
+        back_populates="employee"
+    )
     history: Mapped[list["EmployeeHistory"]] = relationship(back_populates="employee")
     sensitive_details: Mapped["EmployeeSensitiveDetails | None"] = relationship(
         back_populates="employee", uselist=False
@@ -749,6 +755,93 @@ class ScheduleSettings(Base):
     )
 
 
+class EmployeeAvailabilityWindow(Base):
+    __tablename__ = "employee_availability_windows"
+    __table_args__ = (
+        CheckConstraint("weekday BETWEEN 0 AND 6", name="ck_employee_availability_weekday"),
+        CheckConstraint(
+            "ends_at > starts_at",
+            name="ck_employee_availability_window_time_order",
+        ),
+        Index(
+            "ix_employee_availability_windows_employee_weekday",
+            "employee_id",
+            "weekday",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    employee_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("employees.id", ondelete="RESTRICT"), nullable=False
+    )
+    weekday: Mapped[int] = mapped_column(nullable=False)
+    starts_at: Mapped[time] = mapped_column(nullable=False)
+    ends_at: Mapped[time] = mapped_column(nullable=False)
+    created_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    employee: Mapped[Employee] = relationship(back_populates="availability_windows")
+
+
+class ScheduleAvailabilityRequest(Base):
+    __tablename__ = "schedule_availability_requests"
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN ('preferred', 'blocked')",
+            name="ck_schedule_availability_requests_kind",
+        ),
+        CheckConstraint(
+            "status IN ('open', 'accepted', 'rejected')",
+            name="ck_schedule_availability_requests_status",
+        ),
+        CheckConstraint(
+            "ends_at > starts_at",
+            name="ck_schedule_availability_requests_time_order",
+        ),
+        Index(
+            "ix_schedule_availability_requests_employee_time",
+            "employee_id",
+            "starts_at",
+            "ends_at",
+        ),
+        Index(
+            "ix_schedule_availability_requests_status_time",
+            "status",
+            "starts_at",
+            "ends_at",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    employee_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("employees.id", ondelete="RESTRICT"), nullable=False
+    )
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="open", nullable=False)
+    created_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    reviewed_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    employee: Mapped[Employee] = relationship(back_populates="schedule_requests")
+
+
 class ScheduleShift(Base):
     __tablename__ = "schedule_shifts"
     __table_args__ = (
@@ -812,6 +905,7 @@ class ScheduleShiftHistory(Base):
     )
     action: Mapped[str] = mapped_column(String(50), nullable=False)
     changed_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    details: Mapped[dict[str, object]] = mapped_column(JSON, default=dict, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )

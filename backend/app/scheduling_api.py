@@ -1,4 +1,5 @@
 import hashlib
+from collections.abc import Sequence
 from datetime import UTC, date, datetime, time, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -13,20 +14,28 @@ from app.database import get_db
 from app.models import (
     Employee,
     EmployeeAbsence,
+    EmployeeAvailabilityWindow,
     EmployeeQualification,
     ObjectAssignment,
+    ScheduleAvailabilityRequest,
     ScheduleSettings,
     ScheduleShift,
     ScheduleShiftHistory,
     SecurityObject,
 )
 from app.schemas import (
+    EmployeeAvailabilityUpdate,
+    EmployeeAvailabilityWindowRead,
+    ScheduleAvailabilityRequestCreate,
+    ScheduleAvailabilityRequestRead,
+    ScheduleAvailabilityRequestUpdate,
     ScheduleConflictRead,
     ScheduleSettingsRead,
     ScheduleSettingsUpdate,
     ScheduleShiftCreate,
     ScheduleShiftHistoryRead,
     ScheduleShiftRead,
+    ScheduleShiftReplacementCreate,
     ScheduleShiftUpdate,
 )
 
@@ -115,6 +124,17 @@ def get_employee_or_404(db: Session, employee_id) -> Employee:
     return employee
 
 
+def ensure_employee_schedule_access(employee: Employee, principal) -> None:
+    permissions = principal.permission_codes
+    if "scheduling.manage" in permissions or "employees.read" in permissions:
+        return
+    if employee.user_id != principal.user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Mitarbeiter nicht gefunden",
+        )
+
+
 def get_assignable_object(db: Session, object_id, principal) -> SecurityObject:
     query = select(SecurityObject).where(
         SecurityObject.id == object_id,
@@ -148,6 +168,64 @@ def lock_employee_schedule(db: Session, employee_id) -> None:
 def lock_employee_schedules(db: Session, employee_ids: set) -> None:
     for employee_id in sorted(employee_ids, key=str):
         lock_employee_schedule(db, employee_id)
+
+
+def time_microseconds(value: time) -> int:
+    return ((value.hour * 60 + value.minute) * 60 + value.second) * 1_000_000 + value.microsecond
+
+
+def shift_fits_availability(
+    db: Session,
+    employee_id: UUID,
+    starts_at: datetime,
+    ends_at: datetime,
+    zone: ZoneInfo,
+    windows: Sequence[tuple[int, time, time]] | None = None,
+) -> bool:
+    if windows is None:
+        rows = db.scalars(
+            select(EmployeeAvailabilityWindow).where(
+                EmployeeAvailabilityWindow.employee_id == employee_id
+            )
+        ).all()
+        windows = [(row.weekday, row.starts_at, row.ends_at) for row in rows]
+    if not windows:
+        return True
+
+    windows_by_weekday: dict[int, list[tuple[int, int]]] = {}
+    for weekday, starts_at_time, ends_at_time in windows:
+        windows_by_weekday.setdefault(weekday, []).append(
+            (time_microseconds(starts_at_time), time_microseconds(ends_at_time))
+        )
+    day = starts_at.astimezone(zone).date()
+    last_day = (ends_at - timedelta(microseconds=1)).astimezone(zone).date()
+    if (last_day - day).days > 7:
+        return False
+    while day <= last_day:
+        day_start = local_day_start(day, zone)
+        next_day_start = local_day_start(day + timedelta(days=1), zone)
+        segment_start = max(starts_at, day_start).astimezone(zone).replace(tzinfo=None).time()
+        segment_end_at = min(ends_at, next_day_start)
+        if segment_end_at == next_day_start:
+            segment_end = 24 * 60 * 60 * 1_000_000
+        else:
+            segment_end = time_microseconds(
+                segment_end_at.astimezone(zone).replace(tzinfo=None).time()
+            )
+        cursor = time_microseconds(segment_start)
+        day_windows = sorted(windows_by_weekday.get(day.weekday(), []))
+        for window_start, window_end in day_windows:
+            if window_end <= cursor:
+                continue
+            if window_start > cursor:
+                break
+            cursor = max(cursor, window_end)
+            if cursor >= segment_end:
+                break
+        if cursor < segment_end:
+            return False
+        day += timedelta(days=1)
+    return True
 
 
 def check_conflicts(
@@ -212,6 +290,39 @@ def check_conflicts(
             ScheduleConflictRead(
                 code="employee_absence",
                 message="Im Dienstzeitraum liegt eine offene oder genehmigte Abwesenheit.",
+            )
+        )
+
+    if not shift_fits_availability(
+        db,
+        employee.id,
+        starts_at,
+        ends_at,
+        zone,
+    ):
+        conflicts.append(
+            ScheduleConflictRead(
+                code="outside_availability",
+                message="Der Dienst liegt teilweise oder vollständig außerhalb der regelmäßigen Verfügbarkeit.",
+            )
+        )
+
+    blocked_request = db.scalar(
+        select(ScheduleAvailabilityRequest.id)
+        .where(
+            ScheduleAvailabilityRequest.employee_id == employee.id,
+            ScheduleAvailabilityRequest.kind == "blocked",
+            ScheduleAvailabilityRequest.status.in_(("open", "accepted")),
+            ScheduleAvailabilityRequest.starts_at < ends_at,
+            ScheduleAvailabilityRequest.ends_at > starts_at,
+        )
+        .limit(1)
+    )
+    if blocked_request is not None:
+        conflicts.append(
+            ScheduleConflictRead(
+                code="availability_blocked",
+                message="Der Dienst überschneidet sich mit einer offenen oder bestätigten Sperrzeit.",
             )
         )
 
@@ -308,14 +419,17 @@ def record_shift_event(
     action: str,
     changed_fields: set[str],
     request: Request,
+    details: dict[str, object] | None = None,
 ) -> None:
     fields = sorted(changed_fields)
+    event_details = details or {}
     db.add(
         ScheduleShiftHistory(
             shift_id=shift.id,
             actor_id=actor_id,
             action=action,
             changed_fields=fields,
+            details=event_details,
         )
     )
     add_audit_entry(
@@ -325,7 +439,7 @@ def record_shift_event(
         entity_type="schedule_shift",
         entity_id=str(shift.id),
         ip_address=request.client.host if request.client else None,
-        details={"fields": fields},
+        details={"fields": fields, **event_details},
     )
 
 
@@ -373,6 +487,44 @@ def read_shift(shift: ScheduleShift, time_zone: str) -> ScheduleShiftRead:
         created_by_id=shift.created_by_id,
         created_at=as_utc(shift.created_at),
         updated_at=as_utc(shift.updated_at),
+    )
+
+
+def read_availability_request(
+    db: Session,
+    item: ScheduleAvailabilityRequest,
+    time_zone: str,
+) -> ScheduleAvailabilityRequestRead:
+    conflicting_shift_ids = []
+    if item.kind == "blocked" and item.status != "rejected":
+        conflicting_shift_ids = list(
+            db.scalars(
+                select(ScheduleShift.id)
+                .where(
+                    ScheduleShift.employee_id == item.employee_id,
+                    ScheduleShift.status != "cancelled",
+                    ScheduleShift.starts_at < item.ends_at,
+                    ScheduleShift.ends_at > item.starts_at,
+                )
+                .order_by(ScheduleShift.starts_at, ScheduleShift.id)
+            ).all()
+        )
+    return ScheduleAvailabilityRequestRead(
+        id=item.id,
+        employee_id=item.employee_id,
+        employee_name=item.employee.full_name,
+        employee_number=item.employee.employee_number,
+        kind=item.kind,
+        starts_at=as_utc(item.starts_at),
+        ends_at=as_utc(item.ends_at),
+        time_zone=time_zone,
+        status=item.status,
+        conflicting_shift_ids=conflicting_shift_ids,
+        created_by_id=item.created_by_id,
+        reviewed_by_id=item.reviewed_by_id,
+        reviewed_at=as_utc(item.reviewed_at) if item.reviewed_at else None,
+        created_at=as_utc(item.created_at),
+        updated_at=as_utc(item.updated_at),
     )
 
 
@@ -425,6 +577,307 @@ def update_scheduling_settings(
         minimum_rest_hours=settings.minimum_rest_hours,
         updated_at=as_utc(settings.updated_at),
     )
+
+
+@router.get(
+    "/scheduling/employees/{employee_id}/availability",
+    response_model=list[EmployeeAvailabilityWindowRead],
+)
+def list_employee_availability(
+    employee_id: UUID,
+    db: Session = Depends(get_db),
+    principal=Depends(require_permission("scheduling.read")),
+) -> list[EmployeeAvailabilityWindowRead]:
+    employee = get_employee_or_404(db, employee_id)
+    ensure_employee_schedule_access(employee, principal)
+    windows = db.scalars(
+        select(EmployeeAvailabilityWindow)
+        .where(EmployeeAvailabilityWindow.employee_id == employee.id)
+        .order_by(
+            EmployeeAvailabilityWindow.weekday,
+            EmployeeAvailabilityWindow.starts_at,
+            EmployeeAvailabilityWindow.id,
+        )
+    ).all()
+    return [EmployeeAvailabilityWindowRead.model_validate(item) for item in windows]
+
+
+@router.put(
+    "/scheduling/employees/{employee_id}/availability",
+    response_model=list[EmployeeAvailabilityWindowRead],
+)
+def replace_employee_availability(
+    request: Request,
+    employee_id: UUID,
+    payload: EmployeeAvailabilityUpdate,
+    db: Session = Depends(get_db),
+    principal=Depends(require_permission("scheduling.manage")),
+) -> list[EmployeeAvailabilityWindowRead]:
+    employee = get_employee_or_404(db, employee_id)
+    lock_employee_schedule(db, employee.id)
+    existing_shifts = db.scalars(
+        select(ScheduleShift).where(
+            ScheduleShift.employee_id == employee.id,
+            ScheduleShift.status != "cancelled",
+            ScheduleShift.ends_at > datetime.now(UTC),
+        )
+    ).all()
+    settings = get_schedule_settings(db)
+    zone = get_zone(settings.time_zone)
+    windows = [(item.weekday, item.starts_at, item.ends_at) for item in payload.windows]
+    conflicts = [
+        str(shift.id)
+        for shift in existing_shifts
+        if not shift_fits_availability(
+            db,
+            employee.id,
+            as_utc(shift.starts_at),
+            as_utc(shift.ends_at),
+            zone,
+            windows,
+        )
+    ]
+    if conflicts:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "message": "Die Verfügbarkeit würde bestehenden Diensten widersprechen.",
+                "conflicting_shift_ids": conflicts,
+            },
+        )
+    old_windows = db.scalars(
+        select(EmployeeAvailabilityWindow)
+        .where(EmployeeAvailabilityWindow.employee_id == employee.id)
+        .order_by(
+            EmployeeAvailabilityWindow.weekday,
+            EmployeeAvailabilityWindow.starts_at,
+            EmployeeAvailabilityWindow.id,
+        )
+    ).all()
+    old_values = [
+        {
+            "weekday": item.weekday,
+            "starts_at": item.starts_at.isoformat(),
+            "ends_at": item.ends_at.isoformat(),
+        }
+        for item in old_windows
+    ]
+    db.query(EmployeeAvailabilityWindow).filter(
+        EmployeeAvailabilityWindow.employee_id == employee.id
+    ).delete(synchronize_session=False)
+    replacements = [
+        EmployeeAvailabilityWindow(
+            employee_id=employee.id,
+            weekday=item.weekday,
+            starts_at=item.starts_at,
+            ends_at=item.ends_at,
+            created_by_id=principal.user.id,
+        )
+        for item in payload.windows
+    ]
+    db.add_all(replacements)
+    new_values = [
+        {
+            "weekday": item.weekday,
+            "starts_at": item.starts_at.isoformat(),
+            "ends_at": item.ends_at.isoformat(),
+        }
+        for item in payload.windows
+    ]
+    add_audit_entry(
+        db,
+        actor_id=principal.user.id,
+        action="scheduling.availability_updated",
+        entity_type="employee_availability",
+        entity_id=str(employee.id),
+        ip_address=request.client.host if request.client else None,
+        details={"before": old_values, "after": new_values},
+    )
+    commit_schedule_transaction(db)
+    return [EmployeeAvailabilityWindowRead.model_validate(item) for item in replacements]
+
+
+@router.get(
+    "/scheduling/availability-requests",
+    response_model=list[ScheduleAvailabilityRequestRead],
+)
+def list_schedule_availability_requests(
+    from_date: date | None = None,
+    to_date: date | None = None,
+    employee_id: UUID | None = None,
+    limit: int = Query(default=200, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+    principal=Depends(require_permission("scheduling.read")),
+) -> list[ScheduleAvailabilityRequestRead]:
+    settings = get_schedule_settings(db)
+    zone = get_zone(settings.time_zone)
+    if (from_date is None) != (to_date is None):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Beginn und Ende des Filterzeitraums müssen gemeinsam angegeben werden.",
+        )
+    query = (
+        select(ScheduleAvailabilityRequest)
+        .join(Employee)
+        .options(joinedload(ScheduleAvailabilityRequest.employee))
+    )
+    if "employees.read" not in principal.permission_codes and (
+        "scheduling.manage" not in principal.permission_codes
+    ):
+        query = query.where(Employee.user_id == principal.user.id)
+    if employee_id is not None:
+        query = query.where(ScheduleAvailabilityRequest.employee_id == employee_id)
+    if from_date is not None and to_date is not None:
+        if to_date < from_date or (to_date - from_date).days > 366 or to_date == date.max:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Der Filterzeitraum ist ungültig oder umfasst mehr als 367 Kalendertage.",
+            )
+        starts_at = local_day_start(from_date, zone)
+        ends_at = local_day_start(to_date + timedelta(days=1), zone)
+        query = query.where(
+            ScheduleAvailabilityRequest.starts_at < ends_at,
+            ScheduleAvailabilityRequest.ends_at > starts_at,
+        )
+    items = db.scalars(
+        query.order_by(
+            ScheduleAvailabilityRequest.starts_at,
+            ScheduleAvailabilityRequest.id,
+        )
+        .limit(limit)
+        .offset(offset)
+    ).all()
+    return [read_availability_request(db, item, settings.time_zone) for item in items]
+
+
+@router.post(
+    "/scheduling/availability-requests",
+    response_model=ScheduleAvailabilityRequestRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_schedule_availability_request(
+    request: Request,
+    payload: ScheduleAvailabilityRequestCreate,
+    db: Session = Depends(get_db),
+    principal=Depends(require_permission("scheduling.availability.request")),
+) -> ScheduleAvailabilityRequestRead:
+    settings = get_schedule_settings(db)
+    zone = get_zone(settings.time_zone)
+    starts_at = local_to_utc(payload.starts_at_local, zone, payload.starts_at_fold)
+    ends_at = local_to_utc(payload.ends_at_local, zone, payload.ends_at_fold)
+    if ends_at <= starts_at:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Das Ende des Zeitraums muss nach der Umrechnung in UTC nach dem Beginn liegen.",
+        )
+    if ends_at - starts_at > timedelta(days=366):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Wunsch- und Sperrzeiträume dürfen höchstens 366 Tage umfassen.",
+        )
+    if "scheduling.manage" in principal.permission_codes:
+        if payload.employee_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Für die Erfassung durch die Einsatzleitung muss ein Mitarbeiter gewählt werden.",
+            )
+        employee = get_employee_or_404(db, payload.employee_id)
+    else:
+        employee = db.scalar(select(Employee).where(Employee.user_id == principal.user.id))
+        if employee is None or (
+            payload.employee_id is not None and payload.employee_id != employee.id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Mitarbeiter nicht gefunden",
+            )
+    if employee.archived_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Für archivierte Mitarbeiter können keine Dienstwünsche eingereicht werden.",
+        )
+    lock_employee_schedule(db, employee.id)
+    item = ScheduleAvailabilityRequest(
+        employee_id=employee.id,
+        kind=payload.kind,
+        starts_at=starts_at,
+        ends_at=ends_at,
+        status="open",
+        created_by_id=principal.user.id,
+    )
+    db.add(item)
+    flush_schedule_transaction(db)
+    add_audit_entry(
+        db,
+        actor_id=principal.user.id,
+        action="scheduling.availability_request_created",
+        entity_type="schedule_availability_request",
+        entity_id=str(item.id),
+        ip_address=request.client.host if request.client else None,
+        details={
+            "employee_id": str(employee.id),
+            "kind": item.kind,
+            "starts_at": starts_at.isoformat(),
+            "ends_at": ends_at.isoformat(),
+        },
+    )
+    commit_schedule_transaction(db)
+    return read_availability_request(db, item, settings.time_zone)
+
+
+@router.patch(
+    "/scheduling/availability-requests/{request_id}",
+    response_model=ScheduleAvailabilityRequestRead,
+)
+def update_schedule_availability_request(
+    request: Request,
+    request_id: UUID,
+    payload: ScheduleAvailabilityRequestUpdate,
+    db: Session = Depends(get_db),
+    principal=Depends(require_permission("scheduling.manage")),
+) -> ScheduleAvailabilityRequestRead:
+    item = db.scalar(
+        select(ScheduleAvailabilityRequest)
+        .where(ScheduleAvailabilityRequest.id == request_id)
+        .with_for_update()
+    )
+    if item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Dienstwunsch nicht gefunden",
+        )
+    lock_employee_schedule(db, item.employee_id)
+    if item.kind == "blocked" and payload.status == "accepted":
+        conflicting_shift_ids = read_availability_request(
+            db,
+            item,
+            get_schedule_settings(db).time_zone,
+        ).conflicting_shift_ids
+        if conflicting_shift_ids:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "message": "Die Sperrzeit überschneidet sich noch mit geplanten Diensten.",
+                    "conflicting_shift_ids": [str(item_id) for item_id in conflicting_shift_ids],
+                },
+            )
+    if item.status != payload.status:
+        item.status = payload.status
+        item.reviewed_by_id = principal.user.id
+        item.reviewed_at = datetime.now(UTC)
+        add_audit_entry(
+            db,
+            actor_id=principal.user.id,
+            action="scheduling.availability_request_reviewed",
+            entity_type="schedule_availability_request",
+            entity_id=str(item.id),
+            ip_address=request.client.host if request.client else None,
+            details={"status": payload.status},
+        )
+        commit_schedule_transaction(db)
+    settings = get_schedule_settings(db)
+    return read_availability_request(db, item, settings.time_zone)
 
 
 @router.get("/scheduling/shifts", response_model=list[ScheduleShiftRead])
@@ -651,6 +1104,67 @@ def update_schedule_shift(
             request=request,
         )
         commit_schedule_transaction(db)
+    return read_shift(shift, settings.time_zone)
+
+
+@router.post(
+    "/scheduling/shifts/{shift_id}/replacement",
+    response_model=ScheduleShiftRead,
+)
+def replace_schedule_shift_employee(
+    request: Request,
+    shift_id: UUID,
+    payload: ScheduleShiftReplacementCreate,
+    db: Session = Depends(get_db),
+    principal=Depends(require_permission("scheduling.manage")),
+) -> ScheduleShiftRead:
+    shift = get_shift_or_404(db, shift_id, principal, for_update=True)
+    if shift.status == "cancelled":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Abgesagte Dienste können nicht vertreten werden.",
+        )
+    if payload.employee_id == shift.employee_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Die Vertretung muss eine andere Person als der bisherige Mitarbeiter sein.",
+        )
+    lock_employee_schedules(db, {shift.employee_id, payload.employee_id})
+    settings = get_schedule_settings(db)
+    employee = get_employee_or_404(db, payload.employee_id)
+    obj = get_assignable_object(db, shift.object_id, principal)
+    starts_at = as_utc(shift.starts_at)
+    ends_at = as_utc(shift.ends_at)
+    ensure_no_conflicts(
+        check_conflicts(
+            db,
+            employee=employee,
+            obj=obj,
+            starts_at=starts_at,
+            ends_at=ends_at,
+            required_qualification=shift.required_qualification,
+            time_zone=settings.time_zone,
+            minimum_rest_hours=settings.minimum_rest_hours,
+            exclude_shift_id=shift.id,
+        )
+    )
+    previous_employee_id = shift.employee_id
+    shift.employee_id = employee.id
+    shift.employee = employee
+    record_shift_event(
+        db,
+        shift=shift,
+        actor_id=principal.user.id,
+        action="replaced",
+        changed_fields={"employee_id"},
+        request=request,
+        details={
+            "previous_employee_id": str(previous_employee_id),
+            "replacement_employee_id": str(employee.id),
+            "reason": payload.reason,
+        },
+    )
+    commit_schedule_transaction(db)
     return read_shift(shift, settings.time_zone)
 
 

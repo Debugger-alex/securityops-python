@@ -1,19 +1,29 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   cancelScheduleShift,
+  createScheduleAvailabilityRequest,
   createScheduleShift,
   getEmployees,
+  getEmployeeAvailability,
   getObjects,
+  getScheduleAvailabilityRequests,
   getScheduleSettings,
   getScheduleShiftHistory,
   getScheduleShifts,
   publishScheduleShift,
+  replaceScheduleShiftEmployee,
   updateScheduleSettings,
   updateScheduleShift,
+  updateEmployeeAvailability,
+  updateScheduleAvailabilityRequest,
 } from "./api";
 import type {
   AuthUser,
+  EmployeeAvailabilityWindow,
   Employee,
+  ScheduleAvailabilityRequest,
+  ScheduleAvailabilityRequestKind,
+  ScheduleReplacementReason,
   ScheduleSettings,
   ScheduleShift,
   ScheduleShiftHistory,
@@ -110,10 +120,14 @@ const actionNames: Record<string, string> = {
   updated: "Dienst geändert",
   published: "Dienst veröffentlicht",
   cancelled: "Dienst abgesagt",
+  replaced: "Vertretung eingetragen",
 };
+
+const weekdayNames = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
 
 export default function SchedulingManagement({ user }: Props) {
   const canManage = user.permissions.includes("scheduling.manage");
+  const canRequestAvailability = user.permissions.includes("scheduling.availability.request");
   const [settings, setSettings] = useState<ScheduleSettings | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [objects, setObjects] = useState<Array<{ id: string; code: string; name: string }>>([]);
@@ -125,6 +139,12 @@ export default function SchedulingManagement({ user }: Props) {
   const [includeCancelled, setIncludeCancelled] = useState(false);
   const [editing, setEditing] = useState<ScheduleShift | null>(null);
   const [history, setHistory] = useState<{ shiftId: string; rows: ScheduleShiftHistory[] } | null>(null);
+  const [availabilityEmployeeId, setAvailabilityEmployeeId] = useState("");
+  const [availabilityWindows, setAvailabilityWindows] = useState<
+    Array<Pick<EmployeeAvailabilityWindow, "weekday" | "starts_at" | "ends_at">>
+  >([]);
+  const [availabilityRequests, setAvailabilityRequests] = useState<ScheduleAvailabilityRequest[]>([]);
+  const [replacementFor, setReplacementFor] = useState<ScheduleShift | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const range = useMemo(() => viewRange(view, focusDate), [focusDate, view]);
@@ -178,6 +198,27 @@ export default function SchedulingManagement({ user }: Props) {
   useEffect(() => {
     void loadShifts();
   }, [loadShifts]);
+
+  useEffect(() => {
+    if (!canManage || !availabilityEmployeeId) return;
+    getEmployeeAvailability(availabilityEmployeeId)
+      .then((windows) => setAvailabilityWindows(
+        windows.map(({ weekday, starts_at, ends_at }) => ({ weekday, starts_at, ends_at })),
+      ))
+      .catch((reason) => setError(messageFrom(reason, "Verfügbarkeiten konnten nicht geladen werden.")));
+  }, [availabilityEmployeeId, canManage]);
+
+  useEffect(() => {
+    if (!canManage && !canRequestAvailability) return;
+    getScheduleAvailabilityRequests(range.fromDate, range.toDate)
+      .then(setAvailabilityRequests)
+      .catch((reason) => setError(messageFrom(reason, "Dienstwünsche konnten nicht geladen werden.")));
+  }, [canManage, canRequestAvailability, range]);
+
+  useEffect(() => {
+    if (availabilityEmployeeId || employees.length === 0) return;
+    setAvailabilityEmployeeId(employees[0].id);
+  }, [availabilityEmployeeId, employees]);
 
   function navigateDate(direction: number) {
     const date = new Date(`${focusDate}T12:00:00`);
@@ -257,6 +298,89 @@ export default function SchedulingManagement({ user }: Props) {
       await loadShifts();
     } catch (reason) {
       setError(messageFrom(reason, "Planungseinstellungen konnten nicht gespeichert werden."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitAvailability(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!availabilityEmployeeId) return;
+    setBusy(true);
+    try {
+      const saved = await updateEmployeeAvailability(availabilityEmployeeId, availabilityWindows);
+      setAvailabilityWindows(saved.map(({ weekday, starts_at, ends_at }) => ({
+        weekday,
+        starts_at,
+        ends_at,
+      })));
+      setError("");
+    } catch (reason) {
+      setError(messageFrom(reason, "Verfügbarkeiten konnten nicht gespeichert werden."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitAvailabilityRequest(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(event.currentTarget);
+    setBusy(true);
+    try {
+      const requestData = {
+        kind: String(data.get("kind")) as ScheduleAvailabilityRequestKind,
+        starts_at_local: String(data.get("starts_at_local")),
+        ends_at_local: String(data.get("ends_at_local")),
+        starts_at_fold: Number(data.get("starts_at_fold")),
+        ends_at_fold: Number(data.get("ends_at_fold")),
+        ...(canManage ? { employee_id: String(data.get("employee_id")) } : {}),
+      };
+      await createScheduleAvailabilityRequest(requestData);
+      form.reset();
+      setError("");
+      setAvailabilityRequests(await getScheduleAvailabilityRequests(range.fromDate, range.toDate));
+      await loadShifts();
+    } catch (reason) {
+      setError(messageFrom(reason, "Dienstwunsch oder Sperrzeit konnte nicht eingereicht werden."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reviewAvailabilityRequest(
+    item: ScheduleAvailabilityRequest,
+    status: "accepted" | "rejected",
+  ) {
+    setBusy(true);
+    try {
+      await updateScheduleAvailabilityRequest(item.id, status);
+      setAvailabilityRequests(await getScheduleAvailabilityRequests(range.fromDate, range.toDate));
+      setError("");
+      await loadShifts();
+    } catch (reason) {
+      setError(messageFrom(reason, "Dienstwunsch oder Sperrzeit konnte nicht bearbeitet werden."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitReplacement(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!replacementFor) return;
+    const data = new FormData(event.currentTarget);
+    setBusy(true);
+    try {
+      await replaceScheduleShiftEmployee(
+        replacementFor.id,
+        String(data.get("employee_id")),
+        String(data.get("reason")) as ScheduleReplacementReason,
+      );
+      setReplacementFor(null);
+      setError("");
+      await loadShifts();
+    } catch (reason) {
+      setError(messageFrom(reason, "Vertretung konnte nicht eingetragen werden."));
     } finally {
       setBusy(false);
     }
@@ -349,6 +473,8 @@ export default function SchedulingManagement({ user }: Props) {
                           onClick={() => void changeShiftStatus(shift, "publish")}>Veröffentlichen</button>}
                         <button className="text-button danger-text" disabled={busy}
                           onClick={() => void changeShiftStatus(shift, "cancel")}>Absagen</button>
+                        <button className="text-button" disabled={busy}
+                          onClick={() => setReplacementFor(shift)}>Vertretung</button>
                       </>}
                       <button className="text-button" onClick={() => void showHistory(shift)}>Verlauf</button>
                     </div>
@@ -359,17 +485,57 @@ export default function SchedulingManagement({ user }: Props) {
             </tbody>
           </table>
         </div>
+        {replacementFor && <form className="schedule-replacement-form" onSubmit={(event) => void submitReplacement(event)}>
+          <div className="panel-heading">
+            <div><p className="eyebrow">VERTRETUNG</p><h3>Vertretung für {replacementFor.employee_name}</h3></div>
+            <button type="button" className="secondary-button" onClick={() => setReplacementFor(null)}>Abbrechen</button>
+          </div>
+          <label>Vertretende Person
+            <select name="employee_id" required defaultValue="">
+              <option value="" disabled>Bitte auswählen</option>
+              {employees.filter((employee) => employee.id !== replacementFor.employee_id).map((employee) =>
+                <option key={employee.id} value={employee.id}>
+                  {employee.full_name} ({employee.employee_number})
+                </option>,
+              )}
+            </select>
+          </label>
+          <label>Grundkategorie der Vertretung
+            <select name="reason" required defaultValue="short_notice">
+              <option value="short_notice">Kurzfristiger Personalausfall</option>
+              <option value="schedule_change">Dienstplanänderung</option>
+              <option value="employee_request">Mitarbeiterwunsch</option>
+              <option value="qualification">Qualifikationsanforderung</option>
+              <option value="other">Sonstiger betrieblicher Grund</option>
+            </select>
+          </label>
+          <p className="muted">Keine Gesundheits- oder anderen sensiblen Personendaten eintragen.</p>
+          <button type="submit" disabled={busy}>Vertretung prüfen und speichern</button>
+        </form>}
         {history && <section className="schedule-history">
           <h3>Änderungsverlauf</h3>
           {history.rows.length === 0
             ? <p className="muted">Keine Verlaufseinträge vorhanden.</p>
-            : <ul className="history-list">{history.rows.map((item) =>
-              <li key={item.id}>
+            : <ul className="history-list">{history.rows.map((item) => {
+              const previousId = typeof item.details.previous_employee_id === "string"
+                ? item.details.previous_employee_id
+                : "";
+              const replacementId = typeof item.details.replacement_employee_id === "string"
+                ? item.details.replacement_employee_id
+                : "";
+              const reason = typeof item.details.reason === "string" ? item.details.reason : "";
+              const previousEmployee = employees.find((employee) => employee.id === previousId);
+              const replacementEmployee = employees.find((employee) => employee.id === replacementId);
+              return <li key={item.id}>
                 <strong>{actionNames[item.action] ?? item.action}</strong>
                 <time>{formatInstant(item.created_at, settings?.time_zone ?? "UTC")}</time>
                 <small>Geänderte Felder: {item.changed_fields.join(", ")}</small>
-              </li>,
-            )}</ul>}
+                {item.action === "replaced" && <small>
+                  {previousEmployee?.full_name ?? previousId} → {replacementEmployee?.full_name ?? replacementId}
+                  {reason && ` · Grund: ${reason}`}
+                </small>}
+              </li>;
+            })}</ul>}
         </section>}
       </section>
 
@@ -459,6 +625,153 @@ export default function SchedulingManagement({ user }: Props) {
             Zusicherung gesetzlicher Konformität.
           </p>
         </section>}
+      </div>}
+      {(canRequestAvailability || (canManage && employees.length > 0)) && <div className="scheduling-support">
+        {canManage && employees.length > 0 && <section className="panel form-panel">
+          <div className="panel-heading">
+            <div><p className="eyebrow">VERFÜGBARKEIT</p><h2>Regelmäßige Zeitfenster</h2></div>
+          </div>
+          <label>Mitarbeiter
+            <select value={availabilityEmployeeId}
+              onChange={(event) => setAvailabilityEmployeeId(event.target.value)}>
+              {employees.map((employee) =>
+                <option key={employee.id} value={employee.id}>
+                  {employee.full_name} ({employee.employee_number})
+                </option>,
+              )}
+            </select>
+          </label>
+          <form className="schedule-availability-form" onSubmit={(event) => void submitAvailability(event)}>
+            {availabilityWindows.map((window, index) =>
+              <div className="schedule-window-row" key={`${window.weekday}-${window.starts_at}-${index}`}>
+                <label>Wochentag
+                  <select value={window.weekday} onChange={(event) => setAvailabilityWindows((current) =>
+                    current.map((item, itemIndex) => itemIndex === index
+                      ? { ...item, weekday: Number(event.target.value) }
+                      : item),
+                  )}>
+                    {weekdayNames.map((day, weekday) =>
+                      <option key={day} value={weekday}>{day}</option>,
+                    )}
+                  </select>
+                </label>
+                <label>Von
+                  <input type="time" required value={window.starts_at.slice(0, 5)}
+                    onChange={(event) => setAvailabilityWindows((current) =>
+                      current.map((item, itemIndex) => itemIndex === index
+                        ? { ...item, starts_at: event.target.value }
+                        : item),
+                    )} />
+                </label>
+                <label>Bis
+                  <input type="time" required value={window.ends_at.slice(0, 5)}
+                    onChange={(event) => setAvailabilityWindows((current) =>
+                      current.map((item, itemIndex) => itemIndex === index
+                        ? { ...item, ends_at: event.target.value }
+                        : item),
+                    )} />
+                </label>
+                <button type="button" className="text-button danger-text"
+                  onClick={() => setAvailabilityWindows((current) =>
+                    current.filter((_item, itemIndex) => itemIndex !== index),
+                  )}>Entfernen</button>
+              </div>,
+            )}
+            <div className="schedule-form-actions">
+              <button type="button" className="secondary-button" onClick={() =>
+                setAvailabilityWindows((current) => [
+                  ...current,
+                  { weekday: 0, starts_at: "09:00", ends_at: "17:00" },
+                ])
+              }>Zeitfenster hinzufügen</button>
+              <button type="submit" disabled={busy}>Verfügbarkeit speichern</button>
+            </div>
+          </form>
+          <p className="muted schedule-disclaimer">
+            Ohne gespeicherte Fenster gilt keine regelmäßige Einschränkung. Sobald Fenster
+            eingetragen sind, muss jeder Dienst an jedem lokalen Kalendertag vollständig darin liegen.
+          </p>
+        </section>}
+        <section className="panel form-panel">
+          <div className="panel-heading">
+            <div><p className="eyebrow">DIENSTWÜNSCHE</p>
+              <h2>{canManage ? "Wunsch oder Sperrzeit erfassen" : "Eigene Zeitwünsche"}</h2></div>
+          </div>
+          {canRequestAvailability && (!canManage || employees.length > 0) && <>
+            <form className="schedule-request-form" onSubmit={(event) => void submitAvailabilityRequest(event)}>
+              {canManage && <label>Mitarbeiter
+                <select name="employee_id" required defaultValue="">
+                  <option value="" disabled>Bitte auswählen</option>
+                  {employees.map((employee) =>
+                    <option key={employee.id} value={employee.id}>
+                      {employee.full_name} ({employee.employee_number})
+                    </option>,
+                  )}
+                </select>
+              </label>
+              }
+              <label>Art
+                <select name="kind" defaultValue="preferred">
+                  <option value="preferred">Gewünschter Einsatzzeitraum</option>
+                  <option value="blocked">Sperrzeit</option>
+                </select>
+              </label>
+              <div className="form-row">
+                <label>Beginn ({settings?.time_zone ?? "Zeitzone wird geladen"})
+                  <input name="starts_at_local" type="datetime-local" required />
+                </label>
+                <label>Ende ({settings?.time_zone ?? "Zeitzone wird geladen"})
+                  <input name="ends_at_local" type="datetime-local" required />
+                </label>
+              </div>
+              <div className="form-row">
+                <label>Beginn bei doppelter Uhrzeit
+                  <select name="starts_at_fold" defaultValue={0}>
+                    <option value={0}>Erstes Auftreten</option><option value={1}>Zweites Auftreten</option>
+                  </select>
+                </label>
+                <label>Ende bei doppelter Uhrzeit
+                  <select name="ends_at_fold" defaultValue={0}>
+                    <option value={0}>Erstes Auftreten</option><option value={1}>Zweites Auftreten</option>
+                  </select>
+                </label>
+              </div>
+              <button type="submit" disabled={busy || !settings}>Zeitraum einreichen</button>
+            </form>
+            <p className="muted schedule-disclaimer">
+              Offene und angenommene Sperrzeiten verhindern neue Zuordnungen. Überschneidungen mit
+              bestehenden Diensten bleiben sichtbar und müssen vor Annahme geklärt werden. Wünsche
+              sind unverbindliche Planungshinweise.
+            </p>
+          </>}
+          {canManage || canRequestAvailability ? <>
+            <h3 className="schedule-request-heading">Wünsche und Sperrzeiten im Zeitraum</h3>
+            {availabilityRequests.length === 0
+              ? <p className="muted">Keine Einträge im angezeigten Zeitraum.</p>
+              : <ul className="schedule-request-list">{availabilityRequests.map((item) =>
+                <li key={item.id}>
+                  <div>
+                    <strong>{item.kind === "blocked" ? "Sperrzeit" : "Dienstwunsch"} · {item.employee_name}</strong>
+                    <small>{formatInstant(item.starts_at, item.time_zone)} bis {formatInstant(item.ends_at, item.time_zone)}</small>
+                    {item.conflicting_shift_ids.length > 0 && <small className="schedule-request-conflict">
+                      {item.conflicting_shift_ids.length} bestehende(r) Dienst(e) überschneiden sich.
+                    </small>}
+                  </div>
+                  <div className="schedule-request-actions">
+                    <span className="status">
+                      {item.status === "open" ? "Offen" : item.status === "accepted" ? "Angenommen" : "Abgelehnt"}
+                    </span>
+                    {canManage && item.status === "open" && <>
+                      <button type="button" className="text-button" disabled={busy || item.conflicting_shift_ids.length > 0}
+                        onClick={() => void reviewAvailabilityRequest(item, "accepted")}>Annehmen</button>
+                      <button type="button" className="text-button danger-text" disabled={busy}
+                        onClick={() => void reviewAvailabilityRequest(item, "rejected")}>Ablehnen</button>
+                    </>}
+                  </div>
+                </li>,
+              )}</ul>}
+          </> : null}
+        </section>
       </div>}
     </section>
   );

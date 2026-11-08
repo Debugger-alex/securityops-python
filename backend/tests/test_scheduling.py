@@ -5,10 +5,10 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 import pytest
-from conftest import ADMIN_PASSWORD, TestingSessionLocal, test_engine
+from conftest import ADMIN_PASSWORD, TestingSessionLocal, app, test_engine
 from fastapi.testclient import TestClient
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.exc import IntegrityError
 
 from app.identity_api import password_hasher
 from app.models import (
@@ -94,6 +94,35 @@ def shift_payload(employee: dict, obj: dict, starts_at: datetime, ends_at: datet
         "ends_at_local": ends_at.isoformat(timespec="minutes"),
         "break_minutes": 30,
     }
+
+
+def add_employee_to_object(client: TestClient, obj: dict, csrf: str, suffix: str) -> dict:
+    user_id = create_employee_user(f"dienstplan-{suffix}")
+    response = client.post(
+        "/api/v1/employees",
+        headers={"X-CSRF-Token": csrf},
+        json={
+            "employee_number": f"P-SCH-{suffix.upper()}",
+            "user_id": str(user_id),
+            "full_name": f"Testperson {suffix}",
+            "hired_on": str(date.today() - timedelta(days=100)),
+        },
+    )
+    assert response.status_code == 201, response.text
+    current_assignments = client.get(f"/api/v1/objects/{obj['id']}/assignments")
+    assert current_assignments.status_code == 200, current_assignments.text
+    assignments = client.put(
+        f"/api/v1/objects/{obj['id']}/assignments",
+        headers={"X-CSRF-Token": csrf},
+        json={
+            "user_ids": [
+                *(item["user_id"] for item in current_assignments.json()),
+                str(user_id),
+            ]
+        },
+    )
+    assert assignments.status_code == 200, assignments.text
+    return response.json()
 
 
 def test_shift_creation_conflicts_publication_and_history(client: TestClient) -> None:
@@ -199,6 +228,220 @@ def test_shift_creation_conflicts_publication_and_history(client: TestClient) ->
         )
         == 1
     )
+
+
+def test_recurring_availability_is_enforced_and_preserved_for_existing_shifts(
+    client: TestClient,
+) -> None:
+    employee, obj, csrf = setup_schedule(client)
+    headers = {"X-CSRF-Token": csrf}
+    work_date = date.today() + timedelta(days=60)
+    starts_at = datetime.combine(work_date, time(9))
+    payload = shift_payload(employee, obj, starts_at, starts_at + timedelta(hours=8))
+    created = client.post("/api/v1/scheduling/shifts", headers=headers, json=payload)
+    assert created.status_code == 201, created.text
+
+    weekday = work_date.weekday()
+    saved = client.put(
+        f"/api/v1/scheduling/employees/{employee['id']}/availability",
+        headers=headers,
+        json={
+            "windows": [
+                {"weekday": weekday, "starts_at": "09:00", "ends_at": "17:00"},
+                {"weekday": 6, "starts_at": "01:00", "ends_at": "04:00"},
+            ]
+        },
+    )
+    assert saved.status_code == 200, saved.text
+    assert len(saved.json()) == 2
+    out_of_window = client.post(
+        "/api/v1/scheduling/shifts",
+        headers=headers,
+        json=shift_payload(
+            employee,
+            obj,
+            datetime.combine(work_date, time(8)),
+            datetime.combine(work_date, time(12)),
+        ),
+    )
+    assert out_of_window.status_code == 409
+    assert "outside_availability" in {
+        item["code"] for item in out_of_window.json()["detail"]["conflicts"]
+    }
+
+    invalid_update = client.put(
+        f"/api/v1/scheduling/employees/{employee['id']}/availability",
+        headers=headers,
+        json={
+            "windows": [
+                {"weekday": weekday, "starts_at": "10:00", "ends_at": "17:00"},
+            ]
+        },
+    )
+    assert invalid_update.status_code == 409
+    existing = client.get(f"/api/v1/scheduling/employees/{employee['id']}/availability")
+    assert existing.status_code == 200
+    assert existing.json()[0]["starts_at"] == "09:00:00"
+
+    dst_shift = client.post(
+        "/api/v1/scheduling/shifts",
+        headers=headers,
+        json=shift_payload(
+            employee,
+            obj,
+            datetime(2027, 3, 28, 1, 30),
+            datetime(2027, 3, 28, 3, 30),
+        ),
+    )
+    assert dst_shift.status_code == 201, dst_shift.text
+    assert datetime.fromisoformat(dst_shift.json()["ends_at"]) - datetime.fromisoformat(
+        dst_shift.json()["starts_at"]
+    ) == timedelta(hours=1)
+
+
+def test_availability_requests_block_shifts_and_surface_unresolved_conflicts(
+    client: TestClient,
+) -> None:
+    employee, obj, admin_csrf = setup_schedule(client)
+    work_date = date.today() + timedelta(days=65)
+    starts_at = datetime.combine(work_date, time(9))
+    scheduled = client.post(
+        "/api/v1/scheduling/shifts",
+        headers={"X-CSRF-Token": admin_csrf},
+        json=shift_payload(employee, obj, starts_at, starts_at + timedelta(hours=8)),
+    )
+    assert scheduled.status_code == 201, scheduled.text
+
+    employee_csrf = sign_in(client, "dienstplan-person", "dienstplan-test-passwort-2026")
+    request_payload = {
+        "employee_id": employee["id"],
+        "kind": "blocked",
+        "starts_at_local": (starts_at + timedelta(hours=1)).isoformat(timespec="minutes"),
+        "ends_at_local": (starts_at + timedelta(hours=2)).isoformat(timespec="minutes"),
+    }
+    submitted = client.post(
+        "/api/v1/scheduling/availability-requests",
+        headers={"X-CSRF-Token": employee_csrf},
+        json=request_payload,
+    )
+    assert submitted.status_code == 201, submitted.text
+    assert submitted.json()["status"] == "open"
+    assert submitted.json()["conflicting_shift_ids"] == [scheduled.json()["id"]]
+
+    preferred = client.post(
+        "/api/v1/scheduling/availability-requests",
+        headers={"X-CSRF-Token": employee_csrf},
+        json={**request_payload, "kind": "preferred"},
+    )
+    assert preferred.status_code == 201, preferred.text
+    assert preferred.json()["conflicting_shift_ids"] == []
+    own_requests = client.get(
+        "/api/v1/scheduling/availability-requests",
+        params={"employee_id": employee["id"]},
+    )
+    assert own_requests.status_code == 200
+    assert len(own_requests.json()) == 2
+
+    other_user_id = create_employee_user("dienstplan-andere-person")
+    admin_csrf = sign_in(client)
+    other_employee_response = client.post(
+        "/api/v1/employees",
+        headers={"X-CSRF-Token": admin_csrf},
+        json={
+            "employee_number": "P-SCH-ANDERE",
+            "user_id": str(other_user_id),
+            "full_name": "Testperson andere Person",
+            "hired_on": str(date.today() - timedelta(days=100)),
+        },
+    )
+    assert other_employee_response.status_code == 201
+    employee_csrf = sign_in(client, "dienstplan-person", "dienstplan-test-passwort-2026")
+    denied = client.post(
+        "/api/v1/scheduling/availability-requests",
+        headers={"X-CSRF-Token": employee_csrf},
+        json={**request_payload, "employee_id": other_employee_response.json()["id"]},
+    )
+    assert denied.status_code == 404
+
+    admin_csrf = sign_in(client)
+    blocked_payload = shift_payload(
+        employee,
+        obj,
+        starts_at + timedelta(hours=1, minutes=15),
+        starts_at + timedelta(hours=1, minutes=45),
+    )
+    blocked_payload["break_minutes"] = 0
+    blocked_shift = client.post(
+        "/api/v1/scheduling/shifts",
+        headers={"X-CSRF-Token": admin_csrf},
+        json=blocked_payload,
+    )
+    assert blocked_shift.status_code == 409
+    assert "availability_blocked" in {
+        item["code"] for item in blocked_shift.json()["detail"]["conflicts"]
+    }
+    accepted = client.patch(
+        f"/api/v1/scheduling/availability-requests/{submitted.json()['id']}",
+        headers={"X-CSRF-Token": admin_csrf},
+        json={"status": "accepted"},
+    )
+    assert accepted.status_code == 409
+    rejected = client.patch(
+        f"/api/v1/scheduling/availability-requests/{submitted.json()['id']}",
+        headers={"X-CSRF-Token": admin_csrf},
+        json={"status": "rejected"},
+    )
+    assert rejected.status_code == 200
+    assert rejected.json()["conflicting_shift_ids"] == []
+
+
+def test_shift_replacement_is_validated_and_audited(client: TestClient) -> None:
+    employee, obj, csrf = setup_schedule(client)
+    substitute = add_employee_to_object(client, obj, csrf, "vertretung")
+    starts_at = datetime.combine(date.today() + timedelta(days=70), time(9))
+    original = client.post(
+        "/api/v1/scheduling/shifts",
+        headers={"X-CSRF-Token": csrf},
+        json=shift_payload(employee, obj, starts_at, starts_at + timedelta(hours=8)),
+    )
+    conflicting_shift = client.post(
+        "/api/v1/scheduling/shifts",
+        headers={"X-CSRF-Token": csrf},
+        json=shift_payload(
+            substitute,
+            obj,
+            starts_at + timedelta(hours=1),
+            starts_at + timedelta(hours=3),
+        ),
+    )
+    assert original.status_code == conflicting_shift.status_code == 201
+    conflict = client.post(
+        f"/api/v1/scheduling/shifts/{original.json()['id']}/replacement",
+        headers={"X-CSRF-Token": csrf},
+        json={"employee_id": substitute["id"], "reason": "short_notice"},
+    )
+    assert conflict.status_code == 409
+    assert conflict.json()["detail"]["conflicts"][0]["code"] == "time_overlap"
+
+    cancelled = client.post(
+        f"/api/v1/scheduling/shifts/{conflicting_shift.json()['id']}/cancel",
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert cancelled.status_code == 200
+    replaced = client.post(
+        f"/api/v1/scheduling/shifts/{original.json()['id']}/replacement",
+        headers={"X-CSRF-Token": csrf},
+        json={"employee_id": substitute["id"], "reason": "short_notice"},
+    )
+    assert replaced.status_code == 200, replaced.text
+    assert replaced.json()["employee_id"] == substitute["id"]
+    history = client.get(f"/api/v1/scheduling/shifts/{original.json()['id']}/history")
+    replacement_event = next(item for item in history.json() if item["action"] == "replaced")
+    assert replacement_event["details"] == {
+        "previous_employee_id": employee["id"],
+        "replacement_employee_id": substitute["id"],
+        "reason": "short_notice",
+    }
 
 
 def test_qualification_absence_and_local_time_validation(client: TestClient) -> None:
@@ -329,38 +572,110 @@ def test_schedule_permissions_are_checked_server_side(client: TestClient) -> Non
 
 
 @pytest.mark.skipif(test_engine.dialect.name != "postgresql", reason="PostgreSQL-Constraint-Test")
-def test_parallel_overlapping_inserts_are_rejected_by_postgresql(client: TestClient) -> None:
+def test_exclusion_constraint_rejects_overlapping_inserts(client: TestClient) -> None:
     employee, obj, _ = setup_schedule(client)
     employee_id = UUID(employee["id"])
     object_id = UUID(obj["id"])
     starts_at = datetime.now(UTC) + timedelta(days=60)
+    with TestingSessionLocal() as db:
+        db.add(
+            ScheduleShift(
+                employee_id=employee_id,
+                object_id=object_id,
+                starts_at=starts_at,
+                ends_at=starts_at + timedelta(hours=4),
+                break_minutes=0,
+                status="draft",
+            )
+        )
+        db.commit()
+        db.add(
+            ScheduleShift(
+                employee_id=employee_id,
+                object_id=object_id,
+                starts_at=starts_at,
+                ends_at=starts_at + timedelta(hours=4),
+                break_minutes=0,
+                status="draft",
+            )
+        )
+        with pytest.raises(IntegrityError) as error:
+            db.commit()
+        assert error.value.orig.sqlstate == "23P01"
+        assert error.value.orig.diag.constraint_name == "ex_schedule_shifts_employee_time"
+        db.rollback()
+
+
+@pytest.mark.skipif(
+    test_engine.dialect.name != "postgresql", reason="PostgreSQL-Advisory-Lock-Test"
+)
+def test_parallel_api_overlapping_shifts_are_serialized(client: TestClient) -> None:
+    employee, obj, _ = setup_schedule(client)
+    starts_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(days=60)
+    starts_at = starts_at.replace(second=0, microsecond=0)
     barrier = Barrier(2)
 
-    def insert_shift() -> str:
-        with TestingSessionLocal() as db:
-            db.add(
-                ScheduleShift(
-                    employee_id=employee_id,
-                    object_id=object_id,
-                    starts_at=starts_at,
-                    ends_at=starts_at + timedelta(hours=4),
-                    break_minutes=0,
-                    status="draft",
-                )
-            )
+    def create_shift() -> tuple[int, dict]:
+        with TestClient(app, base_url="https://testserver") as local_client:
+            csrf = sign_in(local_client)
             barrier.wait(timeout=10)
-            try:
-                db.commit()
-            except (IntegrityError, OperationalError) as exc:
-                if (
-                    isinstance(exc, OperationalError)
-                    and getattr(exc.orig, "sqlstate", None) != "40P01"
-                ):
-                    raise
-                db.rollback()
-                return "conflict"
-            return "created"
+            response = local_client.post(
+                "/api/v1/scheduling/shifts",
+                headers={"X-CSRF-Token": csrf},
+                json=shift_payload(employee, obj, starts_at, starts_at + timedelta(hours=4)),
+            )
+            return response.status_code, response.json()
 
     with ThreadPoolExecutor(max_workers=2) as pool:
-        results = list(pool.map(lambda _: insert_shift(), range(2)))
-    assert sorted(results) == ["conflict", "created"]
+        results = list(pool.map(lambda _: create_shift(), range(2)))
+    assert sorted(status_code for status_code, _ in results) == [201, 409]
+    conflict = next(body for status_code, body in results if status_code == 409)
+    assert any(item["code"] == "time_overlap" for item in conflict["detail"]["conflicts"])
+
+
+@pytest.mark.skipif(
+    test_engine.dialect.name != "postgresql", reason="PostgreSQL-Advisory-Lock-Test"
+)
+def test_parallel_block_request_and_shift_creation_are_serialized(client: TestClient) -> None:
+    employee, obj, _ = setup_schedule(client)
+    work_date = date.today() + timedelta(days=90)
+    starts_at = datetime.combine(work_date, time(9))
+    barrier = Barrier(2)
+
+    def create_shift() -> int:
+        with TestClient(app, base_url="https://testserver") as local_client:
+            csrf = sign_in(local_client)
+            barrier.wait(timeout=10)
+            response = local_client.post(
+                "/api/v1/scheduling/shifts",
+                headers={"X-CSRF-Token": csrf},
+                json=shift_payload(employee, obj, starts_at, starts_at + timedelta(hours=4)),
+            )
+            return response.status_code
+
+    def create_block_request() -> tuple[int, list[str]]:
+        with TestClient(app, base_url="https://testserver") as local_client:
+            csrf = sign_in(local_client)
+            barrier.wait(timeout=10)
+            response = local_client.post(
+                "/api/v1/scheduling/availability-requests",
+                headers={"X-CSRF-Token": csrf},
+                json={
+                    "employee_id": employee["id"],
+                    "kind": "blocked",
+                    "starts_at_local": starts_at.isoformat(timespec="minutes"),
+                    "ends_at_local": (starts_at + timedelta(hours=4)).isoformat(timespec="minutes"),
+                },
+            )
+            assert response.status_code == 201, response.text
+            return response.status_code, response.json()["conflicting_shift_ids"]
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        shift_future = pool.submit(create_shift)
+        request_future = pool.submit(create_block_request)
+        shift_status = shift_future.result()
+        request_status, conflicting_shift_ids = request_future.result()
+    assert request_status == 201
+    assert (shift_status == 201 and len(conflicting_shift_ids) == 1) or (
+        shift_status == 409 and conflicting_shift_ids == []
+    )
