@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## Kundenverwaltung erweitert
+
+- Website und validierter Vertragsstatus in Kundendaten, Suche und Formularen ergänzt; Migration 0008 übernimmt Bestandskunden ohne Datenverlust.
+- Kunden-Detailansicht zeigt vorhandene, serverseitig nach Objektberechtigung gefilterte Objektzuordnungen.
+- API-Validierungs-, Berechtigungs- und Frontendtests für Vertragsstatus, Website und Fehlerfälle ergänzt.
+
 ## Objektverwaltung – Feature-Branch
 
 - React-Objektverwaltung mit Kundenbeziehung, Suche, Filtern, Sortierung, Paginierung und Detailansicht ergänzt.

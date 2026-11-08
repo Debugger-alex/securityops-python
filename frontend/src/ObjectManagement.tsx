@@ -169,6 +169,7 @@ export default function ObjectManagement({ user }: { user: AuthUser }) {
         const page = await getCustomers({
           q: "",
           status: "",
+          contractStatus: "",
           includeArchived: user.permissions.includes("customers.archive"),
           sortBy: "company_name",
           sortOrder: "asc",

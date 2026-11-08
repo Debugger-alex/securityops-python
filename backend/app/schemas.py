@@ -3,9 +3,18 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
+from pydantic import (
+    AnyHttpUrl,
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 CustomerStatus = Literal["active", "inactive", "lead"]
+CustomerContractStatus = Literal["none", "draft", "active", "expired", "terminated"]
 ObjectStatus = Literal["active", "inactive"]
 
 
@@ -99,9 +108,11 @@ class AuditLogRead(BaseModel):
 class CustomerCreate(BaseModel):
     company_name: str = Field(min_length=1, max_length=200)
     status: CustomerStatus = "active"
+    contract_status: CustomerContractStatus = "none"
     email: EmailStr | None = None
     phone: str | None = Field(default=None, max_length=40)
     legal_form: str | None = Field(default=None, max_length=100)
+    website: AnyHttpUrl | None = Field(default=None, max_length=2048)
     vat_number: str | None = Field(default=None, max_length=32)
     tax_number: str | None = Field(default=None, max_length=32)
     internal_notes: str | None = Field(default=None, max_length=10000)
@@ -120,16 +131,18 @@ class CustomerCreate(BaseModel):
 class CustomerUpdate(BaseModel):
     company_name: str | None = Field(default=None, min_length=1, max_length=200)
     status: CustomerStatus | None = None
+    contract_status: CustomerContractStatus | None = None
     email: EmailStr | None = None
     phone: str | None = Field(default=None, max_length=40)
     legal_form: str | None = Field(default=None, max_length=100)
+    website: AnyHttpUrl | None = Field(default=None, max_length=2048)
     vat_number: str | None = Field(default=None, max_length=32)
     tax_number: str | None = Field(default=None, max_length=32)
     internal_notes: str | None = Field(default=None, max_length=10000)
     business_address: "CustomerAddressInput | None" = None
     billing_address: "CustomerAddressInput | None" = None
 
-    @field_validator("company_name", "status")
+    @field_validator("company_name", "status", "contract_status")
     @classmethod
     def required_update_values_must_not_be_null(cls, value):
         if value is None:
@@ -154,9 +167,11 @@ class CustomerRead(BaseModel):
     customer_number: str
     company_name: str
     status: CustomerStatus
+    contract_status: CustomerContractStatus
     email: str | None
     phone: str | None
     legal_form: str | None
+    website: str | None
     vat_number: str | None
     tax_number: str | None
     internal_notes: str | None

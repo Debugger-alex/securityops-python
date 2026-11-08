@@ -2,6 +2,7 @@ import type {
   AuthUser,
   Customer,
   CustomerAddressInput,
+  CustomerContractStatus,
   CustomerContact,
   CustomerContactInput,
   CustomerHistory,
@@ -73,6 +74,7 @@ export const logout = () => request<void>("/auth/logout", { method: "POST" });
 export interface CustomerFilters {
   q: string;
   status: CustomerStatus | "";
+  contractStatus: CustomerContractStatus | "";
   includeArchived: boolean;
   sortBy: CustomerSort;
   sortOrder: "asc" | "desc";
@@ -89,6 +91,7 @@ export const getCustomers = (filters: CustomerFilters) => {
   });
   if (filters.q.trim()) params.set("q", filters.q.trim());
   if (filters.status) params.set("status", filters.status);
+  if (filters.contractStatus) params.set("contract_status", filters.contractStatus);
   if (filters.includeArchived) params.set("include_archived", "true");
   return request<CustomerPage>(`/customers?${params}`);
 };
@@ -98,9 +101,11 @@ export const getDashboard = () => request<Dashboard>("/dashboard");
 export type CustomerInput = {
   company_name: string;
   status?: CustomerStatus;
+  contract_status?: CustomerContractStatus;
   email?: string;
   phone?: string;
   legal_form?: string;
+  website?: string;
   vat_number?: string;
   tax_number?: string;
   internal_notes?: string;
@@ -111,9 +116,11 @@ export type CustomerInput = {
 export type CustomerUpdateInput = {
   company_name?: string;
   status?: CustomerStatus;
+  contract_status?: CustomerContractStatus;
   email?: string | null;
   phone?: string | null;
   legal_form?: string | null;
+  website?: string | null;
   vat_number?: string | null;
   tax_number?: string | null;
   internal_notes?: string | null;
@@ -402,6 +409,18 @@ export const getObjects = (filters: ObjectFilters) => {
   if (filters.includeArchived) params.set("include_archived", "true");
   return request<ObjectPage>(`/objects?${params}`);
 };
+
+export const getCustomerObjects = (customerId: string) =>
+  getObjects({
+    q: "",
+    status: "",
+    customerId,
+    includeArchived: true,
+    sortBy: "name",
+    sortOrder: "asc",
+    limit: 100,
+    offset: 0,
+  });
 
 export const getObject = (id: string) => request<SecurityObject>(`/objects/${id}`);
 export const getObjectHistory = (id: string) =>

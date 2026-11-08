@@ -30,6 +30,7 @@ from app.schemas import (
     CustomerContactCreate,
     CustomerContactRead,
     CustomerContactUpdate,
+    CustomerContractStatus,
     CustomerCreate,
     CustomerHistoryRead,
     CustomerPage,
@@ -252,8 +253,11 @@ def set_object_address(
 def list_customers(
     q: str | None = Query(default=None, max_length=200),
     customer_status: CustomerStatus | None = Query(default=None, alias="status"),
+    contract_status: CustomerContractStatus | None = Query(default=None),
     include_archived: bool = False,
-    sort_by: Literal["company_name", "customer_number", "created_at", "status"] = "company_name",
+    sort_by: Literal[
+        "company_name", "customer_number", "created_at", "status", "contract_status"
+    ] = "company_name",
     sort_order: Literal["asc", "desc"] = "asc",
     limit: int = Query(default=25, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
@@ -267,6 +271,8 @@ def list_customers(
         filters.append(Customer.archived_at.is_(None))
     if customer_status:
         filters.append(Customer.status == customer_status)
+    if contract_status:
+        filters.append(Customer.contract_status == contract_status)
     if q and q.strip():
         term = f"%{q.strip()}%"
         contact_matches = (
@@ -299,6 +305,7 @@ def list_customers(
                 Customer.customer_number.ilike(term),
                 Customer.email.ilike(term),
                 Customer.phone.ilike(term),
+                Customer.website.ilike(term),
                 contact_matches,
                 address_matches,
             )
@@ -312,6 +319,7 @@ def list_customers(
         "customer_number": Customer.customer_number,
         "created_at": Customer.created_at,
         "status": Customer.status,
+        "contract_status": Customer.contract_status,
     }
     sort_column = sort_columns[sort_by]
     sort_expression = sort_column.asc() if sort_order == "asc" else sort_column.desc()
@@ -332,9 +340,11 @@ def create_customer(
         customer_number=f"K-{uuid4().hex.upper()}",
         company_name=payload.company_name,
         status=payload.status,
+        contract_status=payload.contract_status,
         email=str(payload.email) if payload.email else None,
         phone=payload.phone.strip() if payload.phone else None,
         legal_form=payload.legal_form.strip() if payload.legal_form else None,
+        website=str(payload.website) if payload.website else None,
         vat_number=payload.vat_number.strip() if payload.vat_number else None,
         tax_number=payload.tax_number.strip() if payload.tax_number else None,
         internal_notes=payload.internal_notes.strip() if payload.internal_notes else None,
@@ -353,9 +363,11 @@ def create_customer(
         changed_fields={
             "company_name",
             "status",
+            "contract_status",
             "email",
             "phone",
             "legal_form",
+            "website",
             "vat_number",
             "tax_number",
             "internal_notes",
@@ -418,6 +430,8 @@ def update_customer(
             value = value.strip()
         if field == "email" and value is not None:
             value = str(value).lower()
+        if field == "website" and value is not None:
+            value = str(value)
         if getattr(customer, field) != value:
             setattr(customer, field, value)
             changed_fields.add(field)
