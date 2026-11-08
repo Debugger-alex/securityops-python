@@ -34,6 +34,9 @@ from app.models import (
     ObjectSecurityDetails,
     Permission,
     Role,
+    ScheduleSettings,
+    ScheduleShift,
+    ScheduleShiftHistory,
     SecurityObject,
     User,
     UserSession,
@@ -76,6 +79,9 @@ def client() -> Generator[TestClient, None, None]:
     with TestingSessionLocal() as db:
         db.execute(delete(UserSession))
         db.execute(delete(AuditLog))
+        db.execute(delete(ScheduleShiftHistory))
+        db.execute(delete(ScheduleShift))
+        db.execute(delete(ScheduleSettings))
         db.execute(delete(ObjectHistory))
         db.execute(delete(ObjectAssignment))
         db.execute(delete(ObjectContact))
@@ -123,6 +129,8 @@ def client() -> Generator[TestClient, None, None]:
             "employees.absences.manage",
             "employees.documents.read",
             "employees.documents.manage",
+            "scheduling.read",
+            "scheduling.manage",
         )
         permissions = {}
         for code in permission_codes:
@@ -176,7 +184,7 @@ def client() -> Generator[TestClient, None, None]:
             "employee",
             "Mitarbeiter",
             "Operative Testrolle",
-            ("owks.read", "objects.read"),
+            ("owks.read", "objects.read", "scheduling.read"),
         )
         get_or_create_role(
             "object_manager",
@@ -199,6 +207,7 @@ def client() -> Generator[TestClient, None, None]:
                 "employees.documents.manage",
             ),
         )
+        db.add(ScheduleSettings(id=1, time_zone="Europe/Berlin", minimum_rest_hours=11))
         db.add(
             User(
                 username="admin",

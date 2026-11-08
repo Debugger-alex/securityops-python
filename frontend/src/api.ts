@@ -36,6 +36,9 @@ import type {
   ObjectStatus,
   SecurityObject,
   Session,
+  ScheduleSettings,
+  ScheduleShift,
+  ScheduleShiftHistory,
 } from "./types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -56,7 +59,21 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (response.status === 204) return undefined as T;
   if (!response.ok) {
     const body = await response.json().catch(() => null);
-    throw new Error(body?.detail ?? `Serverfehler (${response.status})`);
+    const detail = body?.detail;
+    const conflicts = Array.isArray(detail?.conflicts)
+      ? detail.conflicts
+        .map((conflict: { message?: unknown }) =>
+          typeof conflict.message === "string" ? conflict.message : "",
+        )
+        .filter(Boolean)
+      : [];
+    throw new Error(
+      typeof detail === "string"
+        ? detail
+        : typeof detail?.message === "string"
+          ? [detail.message, ...conflicts].join(" ")
+          : `Serverfehler (${response.status})`,
+    );
   }
   return response.json() as Promise<T>;
 }
@@ -486,3 +503,69 @@ export const updateObjectAssignments = (id: string, userIds: string[]) =>
     method: "PUT",
     body: JSON.stringify({ user_ids: userIds }),
   });
+
+export interface ScheduleShiftFilters {
+  fromDate: string;
+  toDate: string;
+  employeeId: string;
+  objectId: string;
+  includeCancelled?: boolean;
+}
+
+export type ScheduleShiftInput = {
+  employee_id: string;
+  object_id: string;
+  starts_at_local: string;
+  ends_at_local: string;
+  starts_at_fold: number;
+  ends_at_fold: number;
+  break_minutes: number;
+  required_qualification?: string;
+};
+
+export const getScheduleSettings = () =>
+  request<ScheduleSettings>("/scheduling/settings");
+
+export const updateScheduleSettings = (
+  data: Pick<ScheduleSettings, "time_zone" | "minimum_rest_hours">,
+) =>
+  request<ScheduleSettings>("/scheduling/settings", {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+
+export const getScheduleShifts = (filters: ScheduleShiftFilters) => {
+  const params = new URLSearchParams({
+    from_date: filters.fromDate,
+    to_date: filters.toDate,
+    limit: "500",
+  });
+  if (filters.employeeId) params.set("employee_id", filters.employeeId);
+  if (filters.objectId) params.set("object_id", filters.objectId);
+  if (filters.includeCancelled) params.set("include_cancelled", "true");
+  return request<ScheduleShift[]>(`/scheduling/shifts?${params}`);
+};
+
+export const createScheduleShift = (data: ScheduleShiftInput) =>
+  request<ScheduleShift>("/scheduling/shifts", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const updateScheduleShift = (
+  id: string,
+  data: Partial<ScheduleShiftInput>,
+) =>
+  request<ScheduleShift>(`/scheduling/shifts/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+
+export const publishScheduleShift = (id: string) =>
+  request<ScheduleShift>(`/scheduling/shifts/${id}/publish`, { method: "POST" });
+
+export const cancelScheduleShift = (id: string) =>
+  request<ScheduleShift>(`/scheduling/shifts/${id}/cancel`, { method: "POST" });
+
+export const getScheduleShiftHistory = (id: string) =>
+  request<ScheduleShiftHistory[]>(`/scheduling/shifts/${id}/history?limit=100`);
