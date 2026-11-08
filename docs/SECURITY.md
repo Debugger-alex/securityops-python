@@ -5,8 +5,11 @@
 - Argon2id-Passwort-Hashes und generische Login-Fehler.
 - Serverseitige opaque Sitzungen mit gleitender und absoluter Ablaufzeit.
 - HttpOnly, SameSite=Strict Sitzungscookie; CSRF-Tokenprüfung für authentifizierte Schreibzugriffe.
-- Server-RBAC und Schutz vor unberechtigter Administratorrollenvergabe.
-- Login-Rate-Limit; Produktion verwendet Redis als gemeinsamen Speicher, die API-Readiness prüft dessen Verfügbarkeit. Lokale direkte Starts ohne Redis nutzen den In-Memory-Store.
+- Serverseitiges TOTP-MFA mit verschlüsseltem Geheimnis, bestätigter Einrichtung, Replay-Schutz und gehashten Einmal-Wiederherstellungscodes.
+- Eigene aktive Sitzungen können eingesehen und einzeln widerrufen werden; `sessions.manage` erlaubt autorisierte Übersicht und Widerruf fremder Sitzungen. Aktionen werden auditiert.
+- Passwortwechsel und auditierter Admin-Reset widerrufen bestehende Sitzungen; ein Admin-Reset erzwingt die Passwortänderung beim nächsten Login und gibt keine Tokens oder Codes zurück.
+- Server-RBAC, Schutz vor Zuweisung fremder Berechtigungen und Administratorrollen sowie explizite Rechte für Sitzungsverwaltung und Passwort-Reset.
+- Globales Rate-Limit und strengere Anmelde-/MFA-/Passwortlimits; Produktion verwendet Redis als gemeinsamen Speicher, die API-Readiness prüft dessen Verfügbarkeit. Lokale direkte Starts ohne Redis nutzen den In-Memory-Store.
 - Keine Passworthashes in API-Antworten.
 - Audit-Einträge für implementierte Anmelde-, Benutzer-, Kunden- und Objektänderungen.
 - Objektzugriff serverseitig nach globalen Rechten oder Objektzuweisung; Sicherheits- und Zutrittsdaten sind getrennt und zusätzlich berechtigt.
@@ -20,6 +23,8 @@
 
 - TLS/HTTPS und Reverse Proxy mit den dokumentierten Headern, Zertifikaten und vertrauenswürdigen Proxy-IP-Adressen betreiben.
 - `SESSION_COOKIE_SECURE=true` beibehalten; der Produktionsmodus lehnt deaktivierte Secure-Cookies oder einen nicht gemeinsam genutzten Rate-Limit-Speicher ab.
+- `MFA_ENCRYPTION_KEY` als Fernet-Schlüssel generieren, auf allen Instanzen identisch und sicher außerhalb von Git und Image-Layern bereitstellen; Schlüsselrotation planen.
+- Redis-Speicher und Proxy-IP-Vertrauen gemäß Produktionskonfiguration betreiben und überwachen.
 - Secrets sicher außerhalb von Git und Image-Layern bereitstellen.
 - Den Migrationsdienst einmalig je Release vor den API-Replikaten starten; API-Container migrieren nicht selbst.
 - Datenbankrollen mit minimalen Rechten definieren; Audit-Schreibschutz/externes unveränderliches Archiv bewerten.
@@ -32,7 +37,7 @@
 
 ## Offene Sicherheitsfunktionen
 
-MFA, Passwortzurücksetzung per geprüftem Einmalprozess, aktive Sitzungsverwaltung und revisionsfester Auditbetrieb fehlen. Die Objektberechtigungen und Datentrennung müssen weiterhin durch PostgreSQL-CI und Review bestätigt werden. Das implementierte System ist nicht sicherheitszertifiziert und noch kein vollständiges Produkt.
+Ein nutzerinitiierter Passwort-Reset mit verifizierter E-Mail-Zustellung fehlt, weil kein Zustellprovider eingerichtet ist. Bis dahin steht nur der auditierte Admin-Reset mit erzwungener Passwortänderung zur Verfügung. Instanzübergreifende Rate-Limits setzen den gemeinsamen Redis-Speicher voraus. Der Auditbetrieb ist nicht extern manipulationsgeschützt. Die Objektberechtigungen und Datentrennung müssen weiterhin durch PostgreSQL-CI und Review bestätigt werden. Das implementierte System ist nicht sicherheitszertifiziert und noch kein vollständiges Produkt.
 
 ## Automatisierte Sicherheitsbefunde
 

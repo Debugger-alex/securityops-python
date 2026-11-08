@@ -2,6 +2,7 @@ import os
 from collections.abc import Generator
 
 os.environ.setdefault("POSTGRES_PASSWORD", "test-only-not-for-production")
+os.environ.setdefault("MFA_ENCRYPTION_KEY", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
 
 import pytest
 from fastapi.testclient import TestClient
@@ -71,6 +72,7 @@ from app.models import (
     TimeTrackingPeriod,
     TimeTrackingSettings,
     User,
+    UserMFARecoveryCode,
     UserSession,
     user_roles,
 )
@@ -110,6 +112,7 @@ def client() -> Generator[TestClient, None, None]:
     Base.metadata.create_all(bind=test_engine)
     with TestingSessionLocal() as db:
         db.execute(delete(UserSession))
+        db.execute(delete(UserMFARecoveryCode))
         db.execute(delete(AuditLog))
         if test_engine.dialect.name == "postgresql":
             for table in ("owks_events", "owks_event_statuses", "owks_attachments"):
@@ -189,6 +192,8 @@ def client() -> Generator[TestClient, None, None]:
             "dashboard.read",
             "users.read",
             "users.manage",
+            "users.password_reset",
+            "sessions.manage",
             "roles.read",
             "audit.read",
             "owks.read",

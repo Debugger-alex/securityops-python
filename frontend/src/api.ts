@@ -37,6 +37,9 @@ import type {
   ObjectStatus,
   SecurityObject,
   Session,
+  UserSession,
+  MFASetup,
+  MFAStatus,
   ScheduleSettings,
   ScheduleAvailabilityRequest,
   ScheduleAvailabilityRequestKind,
@@ -181,13 +184,51 @@ export const updateBillingDunning = (
   body: JSON.stringify({ status, note }),
 });
 
-export const login = (username: string, password: string) =>
+export const login = (
+  username: string,
+  password: string,
+  factor?: { mfa_code: string } | { recovery_code: string },
+) =>
   request<Session>("/auth/login", {
     method: "POST",
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ username, password, ...factor }),
   });
 
 export const logout = () => request<void>("/auth/logout", { method: "POST" });
+
+export const getUserSessions = () => request<UserSession[]>("/auth/sessions");
+
+export const getUserSessionsForAdmin = (userId: string) =>
+  request<UserSession[]>(`/users/${userId}/sessions`);
+
+export const revokeUserSession = (id: string) =>
+  request<void>(`/auth/sessions/${id}`, { method: "DELETE" });
+
+export const getMFAStatus = () => request<MFAStatus>("/auth/mfa");
+
+export const startMFASetup = (current_password: string) =>
+  request<MFASetup>("/auth/mfa/setup", {
+    method: "POST",
+    body: JSON.stringify({ current_password }),
+  });
+
+export const enableMFA = (code: string) =>
+  request<{ recovery_codes: string[] }>("/auth/mfa/enable", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
+
+export const disableMFA = (current_password: string, code: string) =>
+  request<void>("/auth/mfa/disable", {
+    method: "POST",
+    body: JSON.stringify({ current_password, code }),
+  });
+
+export const changePassword = (current_password: string, new_password: string) =>
+  request<void>("/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify({ current_password, new_password }),
+  });
 
 export interface CustomerFilters {
   q: string;
@@ -289,6 +330,12 @@ export const deleteCustomerContact = (customerId: string, contactId: string) =>
   request<void>(`/customers/${customerId}/contacts/${contactId}`, { method: "DELETE" });
 
 export const getUsers = () => request<AuthUser[]>("/users");
+
+export const resetUserPassword = (userId: string, temporary_password: string) =>
+  request<void>(`/users/${userId}/reset-password`, {
+    method: "POST",
+    body: JSON.stringify({ temporary_password }),
+  });
 
 export interface EmployeeFilters {
   q: string;

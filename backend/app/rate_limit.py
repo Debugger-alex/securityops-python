@@ -6,6 +6,6 @@ from app.config import get_settings
 settings = get_settings()
 limiter = Limiter(
     key_func=get_remote_address,
-    default_limits=[],
+    default_limits=["120/minute"],
     storage_uri=settings.rate_limit_storage_uri,
 )

@@ -9,6 +9,7 @@ description = "SecurityOps - modulares Verwaltungsprogramm fuer Sicherheitsdiens
 requires-python = ">=3.12"
 dependencies = [
   "alembic>=1.14,<2",
+  "cryptography>=44,<47",
   "email-validator>=2.2,<3",
   "fastapi>=0.115,<1",
   "holidays>=0.64,<1",

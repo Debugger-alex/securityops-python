@@ -6,13 +6,19 @@ Die aktuelle API ist unter `/api/v1` versioniert. OpenAPI/Swagger ist während d
 |---|---|---|
 | GET | `/health/live` | öffentlich, Prozessstatus |
 | GET | `/health/ready` | öffentlich, Datenbankverbindung und in Produktion Redis |
-| POST | `/api/v1/auth/login` | öffentlich, Rate-Limit 5/min je vertrauenswürdiger Client-IP, in Produktion gemeinsam über Redis |
+| POST | `/api/v1/auth/login` | öffentlich, 5/min je vertrauenswürdiger Client-IP; MFA- oder Wiederherstellungscode falls aktiviert, in Produktion gemeinsam über Redis |
 | GET | `/api/v1/auth/me` | angemeldete Sitzung |
 | POST | `/api/v1/auth/logout` | angemeldet + CSRF |
 | POST | `/api/v1/auth/change-password` | angemeldet + CSRF; widerruft Sitzungen |
+| GET | `/api/v1/auth/sessions` | angemeldet; eigene aktive Sitzungen |
+| DELETE | `/api/v1/auth/sessions/{session_id}` | eigene Sitzung oder `sessions.manage`; CSRF und Audit |
+| GET | `/api/v1/users/{user_id}/sessions` | `sessions.manage`; fremde aktive Sitzungen |
+| GET | `/api/v1/auth/mfa` | angemeldet; eigener MFA-Status |
+| POST | `/api/v1/auth/mfa/setup`, `/enable`, `/disable` | angemeldet + CSRF; Passwort-/TOTP-Prüfung; Recovery-Codes nur einmal bei Aktivierung |
 | GET | `/api/v1/users` | `users.read` |
 | POST | `/api/v1/users` | `users.manage`; Administratorvergabe zusätzlich `users.manage_admin` |
-| PATCH | `/api/v1/users/{user_id}` | `users.manage`; Administratoränderung zusätzlich `users.manage_admin` |
+| PATCH | `/api/v1/users/{user_id}` | `users.manage`; Rechte außerhalb der eigenen Berechtigungen zusätzlich `users.manage_admin` |
+| POST | `/api/v1/users/{user_id}/reset-password` | `users.manage` + `users.password_reset`; Zielkonto Administrator zusätzlich `users.manage_admin`; CSRF |
 | GET | `/api/v1/roles` | `roles.read` |
 | GET | `/api/v1/audit-logs` | `audit.read`; Limit 1–100 |
 | GET | `/api/v1/customers` | `customers.read`; `q`, `status`, `include_archived`, `sort_by`, `sort_order`, `limit`, `offset` |
@@ -113,6 +119,14 @@ Anlage, Änderung, Vertretung und Veröffentlichung prüfen Beschäftigungsstatu
 `POST /api/v1/scheduling/shifts/{shift_id}/replacement` benötigt `scheduling.manage`, prüft die Vertretung wie eine reguläre Schichtzuweisung und verlangt eine Grundkategorie (`short_notice`, `schedule_change`, `employee_request`, `qualification` oder `other`). Die Historie und das Audit-Protokoll speichern vorherige und neue Mitarbeiter-ID sowie die Kategorie; Freitext und damit versehentliche sensible Personendaten werden vermieden. Der Schichtdatensatz selbst wird nicht dupliziert. Diese Regeln sind Planungsprüfungen, keine automatische arbeitsrechtliche Konformitätsprüfung.
 
 Schreibzugriffe nutzen den Session-Cookie und müssen `X-CSRF-Token` senden. Archivierte Kunden müssen vor Änderungen reaktiviert werden. Nicht aufgeführte Fachmodule und Endpunkte sind nicht implementiert.
+
+Anmeldungen verlangen bei aktiviertem MFA zusätzlich einen sechsstelligen TOTP-Code oder einen noch unbenutzten Wiederherstellungscode. TOTP-Zähler werden transaktional gegen Replay gesichert. Das MFA-Geheimnis wird mit `MFA_ENCRYPTION_KEY` (Fernet-Schlüssel) verschlüsselt gespeichert; derselbe Schlüssel muss auf allen Anwendungsinstanzen verfügbar und außerhalb von Git/Images sicher verwahrt werden. Recovery-Codes werden nur gehasht gespeichert und einmalig nach erfolgreicher Anmeldung entfernt.
+
+Die Sitzungsübersicht zeigt nur aktive eigene Sitzungen; `sessions.manage` erlaubt Administratoren auch die Übersicht und den Widerruf fremder Sitzungen. Geräte-/IP-Angaben stammen aus Request-Metadaten und sind nicht als vertrauenswürdiger Gerätenachweis zu behandeln. Passwortänderung und Admin-Reset widerrufen alle Sitzungen des betroffenen Kontos. Ein Admin-Reset nimmt ein vom berechtigten Admin gesetztes Übergangspasswort entgegen, gibt weder Passwort noch Einmal-Token zurück und erzwingt die Änderung bei der nächsten Anmeldung.
+
+Ein nutzerinitiierter Passwort-Reset per E-Mail ist nicht verfügbar: Es gibt keinen konfigurierten und verifizierten Zustellprovider. Der Übergangsweg ist ein auditierter Admin-Reset; ein selbst bedienbarer Reset bleibt offen, bis ein vertrauenswürdiger Zustell- und Verifikationsprozess fachlich bereitgestellt wurde.
+
+SlowAPI setzt global 120 Anfragen pro Minute und zusätzlich 5 Login-/Passwort-/MFA-Änderungsaktionen pro Minute und vertrauenswürdiger Client-IP durch. Lokal ist der Speicher standardmäßig pro Prozess (`RATE_LIMIT_STORAGE_URI=memory://`). Für mehrere Instanzen muss `RATE_LIMIT_STORAGE_URI` auf einen gemeinsam erreichbaren Redis-Speicher zeigen; Proxy-IP-Weiterleitung darf nur über die dokumentierte, vertrauenswürdige Proxy-Konfiguration aktiviert werden.
 
 ## Zeiterfassung
 

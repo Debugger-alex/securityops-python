@@ -78,6 +78,14 @@ def get_auth_principal(
             detail="Sitzung abgelaufen oder ungültig",
         )
 
+    if session.user.force_password_change and not request.url.path.endswith(
+        ("/auth/change-password", "/auth/logout")
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Vor der weiteren Nutzung muss das Passwort geändert werden.",
+        )
+
     csrf_cookie = request.cookies.get(CSRF_COOKIE, "")
     csrf_header = request.headers.get("X-CSRF-Token", "")
     if request.method not in {"GET", "HEAD", "OPTIONS"} and (

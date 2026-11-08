@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
   archiveCustomer,
+  changePassword,
   createCustomer,
   createCustomerContact,
   deleteCustomerContact,
@@ -23,6 +24,7 @@ import SchedulingManagement from "./SchedulingManagement";
 import TimeTracking from "./TimeTracking";
 import OWKSManagement from "./OWKSManagement";
 import BillingManagement from "./BillingManagement";
+import IdentitySecurity from "./IdentitySecurity";
 import type {
   AuthUser,
   Customer,
@@ -113,6 +115,7 @@ function AddressFields({ prefix, title, address }: {
 
 export default function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [passwordChangeRequired, setPasswordChangeRequired] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [matchingCustomers, setMatchingCustomers] = useState(0);
@@ -128,7 +131,7 @@ export default function App() {
   const [history, setHistory] = useState<CustomerHistory[]>([]);
   const [customerObjects, setCustomerObjects] = useState<SecurityObject[]>([]);
   const [activeModule, setActiveModule] = useState<
-    "customers" | "objects" | "employees" | "scheduling" | "time_tracking" | "documents" | "billing" | "owks"
+    "customers" | "objects" | "employees" | "scheduling" | "time_tracking" | "documents" | "billing" | "owks" | "security"
   >("customers");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -150,8 +153,14 @@ export default function App() {
 
   useEffect(() => {
     getSession()
-      .then((session) => setUser(session.user))
-      .catch(() => setUser(null))
+      .then((session) => {
+        setUser(session.user);
+        setPasswordChangeRequired(session.password_change_required ?? false);
+      })
+      .catch(() => {
+        setUser(null);
+        setPasswordChangeRequired(false);
+      })
       .finally(() => setAuthLoading(false));
   }, []);
 
@@ -233,10 +242,18 @@ export default function App() {
   async function submitLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
+    const factor = String(data.get("mfa_factor") ?? "").trim();
     setBusy(true);
     try {
-      const session = await login(String(data.get("username")), String(data.get("password")));
+      const session = await login(
+        String(data.get("username")),
+        String(data.get("password")),
+        /^\d{6}$/.test(factor)
+          ? { mfa_code: factor }
+          : factor ? { recovery_code: factor } : undefined,
+      );
       setUser(session.user);
+      setPasswordChangeRequired(session.password_change_required ?? false);
       setError("");
     } catch (reason) {
       setError(messageFrom(reason, "Anmeldung fehlgeschlagen."));
@@ -245,16 +262,44 @@ export default function App() {
     }
   }
 
+  async function submitRequiredPasswordChange(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const currentPassword = String(data.get("current_password"));
+    const newPassword = String(data.get("new_password"));
+    if (newPassword !== String(data.get("confirm_password"))) {
+      setError("Die neuen Passwörter stimmen nicht überein.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await changePassword(currentPassword, newPassword);
+      setUser(null);
+      setPasswordChangeRequired(false);
+      setError("");
+    } catch (reason) {
+      setError(messageFrom(reason, "Passwort konnte nicht geändert werden."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function clearLocalSession() {
+    setUser(null);
+    setPasswordChangeRequired(false);
+    setCustomers([]);
+    setSelectedCustomer(null);
+    setHistory([]);
+    setCustomerObjects([]);
+    setDashboard(null);
+    setActiveModule("customers");
+  }
+
   async function signOut() {
     try {
       await logout();
     } finally {
-      setUser(null);
-      setCustomers([]);
-      setSelectedCustomer(null);
-      setHistory([]);
-      setCustomerObjects([]);
-      setDashboard(null);
+      clearLocalSession();
     }
   }
 
@@ -425,7 +470,35 @@ export default function App() {
             <label>Passwort
               <input name="password" type="password" required autoComplete="current-password" />
             </label>
+            <label>MFA-Code oder Wiederherstellungscode (falls eingerichtet)
+              <input name="mfa_factor" autoComplete="one-time-code" />
+            </label>
             <button type="submit" disabled={busy}>{busy ? "Anmeldung läuft …" : "Anmelden"}</button>
+          </form>
+        </section>
+      </main>
+    );
+  }
+
+  if (passwordChangeRequired) {
+    return (
+      <main className="shell auth-shell">
+        <section className="panel login-panel">
+          <p className="eyebrow">SICHERER ZUGANG</p>
+          <h1>Passwort ändern</h1>
+          <p className="muted">Das bereitgestellte Übergangspasswort muss vor der Nutzung geändert werden.</p>
+          {error && <p className="alert" role="alert">{error}</p>}
+          <form onSubmit={(event) => void submitRequiredPasswordChange(event)}>
+            <label>Übergangspasswort
+              <input name="current_password" type="password" autoComplete="current-password" required />
+            </label>
+            <label>Neues Passwort (mindestens 12 Zeichen)
+              <input name="new_password" type="password" autoComplete="new-password" minLength={12} maxLength={128} required />
+            </label>
+            <label>Neues Passwort wiederholen
+              <input name="confirm_password" type="password" autoComplete="new-password" minLength={12} maxLength={128} required />
+            </label>
+            <button type="submit" disabled={busy}>{busy ? "Passwort wird geändert …" : "Passwort ändern"}</button>
           </form>
         </section>
       </main>
@@ -476,9 +549,18 @@ export default function App() {
         {canReadOWKS && <button
           className={activeModule === "owks" ? "module-tab active" : "module-tab"}
           onClick={() => setActiveModule("owks")}>Wachbuch</button>}
+        <button
+          className={activeModule === "security" ? "module-tab active" : "module-tab"}
+          onClick={() => setActiveModule("security")}>Sicherheit</button>
       </nav>
 
-      {activeModule === "documents" && canAccessDocuments
+      {activeModule === "security"
+        ? <IdentitySecurity
+          user={user}
+          onSignedOut={clearLocalSession}
+          onPasswordChanged={clearLocalSession}
+        />
+        : activeModule === "documents" && canAccessDocuments
         ? <DocumentContractManagement user={user} />
         : activeModule === "billing" && canAccessBilling
         ? <BillingManagement user={user} />
