@@ -10,13 +10,13 @@ Diese Roadmap beschreibt `main` nach dem Merge von PR #16 sowie den aktuellen Ar
 | Anmeldung und Rollen | Teilweise | Argon2id, serverseitige Sitzungen, CSRF, RBAC und Admin-Bootstrap vorhanden. MFA, Passwortzurücksetzung und Sitzungsverwaltung fehlen. Objektbezogene Rechte sind im aktuellen Branch ergänzt. |
 | Kunden | Teilweise umgesetzt | Backend/API/Migration, filter- und sortierbare Liste, Details, Anschriften, Ansprechpartner, Archivierung/Reaktivierung und Historie sind implementiert; Migration 0004 und Backendtests bestehen in gehosteter PostgreSQL-CI. Vertrags-/Dokumentzuordnung fehlt ([#6](https://github.com/Xonni-star/securityops-python/issues/6)). |
 | Objekte | In `main` umgesetzt; Abnahme offen | Backend/API/UI und Migrationen 0005–0007; PR #16 gemergt und CI erfolgreich. Akzeptanzkriterien von Issue #2 sind noch formal zu bestätigen ([#2](https://github.com/Xonni-star/securityops-python/issues/2)). |
-| Personal und Qualifikationen | Teilweise umgesetzt, Feature-Branch | Migration 0008, Personalakten, Qualifikationen/Ablaufübersicht, Abwesenheiten, sensible Daten, Historie, API, Berechtigungen, UI und lokale Tests vorhanden. PostgreSQL-/Docker-CI bestanden; Dokumentuploads und Objektzuweisungsintegration fehlen ([#5](https://github.com/Xonni-star/securityops-python/issues/5)). |
+| Personal und Qualifikationen | Teilweise umgesetzt, Feature-Branch | Migrationen 0008–0009, Personalakten, Qualifikationen/Ablaufübersicht, Abwesenheiten, sensible Daten, Historie, Integration bestehender Objektzuweisungen, versionierte Dokumentuploads, API, Berechtigungen, UI und 20 lokale Backendtests vorhanden. PostgreSQL-/Docker-CI für die aktuellen Änderungen steht aus; Issue #5 bleibt bis zur vollständigen Akzeptanzprüfung offen ([#5](https://github.com/Xonni-star/securityops-python/issues/5)). |
 | Dienstplanung | Nicht implementiert | Schichten, Besetzung, Konflikt- und Qualifikationsprüfung fehlen ([#10](https://github.com/Xonni-star/securityops-python/issues/10)). |
 | Zeiterfassung | Nicht implementiert | Nachvollziehbare Buchungen, Korrekturfreigaben und Export fehlen ([#4](https://github.com/Xonni-star/securityops-python/issues/4)). |
 | OWKS | Nicht implementiert | Kontrollpunkte, QR/NFC, Rundgänge und Offline-Synchronisierung fehlen ([#3](https://github.com/Xonni-star/securityops-python/issues/3)). |
 | Dokumente und Verträge | Nicht implementiert | Geschützte Ablage, Berechtigungen und Versionierung fehlen ([#8](https://github.com/Xonni-star/securityops-python/issues/8)). |
 | Rechnungswesen | Nicht implementiert | Vertragsbasierte, freigegebene und nicht doppelt abgerechnete Leistungen fehlen ([#7](https://github.com/Xonni-star/securityops-python/issues/7)). |
-| CI und Datenbankqualität | Teilweise umgesetzt | GitHub Actions definiert Python-Lint/Format, Backendtests, PostgreSQL-Migrationen, Frontend-Build und Docker-Image-Builds. Der aktuelle Branch wurde noch nicht in CI geprüft; SCA/SAST und weitere Produktionshärtung bleiben offen ([#9](https://github.com/Xonni-star/securityops-python/issues/9)). |
+| CI und Datenbankqualität | Teilweise umgesetzt | GitHub Actions definiert Python-Lint/Format, Backendtests, PostgreSQL-Migrationen, Frontend-Build und Docker-Image-Builds. Der aktuelle Stand braucht einen erneuten CI-Lauf; SCA/SAST und weitere Produktionshärtung bleiben offen ([#9](https://github.com/Xonni-star/securityops-python/issues/9)). |
 
 ## Priorisierte Umsetzung
 
@@ -34,7 +34,7 @@ Diese Roadmap beschreibt `main` nach dem Merge von PR #16 sowie den aktuellen Ar
 
 ### P2 – Personal und Einsatzbetrieb
 
-1. Nach Review die Mitarbeiterakten und bestehenden Objektzuweisungen nachvollziehbar verknüpfen; Issue #5 erst bei Erfüllung aller Akzeptanzkriterien schließen ([#5](https://github.com/Xonni-star/securityops-python/issues/5)).
+1. Personalzuweisungen und versionierte Qualifikationsdateien gegen PostgreSQL und alle Akzeptanzkriterien prüfen; Issue #5 erst nach erfolgreicher Abnahme schließen ([#5](https://github.com/Xonni-star/securityops-python/issues/5)).
 2. Dienstplanung mit Qualifikations-, Verfügbarkeits-, Ruhezeit- und Doppelbelegungsprüfungen ([#10](https://github.com/Xonni-star/securityops-python/issues/10)).
 3. Arbeitszeitbuchungen mit begründeten, genehmigten Korrekturen und unverändertem Original ([#4](https://github.com/Xonni-star/securityops-python/issues/4)).
 4. OWKS auf Objekte und Personal aufbauen; eindeutige Kontrollereignisse, QR/NFC und idempotente spätere Offline-Synchronisierung ([#3](https://github.com/Xonni-star/securityops-python/issues/3)).

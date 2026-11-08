@@ -8,8 +8,8 @@ Grundlage ist `main` nach dem Merge von PR #16 sowie der Feature-Branch `feature
 |---|---|---|
 | Backend-Struktur | TEILWEISE | Ein FastAPI-Monolith mit `api.py`, `identity_api.py`, `auth.py`, zentralen SQLAlchemy-Modellen und Konfiguration. Noch keine fachlichen Modulgrenzen für Objekte, Personal, Planung, OWKS, Dokumente oder Abrechnung. |
 | Frontend | TEILWEISE | React-Anmeldung, Kunden- und Objektverwaltung sowie Personaloberfläche mit Navigation, Listen, Suche, Filtern, Details und Formularen. Personal-Frontend-Produktionsbuild bestanden; keine E2E- oder Komponententests. |
-| PostgreSQL/ORM | TEILWEISE | SQLAlchemy-Modelle und acht Migrationen. Migrationen 0005–0007 ergänzen Objekte; Migration 0008 ergänzt Personal, Qualifikationen, Abwesenheiten, sensible Daten und Historie. Lokale API-Tests laufen auf SQLite; CI führt Migrationen und Tests gegen PostgreSQL erfolgreich aus. |
-| Alembic | TEILWEISE | Explizite Migrationen vorhanden. Upgrade bis 0008 und Downgrade 0008→0007 lokal offline generiert; echter PostgreSQL-Lauf für diesen Branch steht aus. |
+| PostgreSQL/ORM | TEILWEISE | SQLAlchemy-Modelle und neun Migrationen. Migrationen 0005–0007 ergänzen Objekte; 0008 Personal/Qualifikationen; 0009 Zuweisungsverlauf und versionierte Qualifikationsdateien. Lokale API-Tests laufen auf SQLite; PostgreSQL-CI muss die aktuelle Revision 0009 noch prüfen. |
+| Alembic | TEILWEISE | Explizite Migrationen vorhanden. Upgrade bis 0009 und Downgrade 0009→0008 lokal offline gerendert; ein echter PostgreSQL-Lauf für die aktuellen Änderungen steht aus. |
 | Anmeldung | TEILWEISE | Benutzername/Passwort, Argon2id, serverseitig widerrufbare opaque Sitzung, generische Fehlermeldung. MFA und Passwortzurücksetzung fehlen. |
 | Sitzungen/CSRF | TEILWEISE | HttpOnly-Sitzungscookie, CSRF-Cookie/Header-Abgleich, SameSite=Strict, Idle-/Absolute-Timeout, Logout und Widerruf beim Passwortwechsel. Keine Sitzungsübersicht oder gezielte Einzelwiderruf-UI. |
 | Rate-Limit | TEILWEISE | Login ist auf 5 Versuche pro Minute begrenzt. Speicherung ist im Prozessspeicher, nicht instanzübergreifend; Proxy-Client-IP-Konfiguration ist nicht eingerichtet. |
@@ -18,14 +18,14 @@ Grundlage ist `main` nach dem Merge von PR #16 sowie der Feature-Branch `feature
 | Audit | TEILWEISE | Anmeldung, fehlgeschlagene Anmeldung, Passwortwechsel, Benutzer- und Kundenänderungen werden geloggt. Keine Änderungen/Löschungen über die Anwendungs-API; kein Schutz vor direkten privilegierten Datenbankänderungen, keine Vollständigkeit über noch nicht implementierte Module. |
 | Kunden | TEILWEISE | Anlage, Suche, Filter/Sortierung, UUID-Detailabruf/-änderung, Geschäfts-/Rechnungsanschriften, Ansprechpartner mit Primärkontakt, Archivierung/Reaktivierung und Historie sind implementiert. Die Objektbeziehung ist vorhanden; Vertrags- und Dokumentzuordnung fehlen. Kunden werden archiviert statt physisch gelöscht. |
 | Objekte | TEILWEISE / BRANCH | Backend, API, React-Oberfläche und Migrationen 0005–0007: Kunde-FK, Suche/Filter/Sortierung/Paginierung, Detailbearbeitung, Adresse, mehrere einzelne Ansprechpartner, Archivierung, Historie, Zuweisungen sowie separate Sicherheitsdaten. Zugriff wird serverseitig kontrolliert. Zuweisungen binden an aktive Konten mit Mitarbeiter-/Objektleitungsrolle, nicht an Personalakten. PostgreSQL-CI, Docker-Builds und Review dieses Branches ausstehend. |
-| Personal | TEILWEISE / BRANCH | Migration 0008, Personalakten, Qualifikationen und Ablaufübersicht, Abwesenheiten, getrennte sensible Daten, Historie, CRUD-/Archivierungs-API und React-Oberfläche sind implementiert. Qualifikationsdateien, Mitarbeiter-Objektzuweisungen, PostgreSQL-CI und Review fehlen. |
+| Personal | TEILWEISE / BRANCH | Migrationen 0008–0009, Personalakten, Qualifikationen und Ablaufübersicht, Abwesenheiten, getrennte sensible Daten, Historie, Zuweisungen über bestehende Benutzerkonten, versionierte Qualifikationsdateien, API und React-Oberfläche sind implementiert. Dateiinhalte liegen in PostgreSQL; PostgreSQL-CI und Review der aktuellen Änderungen stehen aus. |
 | Dienstplanung | FEHLT | Keine Dienste, Zuweisungen, Konflikt- oder Arbeitszeitprüfung. |
 | Zeiterfassung | FEHLT | Keine Zeitbuchungen, Korrekturfreigaben oder Abrechnungsschnittstelle. |
 | OWKS/Kontrollen | FEHLT | Keine Wachbucheinträge, Kontrollpunkte, QR-/NFC-Validierung oder Offline-Warteschlange. |
 | Dokumente/Verträge/Rechnungen | FEHLT | Kein Dateiablage-, Vertrags- oder Rechnungsmodell. |
 | Dashboard | TEILWEISE | Kundenanzahl, aktive Kunden und Interessenten werden aus der Datenbank gezählt; operative Kennzahlen fehlen. |
 | Docker/Deployment | TEILWEISE | Compose startet PostgreSQL, API und Vite-Entwicklungsserver. Es gibt keinen produktionsfähigen React-Static-Build, Reverse Proxy, TLS- oder Backup-Aufbau. Docker wurde in der Umgebung nicht ausgeführt. |
-| Tests | TEILWEISE | 18 Backendtests bestanden lokal auf SQLite; Ruff-Lint/Format, Frontend-TypeScript/Produktionsbuild bestanden. CI bestätigt PostgreSQL-Migrationen/-Tests und Docker-Builds. Keine E2E-, Last-, Backup-/Restore- oder Frontend-Komponententests. |
+| Tests | TEILWEISE | 20 Backendtests bestanden lokal auf SQLite; Ruff-Lint/Format sowie Frontend-TypeScript/Produktionsbuild bestanden. Frühere CI bestätigt PostgreSQL-Migrationen/-Tests und Docker-Builds für den älteren PR-Commit; die aktuellen Änderungen benötigen einen neuen CI-Lauf. Keine E2E-, Last-, Backup-/Restore- oder Frontend-Komponententests. |
 
 ## Fehler und Risiken
 
@@ -69,7 +69,7 @@ Grundlage ist `main` nach dem Merge von PR #16 sowie der Feature-Branch `feature
 1. Phase 1 abschließen: PostgreSQL-Integrationslauf und reproduzierbare Deployment-Prüfung ([#9](https://github.com/Xonni-star/securityops-python/issues/9)).
 2. Kundenverwaltung fachlich prüfen und Vertrags-/Dokumentzuordnung planen ([#6](https://github.com/Xonni-star/securityops-python/issues/6)).
 3. Personalverwaltungs-Branch gegen PostgreSQL, Docker und CI prüfen und danach Issue #5 anhand aller Akzeptanzkriterien bewerten.
-4. Mitarbeiterakten mit den bestehenden Objektzuweisungen verbinden, ohne Objektzugriff oder Personalinformationen unberechtigt auszuweiten ([#5](https://github.com/Xonni-star/securityops-python/issues/5)).
+4. Die neue Personalzuweisungs- und Dokumentfunktion gegen PostgreSQL prüfen und Issue #5 anhand aller Akzeptanzkriterien bewerten ([#5](https://github.com/Xonni-star/securityops-python/issues/5)).
 5. Dienstplanung mit Konflikt-/Qualifikationsprüfungen ([#10](https://github.com/Xonni-star/securityops-python/issues/10)), danach Zeiterfassung/Freigaben ([#4](https://github.com/Xonni-star/securityops-python/issues/4)).
 6. OWKS und manipulationsnachweisbare Kontrollereignisse ([#3](https://github.com/Xonni-star/securityops-python/issues/3)).
 7. Dokumente, Verträge und Fristüberwachung ([#8](https://github.com/Xonni-star/securityops-python/issues/8)).

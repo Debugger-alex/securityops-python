@@ -1,6 +1,6 @@
 # SecurityOps – Sicherheitsprüfung
 
-Diese Prüfung fasst die bisherigen Reviews für `main` nach PR #16 und den aktuellen Feature-Branch `feature/personnel-management` zusammen. Sie ist kein Penetrationstest und keine Produktionsfreigabe. Nicht implementierte Funktionen (z. B. Datei-Uploads) wurden nicht als vorhandene Angriffsfläche bewertet. Es wurden keine echten Betriebsdaten verwendet.
+Diese Prüfung fasst die bisherigen Reviews für `main` nach PR #16 und den aktuellen Feature-Branch `feature/personnel-management` zusammen. Sie ist kein Penetrationstest und keine Produktionsfreigabe. Es wurden keine echten Betriebsdaten verwendet.
 
 ## Zusammenfassung
 
@@ -17,6 +17,7 @@ Diese Prüfung fasst die bisherigen Reviews für `main` nach PR #16 und den aktu
 | SEC-09 | Hoch | In `main` behoben, PR #16 CI erfolgreich | Objektendpunkte erzwangen zuvor keine Zuweisung und erlaubten mit Modulrechten Zugriff auf fremde Objekte. Lesen, Ändern, Archivieren, Kontakte, Historie, Zuweisungen und sensible Details prüfen jetzt den Objekt-Scope serverseitig. |
 | SEC-10 | Hoch | In `main` behoben, PR #16 CI erfolgreich | Allgemeine Objektantworten enthielten zuvor Sicherheits-/Zutrittsdaten. Diese Angaben liegen nun getrennt und benötigen eigene Les-/Schreibberechtigungen; Negativtests prüfen Antworttrennung und Scope. |
 | SEC-11 | Mittel | Im Personal-Feature-Branch umgesetzt, CI erfolgreich | Sensible Personalangaben und Abwesenheiten sind aus allgemeinen Personalantworten getrennt und durch eigene Rechte geschützt. Lokale Negativtests sowie PostgreSQL-Migrationen und -Tests in PR #17 CI bestätigen die Änderungen; weiterer Review bleibt offen. |
+| SEC-12 | Mittel | Im Personal-Feature-Branch umgesetzt, aktuelle CI ausstehend | Qualifikationsdateien haben separate Lese-/Schreibrechte, Größen-/Format-/Signaturprüfung und unveränderliche Versionen. Inhalte liegen als `BYTEA` in PostgreSQL; Anwendungsebene-Verschlüsselung und unabhängige private Objektspeicherung fehlen, daher müssen Datenbank- und Backupzugriffe entsprechend geschützt werden. |
 
 ## Geprüfte Schutzmaßnahmen
 
@@ -29,6 +30,7 @@ Diese Prüfung fasst die bisherigen Reviews für `main` nach PR #16 und den aktu
 - Zuweisungsendpunkte akzeptieren ausschließlich aktive Mitarbeiter- oder Objektleitungskonten; die Zuordnung selbst wird mit eindeutiger Datenbankbedingung geschützt.
 - Objektänderungen werden transaktional mit Verlauf/Audit gespeichert. Historieneinträge listen geänderte Felder, nicht deren sensible Werte.
 - Personalanschrift, Notfallkontakt und interne Notizen werden in einer eigenen Tabelle geführt; Personalhistorie und Audit protokollieren nur Feldnamen. Abwesenheiten haben ebenfalls eigene Lese-/Schreibrechte.
+- Qualifikationsdateien werden nur über geschützte Dokument-Endpunkte bereitgestellt. Uploads sind auf PDF/PNG/JPEG und 10 MiB begrenzt; Dateiendung, Content-Type und Signatur werden geprüft. Die Dateiversionen sind unveränderlich und SHA-256-gekennzeichnet.
 - Qualifikationsmetadaten und Abwesenheiten sind über Fremdschlüssel mit `RESTRICT` an Personalakten gebunden; Archivierung erhält verbundene Datensätze, statt sie zu löschen.
 - ORM-Abfragen verwenden gebundene Parameter; React escaped Textausgaben standardmäßig. Keine Upload- oder Datei-Auslieferungsfunktion ist aktuell implementiert.
 - CORS stammt aus einer expliziten Origin-Konfiguration und erlaubt keine beliebigen Origins.
@@ -42,11 +44,11 @@ Diese Prüfung fasst die bisherigen Reviews für `main` nach PR #16 und den aktu
 4. MFA, sicheren Passwort-Reset und Sitzungsanzeige/-widerruf mit Abuse- und Berechtigungstests umsetzen.
 5. CI um verwaltete SCA-/SAST-Prüfungen ergänzen und deren Pflege/Alarmierungsweg festlegen.
 6. Security-Header, TLS, Datenschutz-/Aufbewahrung und Incident-Abläufe für die konkrete Serverumgebung festlegen und prüfen.
-7. Mitarbeiterdaten-Trennung und Berechtigungsprüfungen des aktuellen Feature-Branches sind in PostgreSQL-CI bestätigt; Review und fehlende Verknüpfung zu Objektzuweisungen bleiben offen.
+7. Mitarbeiter-Objektzuweisungen nutzen die vorhandene Objektzuweisungstabelle; Zuweisung und Ende werden in der Personalhistorie erfasst, Archivierung und Beendigung des Arbeitsverhältnisses beenden aktive Zuweisungen. Die aktuellen Änderungen benötigen einen erneuten PostgreSQL-CI-Lauf und Review.
 
 ## Grenzen und Prüfbelege
 
-- Lokale Backend-API-Tests verwenden SQLite; aktuell bestehen 18 Tests. Ruff-Lint und Frontend-TypeScript-/Produktionsbuild sind lokal erfolgreich. Migration 0008 ist noch nicht gegen PostgreSQL validiert.
-- Die PostgreSQL-Migrationen/-Tests und Docker-Builds für den Personal-Branch waren in CI erfolgreich. Ein externer Penetrationstest liegt nicht vor. Die CI für PR #16 war nach den Objektkorrekturen ebenfalls erfolgreich.
+- Lokale Backend-API-Tests verwenden SQLite; aktuell bestehen 20 Tests. Ruff-Lint und Frontend-TypeScript-/Produktionsbuild sind lokal erfolgreich. Migration 0009 ist für die aktuellen Änderungen noch nicht gegen PostgreSQL validiert.
+- Frühere PostgreSQL-Migrationen/-Tests und Docker-Builds des Personal-Branches waren in CI erfolgreich, jedoch für einen älteren Commit. Ein externer Penetrationstest liegt nicht vor. Die CI für PR #16 war nach den Objektkorrekturen ebenfalls erfolgreich.
 - Die Prüfung bewertet keinen konkreten Server, Reverse Proxy, Firewall, Secret Store, Backup-Speicher oder administrativen Datenbankzugang.
 - Die Anwendung ist derzeit ein Entwicklungsstand. Vor öffentlichem oder produktivem Betrieb sind die offenen Punkte sowie Datenschutz-, Arbeitszeit- und Abrechnungsanforderungen fachlich und sicherheitstechnisch zu prüfen.

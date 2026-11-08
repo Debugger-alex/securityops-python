@@ -22,8 +22,8 @@ Arbeitsstand: Feature-Branch `feature/personnel-management`, aufgebaut auf dem a
 | Bereich | Status |
 |---|---|
 | Kunden | Kernverwaltung vorhanden: Backend, Migration 0004, API, Filter-/Detail-/Kontakt-/Archivierungsoberflächen und Regressionstests. Vertrags- und Dokumentenzuordnung fehlen ([#6](https://github.com/Xonni-star/securityops-python/issues/6)). |
-| Objekte | Backend/API/UI und Migrationen 0005–0007 implementiert. Objektzuweisungen sind Benutzerkonten, keine Personalakten. Lokale Tests/Ruff/Frontendbuild bestanden; echter PostgreSQL-Lauf, Docker-Builds, CI und Review für diesen Branch stehen aus. Issue #2 daher noch nicht abschließen. |
-| Personal/Qualifikationen | Teilweise implementiert: Migration 0008, Modelle, API, getrennte sensible Daten-/Abwesenheitsrechte, React-Oberfläche und Backendtests sind vorhanden. Lokale Tests/Ruff/Frontendbuild sowie CI mit PostgreSQL-Migrationen/-Tests und Docker-Builds bestanden. Qualifikationsdateien und Mitarbeiter-Objektzuweisungen fehlen; Issue #5 bleibt offen ([#5](https://github.com/Xonni-star/securityops-python/issues/5)). |
+| Objekte | Backend/API/UI und Migrationen 0005–0007 in `main` implementiert; PR #16 und dessen CI sind abgeschlossen. Objektzuweisungen bleiben technisch an Benutzerkonten gebunden; Personalakten werden über dasselbe Zuweisungsmodell und eine zusätzliche Personalhistorie integriert. Issue #2 bleibt bis zur fachlichen Bestätigung der Akzeptanzkriterien offen. |
+| Personal/Qualifikationen | Migration 0008 und 0009, Personalakten, Abwesenheiten, sensible Daten, Historie, Zuweisungen und versionierte Qualifikationsdateien sind implementiert. 20 Backendtests, Ruff und Frontend-TypeScript/Produktionsbuild bestehen lokal; Offline-SQL wurde für Migration 0009 erzeugt. PostgreSQL-/Docker-CI für die aktuellen Änderungen steht noch aus. Issue #5 bleibt bis zur Prüfung der vollständigen Akzeptanzkriterien offen ([#5](https://github.com/Xonni-star/securityops-python/issues/5)). |
 | Dienstplanung | Nicht implementiert ([#10](https://github.com/Xonni-star/securityops-python/issues/10)). |
 | Zeiterfassung | Nicht implementiert ([#4](https://github.com/Xonni-star/securityops-python/issues/4)). |
 | OWKS/Kontrollgänge | Nicht implementiert ([#3](https://github.com/Xonni-star/securityops-python/issues/3)). |
@@ -39,19 +39,18 @@ Arbeitsstand: Feature-Branch `feature/personnel-management`, aufgebaut auf dem a
 - Prioritäten und Abhängigkeiten: [`IMPLEMENTATION_ROADMAP.md`](IMPLEMENTATION_ROADMAP.md).
 - Sicherheitsbefunde und offene Maßnahmen: [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md).
 - Architektur, Betrieb und weitere Unterlagen sind im [`README.md`](../README.md) verlinkt.
-- Personalverwaltungs-Branch: **18 lokale Backendtests bestanden**; Ruff-Lint/Format, Frontend-TypeScript-Prüfung und Produktionsbuild bestanden. Alembic-Upgrade bis Revision 0008 und Downgrade 0008→0007 wurden offline gerendert. GitHub-CI für PR #17 hat PostgreSQL-Migrationen/-Tests sowie Frontend- und Docker-Builds erfolgreich ausgeführt.
+- Personalverwaltungs-Branch: **20 lokale Backendtests bestanden**; Ruff-Lint/Format, Frontend-TypeScript-Prüfung und Produktionsbuild bestanden. Alembic-Upgrade bis 0009 und Downgrade 0009→0008 wurden offline gerendert. Die früheren GitHub-CI-Ergebnisse auf PR #17 beziehen sich auf den vorherigen Commit, nicht auf die aktuellen Änderungen.
 - Lokales PostgreSQL und Docker sind in der Entwicklungsumgebung nicht verfügbar; die tatsächliche PostgreSQL- und Docker-Prüfung erfolgte in CI.
 - Derzeit keine E2E-, Last-, Restore-, externe Penetrations- oder unabhängige Datenschutz-/Steuerprüfung.
 
 ## Nächste Schritte
 
-1. Personalverwaltungsänderungen abschließend mit Ruff, Backend, PostgreSQL-Migrationen, Frontend und Docker prüfen; danach Review und Pull Request zu Issue #5.
-2. Die bestehende Verknüpfung zwischen Personalakten und Objektzuweisungen fachlich vervollständigen und fehlende Akzeptanzkriterien von Issue #5 bearbeiten.
-3. Danach Dienstplanung [#10](https://github.com/Xonni-star/securityops-python/issues/10), Zeiterfassung [#4](https://github.com/Xonni-star/securityops-python/issues/4) und weitere Module gemäß Roadmap angehen.
+1. Aktuelle Personalverwaltungsänderungen gegen PostgreSQL und Docker in CI prüfen und Review sowie Akzeptanzkriterien von Issue #5 abschließen.
+2. Danach Dienstplanung [#10](https://github.com/Xonni-star/securityops-python/issues/10), Zeiterfassung [#4](https://github.com/Xonni-star/securityops-python/issues/4) und weitere Module gemäß Roadmap angehen.
 3. Produktionshärtung, Monitoring und Backup/Restore aus [Issue #9](https://github.com/Xonni-star/securityops-python/issues/9) bleiben separat offen.
 
 ## Repository-Arbeitsstand
 
-- Der aktuelle Arbeitsbranch ist `feature/personnel-management`; Änderungen sind noch nicht gepusht und ein PR wurde noch nicht erstellt.
+- Der aktuelle Arbeitsbranch ist `feature/personnel-management`; PR #17 ist als Draft offen. Die hier dokumentierten Folgeänderungen müssen noch gepusht und auf dem PR geprüft werden.
 - Issue #5 bleibt offen, bis sämtliche Akzeptanzkriterien, CI-/PostgreSQL-Prüfungen und Review abgeschlossen sind.
-- Die bereits in `main` gemergte Objektverwaltung wurde nicht neu entwickelt; die vorhandenen Objektzuweisungen referenzieren weiterhin Benutzerkonten, nicht Personalakten.
+- Die bereits in `main` gemergte Objektverwaltung wurde nicht neu entwickelt; Personalakten greifen über ihr verknüpftes Benutzerkonto auf die bestehende Zuweisungstabelle zu.
