@@ -363,7 +363,7 @@ def downgrade() -> None:
                 OR EXISTS (
                     SELECT 1 FROM document_contract_reminder_settings
                     WHERE id <> 1
-                        OR lead_days <> '[90, 60, 30, 14, 7]'::json
+                        OR lead_days::jsonb <> '[90, 60, 30, 14, 7]'::jsonb
                         OR updated_by_id IS NOT NULL
                 ) THEN
                 RAISE EXCEPTION
