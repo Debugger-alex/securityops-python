@@ -43,7 +43,7 @@ class LoginRequest(BaseModel):
         if value is not None:
             normalized = value.replace("-", "")
             if (
-                len(normalized) != 16
+                len(normalized) != 32
                 or not normalized.isascii()
                 or any(character not in "0123456789ABCDEFabcdef" for character in normalized)
             ):

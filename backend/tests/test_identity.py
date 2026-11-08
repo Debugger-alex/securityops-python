@@ -279,6 +279,7 @@ def test_mfa_enrollment_totp_replay_and_single_use_recovery_codes(client: TestCl
     assert enabled.status_code == 200
     recovery_codes = enabled.json()["recovery_codes"]
     assert len(recovery_codes) == 10
+    assert all(len(code) == 32 for code in recovery_codes)
     assert len(set(recovery_codes)) == 10
     assert (
         client.post(

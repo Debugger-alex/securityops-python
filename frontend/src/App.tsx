@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import {
   archiveCustomer,
   changePassword,
@@ -68,6 +68,16 @@ const actionNames: Record<string, string> = {
 };
 
 const pageSize = 25;
+type ActiveModule =
+  | "customers"
+  | "objects"
+  | "employees"
+  | "scheduling"
+  | "time_tracking"
+  | "documents"
+  | "billing"
+  | "owks"
+  | "security";
 
 function messageFrom(reason: unknown, fallback: string) {
   return reason instanceof Error ? reason.message : fallback;
@@ -116,6 +126,7 @@ function AddressFields({ prefix, title, address }: {
 export default function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [passwordChangeRequired, setPasswordChangeRequired] = useState(false);
+  const moduleSelectedManually = useRef(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [matchingCustomers, setMatchingCustomers] = useState(0);
@@ -130,9 +141,7 @@ export default function App() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [history, setHistory] = useState<CustomerHistory[]>([]);
   const [customerObjects, setCustomerObjects] = useState<SecurityObject[]>([]);
-  const [activeModule, setActiveModule] = useState<
-    "customers" | "objects" | "employees" | "scheduling" | "time_tracking" | "documents" | "billing" | "owks" | "security"
-  >("customers");
+  const [activeModule, setActiveModule] = useState<ActiveModule>("customers");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const canReadCustomers = user?.permissions.includes("customers.read") ?? false;
@@ -209,6 +218,7 @@ export default function App() {
   }, [loadData, user]);
 
   useEffect(() => {
+    if (moduleSelectedManually.current) return;
     if (user && !canReadCustomers && canReadObjects) setActiveModule("objects");
     else if (user && !canReadCustomers && !canReadObjects && canReadEmployees) {
       setActiveModule("employees");
@@ -252,6 +262,7 @@ export default function App() {
           ? { mfa_code: factor }
           : factor ? { recovery_code: factor } : undefined,
       );
+      moduleSelectedManually.current = false;
       setUser(session.user);
       setPasswordChangeRequired(session.password_change_required ?? false);
       setError("");
@@ -285,6 +296,7 @@ export default function App() {
   }
 
   function clearLocalSession() {
+    moduleSelectedManually.current = false;
     setUser(null);
     setPasswordChangeRequired(false);
     setCustomers([]);
@@ -293,6 +305,11 @@ export default function App() {
     setCustomerObjects([]);
     setDashboard(null);
     setActiveModule("customers");
+  }
+
+  function selectModule(module: ActiveModule) {
+    moduleSelectedManually.current = true;
+    setActiveModule(module);
   }
 
   async function signOut() {
@@ -471,7 +488,7 @@ export default function App() {
               <input name="password" type="password" required autoComplete="current-password" />
             </label>
             <label>MFA-Code oder Wiederherstellungscode (falls eingerichtet)
-              <input name="mfa_factor" autoComplete="one-time-code" />
+              <input name="mfa_factor" autoComplete="one-time-code" maxLength={32} />
             </label>
             <button type="submit" disabled={busy}>{busy ? "Anmeldung läuft …" : "Anmelden"}</button>
           </form>
@@ -527,31 +544,31 @@ export default function App() {
       <nav className="module-tabs" aria-label="Verwaltungsmodule">
         {(canReadCustomers || canCreateCustomers) && <button
           className={activeModule === "customers" ? "module-tab active" : "module-tab"}
-          onClick={() => setActiveModule("customers")}>Kunden</button>}
+          onClick={() => selectModule("customers")}>Kunden</button>}
         {canReadObjects && <button
           className={activeModule === "objects" ? "module-tab active" : "module-tab"}
-          onClick={() => setActiveModule("objects")}>Objekte</button>}
+          onClick={() => selectModule("objects")}>Objekte</button>}
         {canReadEmployees && <button
           className={activeModule === "employees" ? "module-tab active" : "module-tab"}
-          onClick={() => setActiveModule("employees")}>Personal</button>}
+          onClick={() => selectModule("employees")}>Personal</button>}
         {canReadScheduling && <button
           className={activeModule === "scheduling" ? "module-tab active" : "module-tab"}
-          onClick={() => setActiveModule("scheduling")}>Dienstplanung</button>}
+          onClick={() => selectModule("scheduling")}>Dienstplanung</button>}
         {canReadTimeTracking && <button
           className={activeModule === "time_tracking" ? "module-tab active" : "module-tab"}
-          onClick={() => setActiveModule("time_tracking")}>Zeiterfassung</button>}
+          onClick={() => selectModule("time_tracking")}>Zeiterfassung</button>}
         {canAccessDocuments && <button
           className={activeModule === "documents" ? "module-tab active" : "module-tab"}
-          onClick={() => setActiveModule("documents")}>Dokumente & Verträge</button>}
+          onClick={() => selectModule("documents")}>Dokumente & Verträge</button>}
         {canAccessBilling && <button
           className={activeModule === "billing" ? "module-tab active" : "module-tab"}
-          onClick={() => setActiveModule("billing")}>Rechnungswesen</button>}
+          onClick={() => selectModule("billing")}>Rechnungswesen</button>}
         {canReadOWKS && <button
           className={activeModule === "owks" ? "module-tab active" : "module-tab"}
-          onClick={() => setActiveModule("owks")}>Wachbuch</button>}
+          onClick={() => selectModule("owks")}>Wachbuch</button>}
         <button
           className={activeModule === "security" ? "module-tab active" : "module-tab"}
-          onClick={() => setActiveModule("security")}>Sicherheit</button>
+          onClick={() => selectModule("security")}>Sicherheit</button>
       </nav>
 
       {activeModule === "security"

@@ -69,7 +69,9 @@ describe("Kontosicherheit", () => {
       secret: "BASE32TESTSECRET",
       otpauth_uri: "otpauth://totp/SecurityOps:test?secret=BASE32TESTSECRET",
     });
-    vi.mocked(api.enableMFA).mockResolvedValue({ recovery_codes: ["ABCD1234ABCD1234"] });
+    vi.mocked(api.enableMFA).mockResolvedValue({
+      recovery_codes: ["ABCD1234ABCD1234ABCD1234ABCD1234"],
+    });
     render(<IdentitySecurity user={user} onSignedOut={vi.fn()} onPasswordChanged={vi.fn()} />);
 
     await screen.findByRole("heading", { name: "Mehr-Faktor-Authentifizierung" });
@@ -82,7 +84,7 @@ describe("Kontosicherheit", () => {
     fireEvent.change(code, { target: { value: "123456" } });
     fireEvent.submit(code.closest("form")!);
 
-    expect(await screen.findByText("ABCD1234ABCD1234")).toBeTruthy();
+    expect(await screen.findByText("ABCD1234ABCD1234ABCD1234ABCD1234")).toBeTruthy();
     expect(api.startMFASetup).toHaveBeenCalledWith("aktuelles-passwort");
     expect(api.enableMFA).toHaveBeenCalledWith("123456");
     expect(screen.getByText("MFA ist aktiviert. Wiederherstellungscodes jetzt sicher speichern.")).toBeTruthy();

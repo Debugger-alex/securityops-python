@@ -82,7 +82,7 @@ def verify_totp(secret: str, code: str, *, last_counter: int | None = None) -> i
 
 
 def new_recovery_codes() -> list[str]:
-    return [secrets.token_hex(8).upper() for _ in range(RECOVERY_CODE_COUNT)]
+    return [secrets.token_hex(16).upper() for _ in range(RECOVERY_CODE_COUNT)]
 
 
 def recovery_code_hash(code: str) -> str:

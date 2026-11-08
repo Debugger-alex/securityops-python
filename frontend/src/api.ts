@@ -96,6 +96,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     const body = await response.json().catch(() => null);
     const detail = body?.detail;
+    const validationError = Array.isArray(detail);
     const conflicts = Array.isArray(detail?.conflicts)
       ? detail.conflicts
         .map((conflict: { message?: unknown }) =>
@@ -106,6 +107,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(
       typeof detail === "string"
         ? detail
+        : validationError
+          ? "Eingaben sind ungültig. Bitte Eingaben prüfen."
         : typeof detail?.message === "string"
           ? [detail.message, ...conflicts].join(" ")
           : `Serverfehler (${response.status})`,

@@ -98,7 +98,8 @@ def downgrade() -> None:
             """
             SELECT EXISTS (
                 SELECT 1 FROM users
-                WHERE mfa_enabled OR mfa_secret_encrypted IS NOT NULL OR force_password_change
+                WHERE mfa_enabled OR mfa_secret_encrypted IS NOT NULL
+                   OR mfa_last_counter IS NOT NULL OR force_password_change
             ) OR EXISTS (SELECT 1 FROM user_mfa_recovery_codes)
               OR EXISTS (
                 SELECT 1 FROM user_sessions WHERE ip_address IS NOT NULL OR user_agent IS NOT NULL
