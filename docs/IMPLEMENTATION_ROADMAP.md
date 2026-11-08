@@ -35,7 +35,7 @@ Diese Roadmap beschreibt `main` auf Merge-Commit `d066d56b97fbd795be276b0414d6a8
 ### P2 – Personal und Einsatzbetrieb
 
 1. Personalverwaltung bei Bedarf nach der in `main` erfolgten Implementierung fachlich weiterentwickeln ([#5](https://github.com/Xonni-star/securityops-python/issues/5)).
-2. Fachliche Abnahme der Dienstplanung und Issue #10 getrennt vom Zeiterfassungs-PR fortführen. Die Verfügbarkeit wird derzeit aus Beschäftigungszeitraum, Abwesenheiten und bestehenden Diensten abgeleitet; individuelle regelmäßige Wunsch-/Sperrzeiten sind nicht modelliert ([#10](https://github.com/Xonni-star/securityops-python/issues/10)).
+2. Fachliche Abnahme der Dienstplanung und Issue #10 getrennt vom Zeiterfassungs-PR fortführen. Dieser Feature-Branch ergänzt zum in `main` integrierten PR #19 regelmäßige Mitarbeiter-Verfügbarkeiten, Wunsch-/Sperrzeiträume und nachvollziehbare Schichtvertretungen (Migration 0016); CI und fachliche Abnahme stehen noch aus ([#10](https://github.com/Xonni-star/securityops-python/issues/10)).
 3. Gestapelte Zeiterfassungsergänzung gegen den PR-20-Branch reviewen; PostgreSQL-Migration und Docker-CI sind erfolgreich. Originalsegmente und Berechnungssnapshots bleiben historisiert. Geldbeträge erfordern vorgelagerte Fachentscheidungen. Issue #4 bis zur Abnahme offen halten ([#4](https://github.com/Xonni-star/securityops-python/issues/4)).
 4. OWKS-PR #23 fachlich abnehmen; statische Kennungstreffer bleiben bis zu einem dynamischen kryptografischen Präsenznachweis unbestätigt. Issue #3 bis zur bestätigten Abnahme offen halten ([#3](https://github.com/Xonni-star/securityops-python/issues/3)).
 

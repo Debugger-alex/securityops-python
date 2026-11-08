@@ -31,6 +31,7 @@ from app.models import (
     DocumentVersion,
     Employee,
     EmployeeAbsence,
+    EmployeeAvailabilityWindow,
     EmployeeHistory,
     EmployeeObjectAssignmentHistory,
     EmployeeQualification,
@@ -50,6 +51,7 @@ from app.models import (
     OWKSRoutePoint,
     Permission,
     Role,
+    ScheduleAvailabilityRequest,
     ScheduleSettings,
     ScheduleShift,
     ScheduleShiftHistory,
@@ -134,6 +136,8 @@ def client() -> Generator[TestClient, None, None]:
         db.execute(delete(TimeTrackingSettings))
         db.execute(delete(ScheduleShiftHistory))
         db.execute(delete(ScheduleShift))
+        db.execute(delete(ScheduleAvailabilityRequest))
+        db.execute(delete(EmployeeAvailabilityWindow))
         db.execute(delete(ScheduleSettings))
         db.execute(delete(ObjectHistory))
         db.execute(delete(ObjectAssignment))
@@ -189,6 +193,7 @@ def client() -> Generator[TestClient, None, None]:
             "employees.documents.manage",
             "scheduling.read",
             "scheduling.manage",
+            "scheduling.availability.request",
             "time_tracking.read_own",
             "time_tracking.read_all",
             "time_tracking.create",
@@ -296,6 +301,7 @@ def client() -> Generator[TestClient, None, None]:
                 "owks.write",
                 "objects.read",
                 "scheduling.read",
+                "scheduling.availability.request",
                 "time_tracking.read_own",
                 "time_tracking.create",
                 "time_tracking.correct_own",

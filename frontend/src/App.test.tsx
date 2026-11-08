@@ -10,15 +10,21 @@ vi.mock("./api", () => ({
   archiveCustomer: vi.fn(),
   createCustomer: vi.fn(),
   createCustomerContact: vi.fn(),
+  createScheduleAvailabilityRequest: vi.fn(),
   deleteCustomerContact: vi.fn(),
   getCustomer: vi.fn(),
   getCustomerHistory: vi.fn(),
   getCustomerObjects: vi.fn(),
   getCustomers: vi.fn(),
   getDashboard: vi.fn(),
+  getEmployees: vi.fn(),
+  getEmployeeAvailability: vi.fn(),
+  getObjects: vi.fn(),
   getSession: vi.fn(),
   getScheduleSettings: vi.fn(),
+  getScheduleAvailabilityRequests: vi.fn(),
   getScheduleShifts: vi.fn(),
+  replaceScheduleShiftEmployee: vi.fn(),
   getTimeEntries: vi.fn(),
   getTimeReport: vi.fn(),
   startTimeEntry: vi.fn(),
@@ -29,6 +35,8 @@ vi.mock("./api", () => ({
   reactivateCustomer: vi.fn(),
   updateCustomer: vi.fn(),
   updateCustomerContact: vi.fn(),
+  updateEmployeeAvailability: vi.fn(),
+  updateScheduleAvailabilityRequest: vi.fn(),
 }));
 
 const customer: Customer = {
@@ -165,6 +173,189 @@ describe("Kundenformulare", () => {
     expect(screen.getByText("Veröffentlicht")).toBeTruthy();
     expect(screen.getByRole("option", { name: "Monat" })).toBeTruthy();
     expect(api.getScheduleShifts).toHaveBeenCalled();
+  });
+
+  it("pflegt regelmäßige Verfügbarkeit und trägt eine geprüfte Vertretung ein", async () => {
+    const shift = {
+      id: "shift-1",
+      employee_id: "employee-1",
+      employee_number: "P-1001",
+      employee_name: "Testperson",
+      object_id: "object-1",
+      object_code: "OBJ-001",
+      object_name: "Testobjekt",
+      starts_at: "2026-12-01T08:00:00Z",
+      ends_at: "2026-12-01T16:00:00Z",
+      time_zone: "Europe/Berlin",
+      break_minutes: 30,
+      required_qualification: null,
+      status: "published" as const,
+      created_by_id: "manager-1",
+      created_at: "2026-11-01T00:00:00Z",
+      updated_at: "2026-11-01T00:00:00Z",
+    };
+    vi.mocked(api.getSession).mockResolvedValue({
+      user: {
+        id: "schedule-manager",
+        username: "einsatzleitung",
+        email: "einsatzleitung@example.de",
+        full_name: "Einsatzleitung",
+        is_active: true,
+        roles: ["operations"],
+        permissions: [
+          "scheduling.read",
+          "scheduling.manage",
+          "scheduling.availability.request",
+          "employees.read",
+          "objects.read",
+        ],
+      },
+    });
+    vi.mocked(api.getScheduleSettings).mockResolvedValue({
+      time_zone: "Europe/Berlin",
+      minimum_rest_hours: 11,
+      updated_at: "2026-01-01T00:00:00Z",
+    });
+    vi.mocked(api.getScheduleShifts).mockResolvedValue([shift]);
+    vi.mocked(api.getEmployees).mockResolvedValue({
+      items: [
+        {
+          id: "employee-1",
+          employee_number: "P-1001",
+          user_id: "user-1",
+          full_name: "Testperson",
+          email: null,
+          phone: null,
+          job_title: null,
+          employment_status: "active",
+          hired_on: "2020-01-01",
+          ended_on: null,
+          contract_type: null,
+          weekly_hours: null,
+          assigned_objects: [],
+          archived_at: null,
+          created_at: "2026-01-01T00:00:00Z",
+          updated_at: "2026-01-01T00:00:00Z",
+        },
+        {
+          id: "employee-2",
+          employee_number: "P-1002",
+          user_id: "user-2",
+          full_name: "Vertretung",
+          email: null,
+          phone: null,
+          job_title: null,
+          employment_status: "active",
+          hired_on: "2020-01-01",
+          ended_on: null,
+          contract_type: null,
+          weekly_hours: null,
+          assigned_objects: [],
+          archived_at: null,
+          created_at: "2026-01-01T00:00:00Z",
+          updated_at: "2026-01-01T00:00:00Z",
+        },
+      ],
+      total: 2,
+      limit: 100,
+      offset: 0,
+    });
+    vi.mocked(api.getObjects).mockResolvedValue({
+      items: [{
+        id: "object-1",
+        code: "OBJ-001",
+        name: "Testobjekt",
+      } as Awaited<ReturnType<typeof api.getObjects>>["items"][number]],
+      total: 1,
+      limit: 100,
+      offset: 0,
+    });
+    vi.mocked(api.getEmployeeAvailability).mockResolvedValue([]);
+    vi.mocked(api.getScheduleAvailabilityRequests).mockResolvedValue([]);
+    vi.mocked(api.updateEmployeeAvailability).mockResolvedValue([]);
+    vi.mocked(api.replaceScheduleShiftEmployee).mockResolvedValue({
+      ...shift,
+      employee_id: "employee-2",
+      employee_name: "Vertretung",
+      employee_number: "P-1002",
+    });
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Dienstplanung" }));
+    await screen.findByRole("heading", { name: "Regelmäßige Zeitfenster" });
+    fireEvent.click(screen.getByRole("button", { name: "Zeitfenster hinzufügen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Verfügbarkeit speichern" }));
+    await waitFor(() => {
+      expect(api.updateEmployeeAvailability).toHaveBeenCalledWith("employee-1", [
+        { weekday: 0, starts_at: "09:00", ends_at: "17:00" },
+      ]);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Vertretung" }));
+    fireEvent.change(screen.getByLabelText("Vertretende Person"), {
+      target: { value: "employee-2" },
+    });
+    fireEvent.change(screen.getByLabelText("Grundkategorie der Vertretung"), {
+      target: { value: "short_notice" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Vertretung prüfen und speichern" }));
+    await waitFor(() => {
+      expect(api.replaceScheduleShiftEmployee).toHaveBeenCalledWith(
+        "shift-1",
+        "employee-2",
+        "short_notice",
+      );
+    });
+  });
+
+  it("ermöglicht Mitarbeitenden, eigene Dienstwünsche einzureichen", async () => {
+    vi.mocked(api.getSession).mockResolvedValue({
+      user: {
+        id: "employee-user",
+        username: "mitarbeiter",
+        email: "mitarbeiter@example.de",
+        full_name: "Mitarbeiter",
+        is_active: true,
+        roles: ["employee"],
+        permissions: ["scheduling.read", "scheduling.availability.request"],
+      },
+    });
+    vi.mocked(api.getScheduleSettings).mockResolvedValue({
+      time_zone: "Europe/Berlin",
+      minimum_rest_hours: 11,
+      updated_at: "2026-01-01T00:00:00Z",
+    });
+    vi.mocked(api.getScheduleShifts).mockResolvedValue([]);
+    vi.mocked(api.getScheduleAvailabilityRequests).mockResolvedValue([]);
+    vi.mocked(api.createScheduleAvailabilityRequest).mockResolvedValue({} as Awaited<
+      ReturnType<typeof api.createScheduleAvailabilityRequest>
+    >);
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Eigene Zeitwünsche" });
+    const form = screen.getByRole("button", { name: "Zeitraum einreichen" }).closest("form")!;
+    fireEvent.change(form.querySelector('input[name="starts_at_local"]')!, {
+      target: { value: "2026-12-01T09:00" },
+    });
+    fireEvent.change(form.querySelector('input[name="ends_at_local"]')!, {
+      target: { value: "2026-12-01T17:00" },
+    });
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(api.createScheduleAvailabilityRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: "preferred",
+          starts_at_local: "2026-12-01T09:00",
+          ends_at_local: "2026-12-01T17:00",
+        }),
+      );
+    });
+    expect(api.createScheduleAvailabilityRequest).not.toHaveBeenCalledWith(
+      expect.objectContaining({ employee_id: expect.any(String) }),
+    );
   });
 
   it("zeigt Mitarbeitenden die Zeiterfassung und startet eine Buchung", async () => {

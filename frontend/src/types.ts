@@ -391,6 +391,41 @@ export interface ScheduleSettings {
   updated_at: string;
 }
 
+export interface EmployeeAvailabilityWindow {
+  id: string;
+  employee_id: string;
+  weekday: number;
+  starts_at: string;
+  ends_at: string;
+}
+
+export type ScheduleAvailabilityRequestKind = "preferred" | "blocked";
+export type ScheduleAvailabilityRequestStatus = "open" | "accepted" | "rejected";
+export type ScheduleReplacementReason =
+  | "short_notice"
+  | "schedule_change"
+  | "employee_request"
+  | "qualification"
+  | "other";
+
+export interface ScheduleAvailabilityRequest {
+  id: string;
+  employee_id: string;
+  employee_name: string;
+  employee_number: string;
+  kind: ScheduleAvailabilityRequestKind;
+  starts_at: string;
+  ends_at: string;
+  time_zone: string;
+  status: ScheduleAvailabilityRequestStatus;
+  conflicting_shift_ids: string[];
+  created_by_id: string | null;
+  reviewed_by_id: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ScheduleShift {
   id: string;
   employee_id: string;
@@ -415,6 +450,7 @@ export interface ScheduleShiftHistory {
   actor_id: string | null;
   action: string;
   changed_fields: string[];
+  details: Record<string, unknown>;
   created_at: string;
 }
 

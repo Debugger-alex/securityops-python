@@ -1,5 +1,12 @@
 # Änderungsprotokoll
 
+## 2026-11-08 – Fehlende Dienstplanfunktionen für Issue #10
+
+- Migration 0016 ergänzt regelmäßige Wochenverfügbarkeiten, einmalige Dienstwunsch-/Sperrzeiträume, das Recht zur Einreichung eigener Einträge und Vertretungsdetails in der Schichthistorie.
+- Dienstplanprüfungen berücksichtigen Verfügbarkeitsfenster und offene/angenommene Sperrzeiten. Konflikte mit bestehenden Schichten werden für Sperrzeitanträge ausgewiesen; sie müssen vor Annahme geklärt werden.
+- Deutsche responsive UI zur Pflege wiederkehrender Fenster, Erfassung/Prüfung von Dienstwünschen und nachvollziehbaren Schichtvertretungen ergänzt.
+- Issue #10 bleibt bis zur fachlichen Abnahme offen; keine automatische gesetzliche Konformität wird behauptet.
+
 ## 2026-11-08 – Gestapelte Ergänzung zu Zeiterfassung/Zuschlägen
 
 - Migration 0013 ergänzt Bundeslandseinstellung, unveränderliche Zuschlagsregeln, versionierte Berechnungssnapshots und endgültige Abrechnungsperiodensperren mit getrennten Rechten.
