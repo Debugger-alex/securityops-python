@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from app.identity_api import password_hasher
-from app.models import Role, User
+from app.models import ObjectAssignment, Permission, Role, User
 
 
 def sign_in_as(client: TestClient, username: str, password: str) -> str:
@@ -28,6 +28,31 @@ def create_test_user(username: str, role_code: str, *, is_active: bool = True) -
             full_name=f"Test {username}",
             password_hash=password_hasher.hash("personal-test-passwort-2026"),
             is_active=is_active,
+            roles=[role],
+        )
+        db.add(user)
+        db.commit()
+        return user.id
+
+
+def create_test_user_with_permissions(username: str, permission_codes: tuple[str, ...]) -> UUID:
+    with TestingSessionLocal() as db:
+        role = db.scalar(select(Role).where(Role.code == "personnel_auditor"))
+        if role is None:
+            role = Role(
+                code="personnel_auditor",
+                name="Personal-Auditor",
+                description="Testrolle mit eingeschränktem Personalzugriff",
+            )
+        role.permissions = list(
+            db.scalars(select(Permission).where(Permission.code.in_(permission_codes))).all()
+        )
+        user = User(
+            username=username,
+            email=f"{username}@example.com",
+            full_name=f"Test {username}",
+            password_hash=password_hasher.hash("personal-test-passwort-2026"),
+            is_active=True,
             roles=[role],
         )
         db.add(user)
@@ -418,6 +443,89 @@ def test_employee_object_assignment_requires_explicit_permission(client: TestCli
         ).status_code
         == 403
     )
+
+
+def test_employee_object_details_are_limited_to_accessible_objects(client: TestClient) -> None:
+    admin_headers = {"X-CSRF-Token": sign_in_as(client, "admin", ADMIN_PASSWORD)}
+    employee_user_id = create_test_user("bereichs-mitarbeiter", "employee")
+    employee = client.post(
+        "/api/v1/employees",
+        headers=admin_headers,
+        json={
+            "employee_number": "P-3601",
+            "user_id": str(employee_user_id),
+            "full_name": "Bereichs-Testperson",
+            "hired_on": str(date.today()),
+        },
+    ).json()
+    customer = client.post(
+        "/api/v1/customers",
+        headers=admin_headers,
+        json={"company_name": "Testkunde Bereichsschutz GmbH"},
+    ).json()
+
+    objects = []
+    for index in (1, 2):
+        created_object = client.post(
+            "/api/v1/objects",
+            headers=admin_headers,
+            json={
+                "customer_id": customer["id"],
+                "name": f"Bereichsobjekt {index}",
+                "code": f"OBJ-BEREICH-{index}",
+            },
+        )
+        assert created_object.status_code == 201
+        objects.append(created_object.json())
+        assigned = client.post(
+            f"/api/v1/employees/{employee['id']}/objects/{objects[-1]['id']}",
+            headers=admin_headers,
+        )
+        assert assigned.status_code == 201
+
+    auditor_id = create_test_user_with_permissions("personal-auditor", ("employees.read",))
+    with TestingSessionLocal() as db:
+        db.add(
+            ObjectAssignment(
+                object_id=UUID(objects[0]["id"]),
+                user_id=auditor_id,
+            )
+        )
+        db.commit()
+
+    auditor_headers = {
+        "X-CSRF-Token": sign_in_as(client, "personal-auditor", "personal-test-passwort-2026")
+    }
+    authenticated_user = client.get("/api/v1/auth/me").json()["user"]
+    assert authenticated_user["username"] == "personal-auditor"
+    assert authenticated_user["permissions"] == ["employees.read"]
+    with TestingSessionLocal() as db:
+        auditor = db.scalar(select(User).where(User.id == auditor_id))
+        assert auditor is not None
+        assert {permission.code for role in auditor.roles for permission in role.permissions} == {
+            "employees.read"
+        }
+    detail = client.get(f"/api/v1/employees/{employee['id']}", headers=auditor_headers)
+    assert detail.status_code == 200
+    assert detail.json()["assigned_objects"] == ["Bereichsobjekt 1 (OBJ-BEREICH-1)"]
+
+    employee_list = client.get("/api/v1/employees", headers=auditor_headers)
+    assert employee_list.status_code == 200
+    listed_employee = next(
+        item for item in employee_list.json()["items"] if item["id"] == employee["id"]
+    )
+    assert listed_employee["assigned_objects"] == ["Bereichsobjekt 1 (OBJ-BEREICH-1)"]
+
+    assignments = client.get(f"/api/v1/employees/{employee['id']}/objects", headers=auditor_headers)
+    assert assignments.status_code == 200
+    assert [item["object_id"] for item in assignments.json()] == [objects[0]["id"]]
+
+    history = client.get(
+        f"/api/v1/employees/{employee['id']}/object-assignment-history",
+        headers=auditor_headers,
+    )
+    assert history.status_code == 200
+    assert [item["object_id"] for item in history.json()] == [objects[0]["id"]]
 
 
 def test_qualification_documents_are_versioned_and_permission_protected(

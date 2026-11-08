@@ -8,23 +8,40 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Bitte POSTGRES_PASSWORD in .env setzen}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 5s
       timeout: 5s
       retries: 10
 
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    networks:
+      - data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   api:
     build: ./backend
     restart: unless-stopped
     environment:
+      APP_ENV: production
       POSTGRES_HOST: ${POSTGRES_HOST:-db}
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       POSTGRES_DB: ${POSTGRES_DB:-securityops}
       POSTGRES_USER: ${POSTGRES_USER:-securityops}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Bitte POSTGRES_PASSWORD in .env setzen}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
-      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://localhost}
+      SESSION_COOKIE_SECURE: "true"
+      RATE_LIMIT_STORAGE_URI: ${RATE_LIMIT_STORAGE_URI:-redis://redis:6379/0}
+      FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-172.28.0.10}
       DOCUMENT_STORAGE_PATH: /var/lib/securityops/documents
       DOCUMENT_MAX_UPLOAD_BYTES: ${DOCUMENT_MAX_UPLOAD_BYTES:-20971520}
     volumes:
@@ -34,15 +51,82 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app
+      - data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=2)",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  migrate:
+    build: ./backend
+    profiles: ["release"]
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST:-db}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-securityops}
+      POSTGRES_USER: ${POSTGRES_USER:-securityops}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Bitte POSTGRES_PASSWORD in .env setzen}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app
+      - data
+
+  restore-documents:
+    build: ./backend
+    profiles: ["restore-test"]
+    command:
+      [
+        "sh",
+        "-ec",
+        "test -z \"$(ls -A /var/lib/securityops/documents)\" && tar -C /var/lib/securityops/documents -xf -",
+      ]
+    volumes:
+      - restore_test_documents:/var/lib/securityops/documents
+    network_mode: none
+
+  backup-documents:
+    build: ./backend
+    profiles: ["backup"]
+    command: ["tar", "-C", "/var/lib/securityops/documents", "-cf", "-", "."]
+    volumes:
+      - document_storage:/var/lib/securityops/documents
+    network_mode: none
 
   frontend:
     build: ./frontend
     restart: unless-stopped
     ports:
-      - "127.0.0.1:5173:5173"
+      - "127.0.0.1:5173:8080"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    networks:
+      app:
+        ipv4_address: ${APP_FRONTEND_IP:-172.28.0.10}
 
 volumes:
   postgres_data:
   document_storage:
+  restore_test_documents:
+
+networks:
+  app:
+    ipam:
+      config:
+        - subnet: ${APP_NETWORK_SUBNET:-172.28.0.0/24}
+  data:
+    internal: true

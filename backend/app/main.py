@@ -4,6 +4,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from redis import Redis
+from redis.exceptions import RedisError
 from slowapi.errors import RateLimitExceeded
 from slowapi.extension import _rate_limit_exceeded_handler
 from slowapi.middleware import SlowAPIMiddleware
@@ -25,6 +27,11 @@ from app.time_tracking_surcharges import router as time_tracking_surcharges_rout
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
+rate_limit_store = (
+    Redis.from_url(settings.rate_limit_storage_uri)
+    if settings.rate_limit_storage_uri.startswith(("redis://", "rediss://"))
+    else None
+)
 
 
 @asynccontextmanager
@@ -75,4 +82,13 @@ def readiness() -> dict[str, str]:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Datenbankverbindung nicht verfügbar",
         ) from exc
+    if rate_limit_store is not None:
+        try:
+            rate_limit_store.ping()
+        except RedisError as exc:
+            logger.exception("Rate-Limit-Speicher für Readiness-Prüfung fehlgeschlagen")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Rate-Limit-Speicher nicht verfügbar",
+            ) from exc
     return {"status": "ready"}

@@ -78,6 +78,39 @@ def employee_query():
     )
 
 
+def visible_object_ids(db: Session, principal) -> set[UUID] | None:
+    if "objects.read_all" in principal.permission_codes:
+        return None
+    return set(
+        db.scalars(
+            select(ObjectAssignment.object_id).where(ObjectAssignment.user_id == principal.user.id)
+        ).all()
+    )
+
+
+def employee_read(
+    employee: Employee,
+    accessible_object_ids: set[UUID] | None,
+) -> EmployeeRead:
+    result = EmployeeRead.model_validate(employee)
+    if accessible_object_ids is not None:
+        assigned_objects = []
+        if employee.user is not None:
+            assigned_objects = [
+                f"{assignment.object.name} ({assignment.object.code})"
+                for assignment in employee.user.object_assignments
+                if assignment.object_id in accessible_object_ids
+            ]
+        result = result.model_copy(update={"assigned_objects": assigned_objects})
+    return result
+
+
+def accessible_object_filter(principal):
+    if "objects.read_all" in principal.permission_codes:
+        return None
+    return SecurityObject.assignments.any(ObjectAssignment.user_id == principal.user.id)
+
+
 def get_employee_or_404(db: Session, employee_id: UUID) -> Employee:
     employee = db.scalar(employee_query().where(Employee.id == employee_id))
     if employee is None:
@@ -314,7 +347,7 @@ def list_employees(
     limit: int = Query(default=25, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
-    _principal=Depends(require_permission("employees.read")),
+    principal=Depends(require_permission("employees.read")),
 ) -> EmployeePage:
     query = employee_query()
     count_query = select(func.count()).select_from(Employee)
@@ -347,8 +380,9 @@ def list_employees(
     employees = db.scalars(
         query.order_by(ordering, Employee.employee_number).limit(limit).offset(offset)
     ).all()
+    object_ids = visible_object_ids(db, principal)
     return EmployeePage(
-        items=[EmployeeRead.model_validate(employee) for employee in employees],
+        items=[employee_read(employee, object_ids) for employee in employees],
         total=db.scalar(count_query) or 0,
         limit=limit,
         offset=offset,
@@ -398,7 +432,8 @@ def create_employee(
         ip_address=request.client.host if request.client else None,
     )
     commit_employee_transaction(db)
-    return EmployeeRead.model_validate(get_employee_or_404(db, employee.id))
+    employee = get_employee_or_404(db, employee.id)
+    return employee_read(employee, visible_object_ids(db, principal))
 
 
 @router.get(
@@ -490,9 +525,10 @@ def list_employee_object_assignment_candidates(
 def get_employee(
     employee_id: UUID,
     db: Session = Depends(get_db),
-    _principal=Depends(require_permission("employees.read")),
+    principal=Depends(require_permission("employees.read")),
 ) -> EmployeeRead:
-    return EmployeeRead.model_validate(get_employee_or_404(db, employee_id))
+    employee = get_employee_or_404(db, employee_id)
+    return employee_read(employee, visible_object_ids(db, principal))
 
 
 @router.get(
@@ -502,17 +538,21 @@ def get_employee(
 def list_employee_object_assignments(
     employee_id: UUID,
     db: Session = Depends(get_db),
-    _principal=Depends(require_permission("employees.read")),
+    principal=Depends(require_permission("employees.read")),
 ) -> list[EmployeeObjectAssignmentRead]:
     employee = get_employee_or_404(db, employee_id)
     if employee.user_id is None:
         return []
-    rows = db.execute(
+    query = (
         select(ObjectAssignment, SecurityObject)
         .join(SecurityObject, SecurityObject.id == ObjectAssignment.object_id)
         .where(ObjectAssignment.user_id == employee.user_id)
         .order_by(SecurityObject.name, SecurityObject.code)
-    ).all()
+    )
+    object_filter = accessible_object_filter(principal)
+    if object_filter is not None:
+        query = query.where(object_filter)
+    rows = db.execute(query).all()
     return [
         EmployeeObjectAssignmentRead(
             object_id=obj.id,
@@ -533,10 +573,10 @@ def list_employee_object_assignment_history(
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
-    _principal=Depends(require_permission("employees.read")),
+    principal=Depends(require_permission("employees.read")),
 ) -> list[EmployeeObjectAssignmentHistoryRead]:
     get_employee_or_404(db, employee_id)
-    rows = db.execute(
+    query = (
         select(EmployeeObjectAssignmentHistory, SecurityObject)
         .join(
             SecurityObject,
@@ -549,7 +589,11 @@ def list_employee_object_assignment_history(
         )
         .limit(limit)
         .offset(offset)
-    ).all()
+    )
+    object_filter = accessible_object_filter(principal)
+    if object_filter is not None:
+        query = query.where(object_filter)
+    rows = db.execute(query).all()
     return [
         EmployeeObjectAssignmentHistoryRead(
             id=history.id,
@@ -727,7 +771,8 @@ def update_employee(
             ip_address=request.client.host if request.client else None,
         )
         commit_employee_transaction(db)
-    return EmployeeRead.model_validate(get_employee_or_404(db, employee.id))
+    employee = get_employee_or_404(db, employee.id)
+    return employee_read(employee, visible_object_ids(db, principal))
 
 
 @router.post("/employees/{employee_id}/archive", response_model=EmployeeRead)
@@ -759,7 +804,8 @@ def archive_employee(
         ip_address=request.client.host if request.client else None,
     )
     commit_employee_transaction(db)
-    return EmployeeRead.model_validate(get_employee_or_404(db, employee.id))
+    employee = get_employee_or_404(db, employee.id)
+    return employee_read(employee, visible_object_ids(db, principal))
 
 
 @router.post("/employees/{employee_id}/reactivate", response_model=EmployeeRead)
@@ -785,7 +831,8 @@ def reactivate_employee(
         ip_address=request.client.host if request.client else None,
     )
     commit_employee_transaction(db)
-    return EmployeeRead.model_validate(get_employee_or_404(db, employee.id))
+    employee = get_employee_or_404(db, employee.id)
+    return employee_read(employee, visible_object_ids(db, principal))
 
 
 @router.get("/employees/{employee_id}/sensitive", response_model=EmployeeSensitiveRead)
