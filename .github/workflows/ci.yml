@@ -27,6 +27,15 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     defaults:
       run:
         working-directory: backend
@@ -36,6 +45,7 @@ jobs:
       POSTGRES_PASSWORD: ci-only-securityops-password
       POSTGRES_HOST: localhost
       POSTGRES_PORT: 5432
+      RATE_LIMIT_STORAGE_URI: redis://localhost:6379/0
       SECURITYOPS_TEST_DATABASE_URL: postgresql+psycopg://securityops:ci-only-securityops-password@localhost:5432/securityops_test
     steps:
       - name: Quellcode auschecken
@@ -108,6 +118,71 @@ jobs:
       - name: Backend-Tests ausführen
         run: python -m pytest -q
 
+  backup-restore:
+    name: Verschlüsselten PostgreSQL-17-Datenbank- und Dokumentenrestore prüfen
+    runs-on: ubuntu-24.04
+    env:
+      COMPOSE_PROJECT_NAME: securityops-issue9-restore-test
+      POSTGRES_DB: securityops_backup_test
+      POSTGRES_USER: securityops
+      POSTGRES_PASSWORD: ci-only-securityops-password
+      APP_NETWORK_SUBNET: 172.28.0.0/24
+      APP_FRONTEND_IP: 172.28.0.10
+      FORWARDED_ALLOW_IPS: 172.28.0.10
+    steps:
+      - name: Quellcode auschecken
+        uses: actions/checkout@v7.0.1
+      - name: age installieren
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes age
+      - name: PostgreSQL starten und Migrationen einmalig anwenden
+        run: |
+          docker compose up --detach db
+          docker compose --profile release run --rm migrate
+      - name: API und statisches Frontend als Produktionscontainer prüfen
+        run: |
+          docker compose up --detach api frontend
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8000/health/ready >/dev/null; then
+              break
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              docker compose logs api frontend
+              exit 1
+            fi
+            sleep 2
+          done
+          curl --fail --silent --show-error http://127.0.0.1:5173/health/ready >/dev/null
+          curl --fail --silent --show-error --head http://127.0.0.1:5173/ \
+            | grep --ignore-case --quiet '^Content-Security-Policy:'
+          docker compose exec -T \
+            -e BOOTSTRAP_ADMIN_USERNAME=ci-admin \
+            -e BOOTSTRAP_ADMIN_EMAIL=ci-admin@example.invalid \
+            -e BOOTSTRAP_ADMIN_NAME="CI Test Administrator" \
+            -e BOOTSTRAP_ADMIN_PASSWORD=ci-only-admin-password-2026 \
+            api python -m app.bootstrap_admin
+          curl --fail --silent --show-error --dump-header "$RUNNER_TEMP/login.headers" \
+            --output /dev/null --header 'Content-Type: application/json' \
+            --data '{"username":"ci-admin","password":"ci-only-admin-password-2026"}' \
+            http://127.0.0.1:5173/api/v1/auth/login
+          grep --ignore-case --extended-regexp --quiet \
+            '^set-cookie: securityops_session=.*;.*secure' "$RUNNER_TEMP/login.headers"
+          docker compose exec -T api sh -ec \
+            'printf "%s\n" "synthetic restore fixture" > /var/lib/securityops/documents/ci-backup-fixture'
+      - name: Verschlüsseltes Backup in PostgreSQL 17 wiederherstellen
+        run: |
+          age-keygen --output "$RUNNER_TEMP/backup-identity"
+          age-keygen -y "$RUNNER_TEMP/backup-identity" > "$RUNNER_TEMP/backup-recipient"
+          export BACKUP_AGE_RECIPIENT="$(cat "$RUNNER_TEMP/backup-recipient")"
+          export BACKUP_AGE_IDENTITY_FILE="$RUNNER_TEMP/backup-identity"
+          export RESTORE_TEST_ACK=I_AM_USING_AN_ISOLATED_TEST_DATABASE
+          bash scripts/backup.sh "$RUNNER_TEMP/securityops-ci-backup"
+          bash scripts/restore-test.sh "$RUNNER_TEMP/securityops-ci-backup"
+          docker compose --profile restore-test run --rm --no-deps -T \
+            --entrypoint sh restore-documents -ec \
+            'test "$(cat /var/lib/securityops/documents/ci-backup-fixture)" = "synthetic restore fixture"'
+
   frontend:
     name: Frontend-Typprüfung und Build
     runs-on: ubuntu-24.04
@@ -136,7 +211,11 @@ jobs:
     steps:
       - name: Quellcode auschecken
         uses: actions/checkout@v7.0.1
+      - name: Compose-Konfiguration prüfen
+        run: POSTGRES_PASSWORD=ci-only-securityops-password docker compose config --quiet
       - name: Backend-Image bauen
         run: docker build -t securityops-api:ci ./backend
       - name: Frontend-Image bauen
         run: docker build -t securityops-frontend:ci ./frontend
+      - name: Nginx-Konfiguration prüfen
+        run: docker run --rm securityops-frontend:ci nginx -t
