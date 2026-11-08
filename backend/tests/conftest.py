@@ -20,6 +20,11 @@ from app.models import (
     CustomerAddress,
     CustomerContact,
     CustomerHistory,
+    Employee,
+    EmployeeAbsence,
+    EmployeeHistory,
+    EmployeeQualification,
+    EmployeeSensitiveDetails,
     ObjectAddress,
     ObjectAssignment,
     ObjectContact,
@@ -77,6 +82,11 @@ def client() -> Generator[TestClient, None, None]:
         db.execute(delete(CustomerContact))
         db.execute(delete(CustomerAddress))
         db.execute(delete(Customer))
+        db.execute(delete(EmployeeHistory))
+        db.execute(delete(EmployeeAbsence))
+        db.execute(delete(EmployeeQualification))
+        db.execute(delete(EmployeeSensitiveDetails))
+        db.execute(delete(Employee))
         db.execute(delete(user_roles))
         db.execute(delete(User))
         db.commit()
@@ -99,6 +109,12 @@ def client() -> Generator[TestClient, None, None]:
             "roles.read",
             "audit.read",
             "owks.read",
+            "employees.read",
+            "employees.manage",
+            "employees.sensitive.read",
+            "employees.sensitive.manage",
+            "employees.absences.read",
+            "employees.absences.manage",
         )
         permissions = {}
         for code in permission_codes:
@@ -147,6 +163,8 @@ def client() -> Generator[TestClient, None, None]:
                 "objects.assign",
                 "objects.sensitive.read",
                 "objects.sensitive.manage",
+                "employees.read",
+                "employees.manage",
             ),
         )
         get_or_create_role(
@@ -160,6 +178,19 @@ def client() -> Generator[TestClient, None, None]:
             "Objektleitung",
             "Testrolle mit zugewiesener Objektverwaltung",
             ("objects.read", "objects.manage", "objects.sensitive.read"),
+        )
+        get_or_create_role(
+            "hr",
+            "Personalverwaltung",
+            "Personal-Testrolle",
+            (
+                "employees.read",
+                "employees.manage",
+                "employees.sensitive.read",
+                "employees.sensitive.manage",
+                "employees.absences.read",
+                "employees.absences.manage",
+            ),
         )
         db.add(
             User(

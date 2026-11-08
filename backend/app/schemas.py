@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
@@ -453,6 +454,282 @@ class ObjectPage(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+EmployeeStatus = Literal["active", "inactive", "leave", "terminated"]
+
+
+class EmployeeCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    employee_number: str = Field(min_length=1, max_length=40)
+    user_id: UUID | None = None
+    full_name: str = Field(min_length=1, max_length=160)
+    email: EmailStr | None = None
+    phone: str | None = Field(default=None, max_length=40)
+    job_title: str | None = Field(default=None, max_length=120)
+    employment_status: EmployeeStatus = "active"
+    hired_on: date
+    ended_on: date | None = None
+    contract_type: str | None = Field(default=None, max_length=80)
+    weekly_hours: Decimal | None = Field(default=None, gt=0, le=168, max_digits=5, decimal_places=2)
+
+    @field_validator("employee_number", "full_name")
+    @classmethod
+    def required_values_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Personalnummer und Name dürfen nicht leer sein.")
+        return value
+
+    @field_validator("phone", "job_title", "contract_type")
+    @classmethod
+    def optional_values_must_not_be_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip() or None
+
+    @model_validator(mode="after")
+    def end_date_must_not_precede_hire_date(self):
+        if self.ended_on is not None and self.ended_on < self.hired_on:
+            raise ValueError("Das Austrittsdatum darf nicht vor dem Eintrittsdatum liegen.")
+        return self
+
+
+class EmployeeUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    employee_number: str | None = Field(default=None, min_length=1, max_length=40)
+    user_id: UUID | None = None
+    full_name: str | None = Field(default=None, min_length=1, max_length=160)
+    email: EmailStr | None = None
+    phone: str | None = Field(default=None, max_length=40)
+    job_title: str | None = Field(default=None, max_length=120)
+    employment_status: EmployeeStatus | None = None
+    hired_on: date | None = None
+    ended_on: date | None = None
+    contract_type: str | None = Field(default=None, max_length=80)
+    weekly_hours: Decimal | None = Field(default=None, gt=0, le=168, max_digits=5, decimal_places=2)
+
+    @field_validator("employee_number", "full_name", "employment_status", "hired_on")
+    @classmethod
+    def required_values_must_not_be_blank_or_null(cls, value):
+        if value is None:
+            raise ValueError("Ein gesetzter Änderungswert darf nicht null sein.")
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                raise ValueError("Personalnummer und Name dürfen nicht leer sein.")
+        return value
+
+    @field_validator("phone", "job_title", "contract_type")
+    @classmethod
+    def optional_values_must_not_be_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip() or None
+
+    @model_validator(mode="after")
+    def end_date_must_not_precede_hire_date(self):
+        if (
+            self.ended_on is not None
+            and self.hired_on is not None
+            and self.ended_on < self.hired_on
+        ):
+            raise ValueError("Das Austrittsdatum darf nicht vor dem Eintrittsdatum liegen.")
+        return self
+
+
+class EmployeeRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    employee_number: str
+    user_id: UUID | None
+    full_name: str
+    email: EmailStr | None
+    phone: str | None
+    job_title: str | None
+    employment_status: EmployeeStatus
+    hired_on: date
+    ended_on: date | None
+    contract_type: str | None
+    weekly_hours: Decimal | None
+    archived_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class EmployeePage(BaseModel):
+    items: list[EmployeeRead]
+    total: int
+    limit: int
+    offset: int
+
+
+class EmployeeSensitiveUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    address: str | None = Field(default=None, max_length=500)
+    emergency_contact: str | None = Field(default=None, max_length=300)
+    internal_notes: str | None = Field(default=None, max_length=10000)
+
+    @field_validator("address", "emergency_contact", "internal_notes")
+    @classmethod
+    def normalize_sensitive_values(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip() or None
+
+
+class EmployeeSensitiveRead(BaseModel):
+    employee_id: UUID
+    address: str | None
+    emergency_contact: str | None
+    internal_notes: str | None
+    updated_at: datetime | None
+
+
+class EmployeeQualificationCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    category: str = Field(min_length=1, max_length=80)
+    name: str = Field(min_length=1, max_length=160)
+    issuer: str | None = Field(default=None, max_length=160)
+    valid_from: date | None = None
+    expires_on: date | None = None
+
+    @field_validator("category", "name")
+    @classmethod
+    def required_values_must_not_be_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            raise ValueError("Kategorie und Bezeichnung dürfen nicht leer sein.")
+        return value
+
+    @field_validator("issuer")
+    @classmethod
+    def optional_issuer_must_not_be_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip() or None
+
+    @model_validator(mode="after")
+    def expiry_must_not_precede_start(self):
+        if (
+            self.valid_from is not None
+            and self.expires_on is not None
+            and self.expires_on < self.valid_from
+        ):
+            raise ValueError("Das Ablaufdatum darf nicht vor dem Gültigkeitsbeginn liegen.")
+        return self
+
+
+class EmployeeQualificationUpdate(EmployeeQualificationCreate):
+    category: str | None = Field(default=None, min_length=1, max_length=80)
+    name: str | None = Field(default=None, min_length=1, max_length=160)
+
+    @field_validator("category", "name")
+    @classmethod
+    def supplied_required_values_must_not_be_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            raise ValueError("Ein gesetzter Änderungswert darf nicht null sein.")
+        value = value.strip()
+        if not value:
+            raise ValueError("Kategorie und Bezeichnung dürfen nicht leer sein.")
+        return value
+
+
+class EmployeeQualificationRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    employee_id: UUID
+    category: str
+    name: str
+    issuer: str | None
+    valid_from: date | None
+    expires_on: date | None
+    archived_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class EmployeeQualificationExpiringRead(EmployeeQualificationRead):
+    employee_number: str
+    employee_name: str
+    days_until_expiry: int
+
+
+class EmployeeHistoryRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    actor_id: UUID | None
+    action: str
+    changed_fields: list[str]
+    created_at: datetime
+
+
+EmployeeAbsenceType = Literal["vacation", "sick_leave", "other"]
+EmployeeAbsenceStatus = Literal["pending", "approved", "rejected"]
+
+
+class EmployeeAbsenceCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    absence_type: EmployeeAbsenceType
+    starts_on: date
+    ends_on: date
+    status: EmployeeAbsenceStatus = "pending"
+
+    @model_validator(mode="after")
+    def end_date_must_not_precede_start(self):
+        if self.ends_on < self.starts_on:
+            raise ValueError("Das Abwesenheitsende darf nicht vor dem Beginn liegen.")
+        return self
+
+
+class EmployeeAbsenceUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    absence_type: EmployeeAbsenceType | None = None
+    starts_on: date | None = None
+    ends_on: date | None = None
+    status: EmployeeAbsenceStatus | None = None
+
+    @field_validator("absence_type", "starts_on", "ends_on", "status")
+    @classmethod
+    def supplied_values_must_not_be_null(cls, value):
+        if value is None:
+            raise ValueError("Ein gesetzter Änderungswert darf nicht null sein.")
+        return value
+
+    @model_validator(mode="after")
+    def end_date_must_not_precede_start(self):
+        if (
+            self.starts_on is not None
+            and self.ends_on is not None
+            and self.ends_on < self.starts_on
+        ):
+            raise ValueError("Das Abwesenheitsende darf nicht vor dem Beginn liegen.")
+        return self
+
+
+class EmployeeAbsenceRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    employee_id: UUID
+    absence_type: EmployeeAbsenceType
+    starts_on: date
+    ends_on: date
+    status: EmployeeAbsenceStatus
+    created_by_id: UUID | None
+    created_at: datetime
+    updated_at: datetime
 
 
 CustomerCreate.model_rebuild()

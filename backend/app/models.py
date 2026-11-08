@@ -1,4 +1,5 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from decimal import Decimal
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
@@ -8,6 +9,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Numeric,
     String,
     Table,
     Text,
@@ -100,6 +102,7 @@ class User(Base):
         cascade="all, delete-orphan",
         foreign_keys="ObjectAssignment.user_id",
     )
+    employee_record: Mapped["Employee | None"] = relationship(back_populates="user", uselist=False)
     sessions: Mapped[list["UserSession"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
@@ -435,3 +438,177 @@ class ObjectSecurityDetails(Base):
         nullable=False,
     )
     object: Mapped[SecurityObject] = relationship(back_populates="security_details")
+
+
+class Employee(Base):
+    __tablename__ = "employees"
+    __table_args__ = (
+        CheckConstraint(
+            "employment_status IN ('active', 'inactive', 'leave', 'terminated')",
+            name="ck_employees_employment_status",
+        ),
+        CheckConstraint("length(trim(employee_number)) > 0", name="ck_employees_number"),
+        CheckConstraint("length(trim(full_name)) > 0", name="ck_employees_full_name"),
+        CheckConstraint(
+            "weekly_hours IS NULL OR (weekly_hours > 0 AND weekly_hours <= 168)",
+            name="ck_employees_weekly_hours",
+        ),
+        CheckConstraint(
+            "ended_on IS NULL OR ended_on >= hired_on",
+            name="ck_employees_end_date",
+        ),
+        Index("ix_employees_status_name", "employment_status", "full_name"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    employee_number: Mapped[str] = mapped_column(String(40), unique=True, nullable=False)
+    user_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), unique=True, nullable=True
+    )
+    full_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    job_title: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    employment_status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)
+    hired_on: Mapped[date] = mapped_column(nullable=False)
+    ended_on: Mapped[date | None] = mapped_column(nullable=True)
+    contract_type: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    weekly_hours: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    user: Mapped[User | None] = relationship(back_populates="employee_record")
+    qualifications: Mapped[list["EmployeeQualification"]] = relationship(back_populates="employee")
+    absences: Mapped[list["EmployeeAbsence"]] = relationship(back_populates="employee")
+    history: Mapped[list["EmployeeHistory"]] = relationship(back_populates="employee")
+    sensitive_details: Mapped["EmployeeSensitiveDetails | None"] = relationship(
+        back_populates="employee", uselist=False
+    )
+
+
+class EmployeeQualification(Base):
+    __tablename__ = "employee_qualifications"
+    __table_args__ = (
+        CheckConstraint("length(trim(name)) > 0", name="ck_employee_qualifications_name"),
+        CheckConstraint(
+            "expires_on IS NULL OR valid_from IS NULL OR expires_on >= valid_from",
+            name="ck_employee_qualifications_dates",
+        ),
+        Index("ix_employee_qualifications_expiry", "expires_on", "archived_at"),
+        Index("ix_employee_qualifications_employee", "employee_id", "expires_on"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    employee_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("employees.id", ondelete="RESTRICT"), nullable=False
+    )
+    category: Mapped[str] = mapped_column(String(80), nullable=False)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    issuer: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    valid_from: Mapped[date | None] = mapped_column(nullable=True)
+    expires_on: Mapped[date | None] = mapped_column(nullable=True)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    employee: Mapped[Employee] = relationship(back_populates="qualifications")
+
+
+class EmployeeAbsence(Base):
+    __tablename__ = "employee_absences"
+    __table_args__ = (
+        CheckConstraint(
+            "absence_type IN ('vacation', 'sick_leave', 'other')",
+            name="ck_employee_absences_type",
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'approved', 'rejected')",
+            name="ck_employee_absences_status",
+        ),
+        CheckConstraint("ends_on >= starts_on", name="ck_employee_absences_dates"),
+        Index("ix_employee_absences_employee_dates", "employee_id", "starts_on", "ends_on"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    employee_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("employees.id", ondelete="RESTRICT"), nullable=False
+    )
+    absence_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    starts_on: Mapped[date] = mapped_column(nullable=False)
+    ends_on: Mapped[date] = mapped_column(nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    created_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    employee: Mapped[Employee] = relationship(back_populates="absences")
+
+
+class EmployeeSensitiveDetails(Base):
+    __tablename__ = "employee_sensitive_details"
+    __table_args__ = (
+        CheckConstraint(
+            "address IS NULL OR length(trim(address)) > 0",
+            name="ck_employee_sensitive_address",
+        ),
+        CheckConstraint(
+            "emergency_contact IS NULL OR length(trim(emergency_contact)) > 0",
+            name="ck_employee_sensitive_emergency_contact",
+        ),
+    )
+
+    employee_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("employees.id", ondelete="RESTRICT"),
+        primary_key=True,
+    )
+    address: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    emergency_contact: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    internal_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    employee: Mapped[Employee] = relationship(back_populates="sensitive_details")
+
+
+class EmployeeHistory(Base):
+    __tablename__ = "employee_history"
+    __table_args__ = (Index("ix_employee_history_employee_created", "employee_id", "created_at"),)
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    employee_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("employees.id", ondelete="RESTRICT"), nullable=False
+    )
+    actor_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    action: Mapped[str] = mapped_column(String(50), nullable=False)
+    changed_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    employee: Mapped[Employee] = relationship(back_populates="history")
