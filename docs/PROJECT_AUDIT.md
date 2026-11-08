@@ -2,7 +2,7 @@
 
 ## Umfang und Stand
 
-Direkte Bestandsaufnahme des `main`-Quellcodes `6c7679a646d30da0504d8990fefeefa351a29bfe` am 08.11.2026: Routerregistrierung, Models, 15 Alembic-Revisionen, Tests, Compose, Containerdefinitionen und Workflow. GitHub-PR-/Issue-/CI-Status stehen in [`PROJECT_STATUS.md`](PROJECT_STATUS.md). PR #23/#24 sind gemergt und Teil des untersuchten Stands; offene PRs #25–#27 sind nicht Teil von `main`.
+Direkte Bestandsaufnahme des `main`-Quellcodes `6c7679a646d30da0504d8990fefeefa351a29bfe` am 08.11.2026: Routerregistrierung, Models, 15 Alembic-Revisionen, Tests, Compose, Containerdefinitionen und Workflow. GitHub-PR-/Issue-/CI-Status stehen in [`PROJECT_STATUS.md`](PROJECT_STATUS.md). PR #23/#24 sind gemergt und Teil des untersuchten Stands; offene PRs #25–#28 sind nicht Teil von `main`.
 
 ## Module und Implementierungsstand
 
@@ -29,6 +29,7 @@ Direkte Bestandsaufnahme des `main`-Quellcodes `6c7679a646d30da0504d8990fefeefa3
 - Tests: Backendtests für Konfiguration, Kunden, Identität, Objekte, Personal, Planung, Zeiterfassung, OWKS und Dokumente/Verträge; Frontendtests sowie CI-PostgreSQL-Prüfungen.
 - Betrieb/CI: `.github/workflows/ci.yml`, `docker-compose.yml`, `backend/Dockerfile`, `frontend/Dockerfile`, `.env.example`, Package-/Python-Manifeste.
 - PR #26 (gegen `main`) schlägt Mitarbeiter-Verfügbarkeitsfenster, Dienstwünsche/Sperrzeiten und Schichtvertretungen vor; seine aktuelle CI ist grün. PR #27 baut darauf auf und ergänzt `0017_billing` nach `0016_scheduling_availability`. Die gestapelte Reihenfolge ist linear; #27 muss mit seiner Basisabhängigkeit integriert werden oder vor unabhängiger Übernahme neu basieren und migrationsseitig angepasst werden. Beide bleiben außerhalb des Main-Inventars.
+- PR #28 (gegen `main`, Issue #9) schlägt Nginx-Frontend-Auslieferung, nicht privilegierten Backend-Container, Redis-basiertes Rate-Limiting, separate Alembic-Rollouts, verschlüsselte Backups/Restore sowie SCA/SAST vor. Der aktuelle CI-Stand ist gemischt: Backend, Migrationen, Frontend, Docker und Security-Analyse grün; der Restore-Test scheitert beim Entpacken (`tar: This does not look like a tar archive`). Kein Bestandteil des Main-Inventars oder Produktionsnachweis.
 - Die vollständige Tabellen-/FK-/Constraint-/Indexreferenz ist in [`DATABASE.md`](DATABASE.md), alle registrierten API-Routen in [`API.md`](API.md).
 
 ## Offene Sicherheits- und Qualitätsrisiken

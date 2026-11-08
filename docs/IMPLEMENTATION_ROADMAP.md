@@ -12,6 +12,8 @@ Diese Roadmap basiert auf dem tatsächlich gemergten `main`-Stand vom 08.11.2026
 4. Sensible Daten-/Objektbereiche, Uploads, Auditgrenzen und Datenschutz unabhängig prüfen. Der derzeitige Upload hat keinen Malware-Scan; Hashing ist keine Verschlüsselung.
 5. Security-/Dependency-Scanning und Incident-Prozess ergänzen, sobald Pflege/Alarmierungsweg festgelegt sind.
 
+Der offene PR #28 (gegen `main`, Issue #9) schlägt Teile dieser Arbeiten vor: Nginx-Auslieferung, nicht privilegierten API-Container, Redis-Rate-Limiting, getrennte Migrationen sowie verschlüsselte Backups/Restore und Security-Scanning. Er ist nicht gemergt; im aktuellen CI ist der Restore-Job fehlgeschlagen, daher ist weder die Wiederherstellung noch eine Produktionsfreigabe nachgewiesen.
+
 ### P1 – Abnahme und Bestand konsolidieren
 
 1. Issue #10: Dienstplanung fachlich abnehmen. PR #26 schlägt dazu wöchentliche Verfügbarkeitsfenster, befristete Dienstwünsche/Sperrzeiten und Schichtvertretungen vor; PR ist offen, gegen `main` (nicht Teil davon). Sein aktueller Head `7e15c71` hat grüne Backend/PostgreSQL/Migrations-, Frontend- und Docker-CI; frühere Checkfehler an einem vorherigen Head sind nicht der aktuelle Checkstatus. Die bestehende Konflikt-/Ruhezeitprüfung ist keine arbeitsrechtliche Freigabe.
@@ -31,9 +33,9 @@ Diese Roadmap basiert auf dem tatsächlich gemergten `main`-Stand vom 08.11.2026
 ## Bestätigte GitHub-Lage
 
 - In `main`: Identity, Kunden, Objekte, Personal/Qualifikationen, Dienstplanung, Zeiterfassung, OWKS und Dokumente/Verträge (Migrationen `0001`–`0015`).
-- PR #23/#24 sind gemergt. Offen sind PR #25 (Dokumentation), #26 (Dienstplanung; aktuelle CI grün) und #27 (Rechnungswesen; auf #26 gestapelt, aktuelle CI grün).
+- PR #23/#24 sind gemergt. Offen sind PR #25 (Dokumentation; aktuelle Backend-CI scheitert im parallelen Dienstplan-Exclusion-Test), #26 (Dienstplanung; aktuelle CI grün), #27 (Rechnungswesen; auf #26 gestapelt, aktuelle CI grün) und #28 (Issue #9 Produktionshärtung; Restore-CI fehlgeschlagen).
 - PR #26 basiert auf `main`/Revision `0015_documents_contracts`; PR #27 ist darauf gestapelt und ergänzt `0017_billing` nach `0016_scheduling_availability`. Bei Integration ist diese Abhängigkeit zu erhalten; für eine unabhängige Übernahme von #27 wären Basis und Migrationskette ausdrücklich anzupassen.
-- Issues #2–#6 sind geschlossen; #7–#10 sind laut frischer GitHub-Abfrage offen. Issue #8 wird trotz PR #24 weiterhin als offen geführt; zu Issue #9 wird ohne zugeordneten offenen PR kein Umsetzungsfortschritt behauptet.
+- Issues #2–#6 sind geschlossen; #7–#10 sind laut frischer GitHub-Abfrage offen. Issue #8 wird trotz PR #24 weiterhin als offen geführt. PR #28 ist Issue #9 zugeordnet, bleibt aber offen und ohne nachgewiesenen erfolgreichen Restore.
 
 ## Abhängigkeiten und Abschlusskriterien
 
