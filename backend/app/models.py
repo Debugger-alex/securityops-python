@@ -95,6 +95,11 @@ class User(Base):
         nullable=False,
     )
     roles: Mapped[list[Role]] = relationship(secondary=user_roles, back_populates="users")
+    object_assignments: Mapped[list["ObjectAssignment"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        foreign_keys="ObjectAssignment.user_id",
+    )
     sessions: Mapped[list["UserSession"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
@@ -298,6 +303,9 @@ class SecurityObject(Base):
     history: Mapped[list["ObjectHistory"]] = relationship(
         back_populates="object", cascade="all, delete-orphan"
     )
+    assignments: Mapped[list["ObjectAssignment"]] = relationship(
+        back_populates="object", cascade="all, delete-orphan"
+    )
 
 
 class ObjectAddress(Base):
@@ -369,3 +377,27 @@ class ObjectHistory(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
     object: Mapped[SecurityObject] = relationship(back_populates="history")
+
+
+class ObjectAssignment(Base):
+    __tablename__ = "object_assignments"
+    __table_args__ = (
+        UniqueConstraint("object_id", "user_id", name="uq_object_assignments_object_user"),
+        Index("ix_object_assignments_user_object", "user_id", "object_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    object_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("objects.id", ondelete="RESTRICT"), nullable=False
+    )
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    assigned_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    assigned_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    object: Mapped[SecurityObject] = relationship(back_populates="assignments")
+    user: Mapped[User] = relationship(foreign_keys=[user_id], back_populates="object_assignments")
