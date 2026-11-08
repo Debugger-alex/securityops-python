@@ -1,5 +1,13 @@
 import type {
   AuthUser,
+  ObjectAssignableUser,
+  ObjectAssignment,
+  ObjectContact,
+  ObjectHistory,
+  ObjectPage,
+  ObjectSensitiveData,
+  ObjectStatus,
+  SecurityObject,
   Customer,
   CustomerAddressInput,
   CustomerContact,
@@ -136,5 +144,95 @@ export const updateCustomerContact = (
 
 export const deleteCustomerContact = (customerId: string, contactId: string) =>
   request<void>(`/customers/${customerId}/contacts/${contactId}`, { method: "DELETE" });
+
+export interface SecurityObjectInput {
+  customer_id: string;
+  name: string;
+  status?: ObjectStatus;
+  description?: string | null;
+  service_instructions?: string | null;
+  street: string;
+  house_number: string;
+  postal_code: string;
+  city: string;
+  country_code?: string;
+  phone?: string | null;
+  email?: string | null;
+  operating_hours?: Record<string, { start: string; end: string }[]>;
+  required_staffing?: number;
+  qualification_requirements?: string[];
+  object_manager_user_id?: string | null;
+}
+
+export interface ObjectFilters {
+  q: string;
+  customerId: string;
+  status: ObjectStatus | "";
+  includeArchived: boolean;
+  limit: number;
+  offset: number;
+}
+
+export const getObjects = (filters: ObjectFilters) => {
+  const params = new URLSearchParams({
+    limit: String(filters.limit),
+    offset: String(filters.offset),
+  });
+  if (filters.q.trim()) params.set("q", filters.q.trim());
+  if (filters.customerId) params.set("customer_id", filters.customerId);
+  if (filters.status) params.set("status", filters.status);
+  if (filters.includeArchived) params.set("include_archived", "true");
+  return request<ObjectPage>(`/objects?${params}`);
+};
+
+export const getObject = (id: string) => request<SecurityObject>(`/objects/${id}`);
+
+export const createObject = (data: SecurityObjectInput) =>
+  request<SecurityObject>("/objects", { method: "POST", body: JSON.stringify(data) });
+
+export const updateObject = (id: string, data: Partial<SecurityObjectInput>) =>
+  request<SecurityObject>(`/objects/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+
+export const archiveObject = (id: string) =>
+  request<SecurityObject>(`/objects/${id}/archive`, { method: "POST" });
+
+export const getObjectHistory = (id: string) =>
+  request<ObjectHistory[]>(`/objects/${id}/history?limit=100`);
+
+export const getObjectContacts = (id: string) =>
+  request<ObjectContact[]>(`/objects/${id}/contacts`);
+
+export const createObjectContact = (id: string, data: Omit<ObjectContact, "id">) =>
+  request<ObjectContact>(`/objects/${id}/contacts`, { method: "POST", body: JSON.stringify(data) });
+
+export const removeObjectContact = (objectId: string, contactId: string) =>
+  request<void>(`/objects/${objectId}/contacts/${contactId}`, { method: "DELETE" });
+
+export const getObjectAssignments = (id: string) =>
+  request<ObjectAssignment[]>(`/objects/${id}/assignments`);
+
+export const getObjectAssignmentCandidates = () =>
+  request<ObjectAssignableUser[]>("/objects/assignment-candidates");
+
+export const assignUserToObject = (objectId: string, userId: string) =>
+  request<ObjectAssignment>(`/objects/${objectId}/assignments`, {
+    method: "POST",
+    body: JSON.stringify({ user_id: userId }),
+  });
+
+export const removeObjectAssignment = (objectId: string, userId: string) =>
+  request<void>(`/objects/${objectId}/assignments/${userId}`, { method: "DELETE" });
+
+export const getObjectSensitiveData = (id: string) =>
+  request<ObjectSensitiveData>(`/objects/${id}/sensitive-data`);
+
+export const updateObjectSensitiveData = (
+  id: string,
+  data: Omit<ObjectSensitiveData, "updated_at">,
+) =>
+  request<ObjectSensitiveData>(`/objects/${id}/sensitive-data`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
 
 export const getUsers = () => request<AuthUser[]>("/users");

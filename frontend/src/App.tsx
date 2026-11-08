@@ -15,6 +15,7 @@ import {
   updateCustomer,
   updateCustomerContact,
 } from "./api";
+import ObjectsPanel from "./ObjectsPanel";
 import type {
   AuthUser,
   Customer,
@@ -102,12 +103,19 @@ export default function App() {
   const [offset, setOffset] = useState(0);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [history, setHistory] = useState<CustomerHistory[]>([]);
+  const [activeModule, setActiveModule] = useState<"customers" | "objects">("customers");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const canReadCustomers = user?.permissions.includes("customers.read") ?? false;
   const canCreateCustomers = user?.permissions.includes("customers.create") ?? false;
   const canUpdateCustomers = user?.permissions.includes("customers.update") ?? false;
   const canArchiveCustomers = user?.permissions.includes("customers.archive") ?? false;
+  const canReadObjects = user?.permissions.includes("objects.read") ?? false;
+  const canUseObjects = canReadObjects;
+
+  useEffect(() => {
+    if (user && !canReadCustomers && canUseObjects) setActiveModule("objects");
+  }, [canReadCustomers, canUseObjects, user]);
 
   useEffect(() => {
     getSession()
@@ -179,6 +187,7 @@ export default function App() {
       setSelectedCustomer(null);
       setHistory([]);
       setDashboard(null);
+      setActiveModule("customers");
     }
   }
 
@@ -359,6 +368,14 @@ export default function App() {
           <span className="brand-mark">S</span>
           <span>SECURITY<span className="brand-light">OPS</span></span>
         </a>
+        <nav className="module-nav" aria-label="Fachmodule">
+          {canReadCustomers && <button className={activeModule === "customers" ? "module-tab active" : "module-tab"}
+            aria-current={activeModule === "customers" ? "page" : undefined}
+            onClick={() => setActiveModule("customers")}>Kunden</button>}
+          {canUseObjects && <button className={activeModule === "objects" ? "module-tab active" : "module-tab"}
+            aria-current={activeModule === "objects" ? "page" : undefined}
+            onClick={() => setActiveModule("objects")}>Objekte</button>}
+        </nav>
         <div className="account">
           <span className="topbar-label">{user.full_name}</span>
           <button className="sign-out" onClick={() => void signOut()}>Abmelden</button>
@@ -366,19 +383,22 @@ export default function App() {
       </header>
 
       <section className="intro">
-        <p className="eyebrow">KUNDENVERWALTUNG</p>
+        <p className="eyebrow">{activeModule === "customers" ? "KUNDENVERWALTUNG" : "OBJEKTVERWALTUNG"}</p>
         <h1>Guten Tag.</h1>
-        <p>Ihre Kundenstammdaten an einem zentralen Ort.</p>
+        <p>{activeModule === "customers"
+          ? "Ihre Kundenstammdaten an einem zentralen Ort."
+          : "Objekte, Standorte und operative Ansprechpartner."}</p>
       </section>
 
-      {dashboard && <section className="stats" aria-label="Kundenübersicht">
+      {activeModule === "customers" && dashboard && <section className="stats" aria-label="Kundenübersicht">
         <article className="stat-card"><span>Kunden gesamt</span><strong>{dashboard.customers_total}</strong></article>
         <article className="stat-card"><span>Aktive Kunden</span><strong>{dashboard.customers_active}</strong></article>
         <article className="stat-card"><span>Interessenten</span><strong>{dashboard.customers_leads}</strong></article>
       </section>}
 
-      {error && <p className="alert page-alert" role="alert">{error}</p>}
+      {activeModule === "customers" && error && <p className="alert page-alert" role="alert">{error}</p>}
 
+      {activeModule === "customers" && <>
       <section className="content-grid">
         {canReadCustomers && <section className="panel">
           <div className="panel-heading">
@@ -607,7 +627,13 @@ export default function App() {
           )}
         </section>
       </section>}
-      <footer>SecurityOps <span>·</span> Kundenverwaltung</footer>
+      </>}
+      {activeModule === "objects" && canReadObjects && <ObjectsPanel user={user} />}
+      {!canReadCustomers && !canReadObjects && (
+        <section className="panel"><h2>Kein Modulzugriff</h2>
+          <p className="muted">Deinem Konto sind aktuell keine Kunden- oder Objektrechte zugewiesen.</p></section>
+      )}
+      <footer>SecurityOps <span>·</span> {activeModule === "customers" ? "Kundenverwaltung" : "Objektverwaltung"}</footer>
     </main>
   );
 }

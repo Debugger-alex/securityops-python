@@ -2,13 +2,15 @@
 
 ## Ziel und aktueller Stand
 
-SecurityOps ist als modularer Monolith mit Python/FastAPI, SQLAlchemy, PostgreSQL, Alembic und React/TypeScript/Vite angelegt. Der aktuelle Code umfasst Identity/RBAC, Kunden-API und eine einzelne React-Oberfläche. Objekte, Personal, Planung, Zeiterfassung, OWKS, Dokumente, Verträge und Rechnungen sind noch nicht implementiert.
+SecurityOps ist als modularer Monolith mit Python/FastAPI, SQLAlchemy, PostgreSQL, Alembic und React/TypeScript/Vite angelegt. Der aktuelle Code umfasst Identity/RBAC, Kunden- und Objektverwaltung sowie eine gemeinsame React-Oberfläche. Personal, Planung, Zeiterfassung, OWKS, Dokumente, Verträge und Rechnungen sind noch nicht implementiert.
 
 ## Laufzeitkomponenten
 
 - `backend/app/main.py`: FastAPI-Anwendung, Middleware und Router.
 - `backend/app/identity_api.py`: Anmeldung, Benutzer, Rollen und Audit-Lesezugriff.
 - `backend/app/api.py`: Kunden- und Dashboard-Endpunkte.
+- `backend/app/objects_api.py`: Objektverwaltung, Zuweisungsgrenzen, Kontakte, Historie und getrennte sensible Daten.
+- `backend/app/object_security.py`: AES-GCM-Verschlüsselung sensibler Objektangaben.
 - `backend/app/auth.py`: Sitzungen, CSRF und Rechteabhängigkeiten.
 - `backend/app/models.py`: SQLAlchemy-Modelle.
 - `backend/migrations`: Alembic-Schemaänderungen.
@@ -22,7 +24,7 @@ Der Browser authentifiziert sich mit einem zufälligen, HttpOnly-Session-Cookie.
 
 ## Fachmodule (Ziel)
 
-Kunden → Objekte → Verträge und Dienste → Personal und Qualifikationen → Dienstplanung → Zeiterfassung → OWKS/Nachweise → Abrechnung. Gemeinsame Identity-, Dokumenten- und Audit-Funktionen dienen diesen Modulen. Objektzuweisungen müssen vor operativen Datenmodulen als serverseitige Zugriffsbeschränkung eingeführt werden.
+Kunden → Objekte → Verträge und Dienste → Personal und Qualifikationen → Dienstplanung → Zeiterfassung → OWKS/Nachweise → Abrechnung. Kunden- und Objektstammdaten sind implementiert; Objektzugriff wird serverseitig anhand von Benutzerzuweisungen oder globalen Rechten begrenzt. Sensible Alarm-, Notfall-, Schlüssel- und Zutrittsangaben liegen als AES-GCM-Chiffrat in PostgreSQL; der separate 32-Byte-Schlüssel wird über `OBJECT_DATA_ENCRYPTION_KEY` bereitgestellt und muss sicher gesichert werden.
 
 ## Betrieb
 

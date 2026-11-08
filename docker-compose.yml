@@ -6,6 +6,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-securityops}
       POSTGRES_USER: ${POSTGRES_USER:-securityops}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Bitte POSTGRES_PASSWORD in .env setzen}
+      OBJECT_DATA_ENCRYPTION_KEY: ${OBJECT_DATA_ENCRYPTION_KEY:-}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

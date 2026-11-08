@@ -122,14 +122,35 @@ footer span { padding: 0 5px; }
 .history-list time { color: #74818d; font-size: .78rem; }
 .history-list small { grid-column: 1 / -1; color: #74818d; }
 
+.module-nav { display: flex; align-self: stretch; align-items: center; gap: 5px; margin-right: auto; margin-left: 32px; }
+.module-tab { height: 100%; padding: 0 14px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #64727e; cursor: pointer; font-weight: 600; }
+.module-tab:hover, .module-tab.active { border-bottom-color: #177d79; color: #177d79; }
+.objects-module { margin-top: 20px; }
+.objects-layout { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(280px, .8fr); gap: 18px; align-items: start; }
+.objects-module .detail-panel { margin-top: 20px; }
+.object-detail-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(280px, .75fr); gap: 28px; align-items: start; }
+.object-detail-side { display: grid; gap: 22px; }
+.manager-select { display: grid; gap: 6px; color: #43515c; font-size: .82rem; font-weight: 600; }
+.manager-select select { height: 40px; border: 1px solid #dfe6ea; border-radius: 7px; background: white; padding: 0 10px; }
+.sensitive-section { padding: 16px; border: 1px solid #ead8b8; border-radius: 9px; background: #fffcf5; }
+.sensitive-section h3 { margin: 0 0 9px; font-size: 1rem; }
+.sensitive-section textarea { width: 100%; border: 1px solid #dfe6ea; border-radius: 7px; padding: 9px; resize: vertical; }
+.hours-editor { display: grid; gap: 12px; }
+.hours-day { display: grid; gap: 8px; padding: 10px; border: 1px solid #e8edef; border-radius: 8px; }
+.hours-window { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: end; }
+.hours-window .text-button { margin-bottom: 8px; }
+
 @media (max-width: 850px) {
   .content-grid { grid-template-columns: 1fr; }
   .detail-grid { grid-template-columns: 1fr; }
+  .objects-layout, .object-detail-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 560px) {
   .shell { padding: 0 18px; }
   .topbar-label { display: none; }
   .account { gap: 8px; }
+  .module-nav { margin-left: 8px; }
+  .module-tab { padding: 0 8px; font-size: .82rem; }
   .stats { grid-template-columns: 1fr; gap: 9px; }
   .stat-card { min-height: 67px; padding: 13px 17px; }
   .panel { padding: 18px 14px; }

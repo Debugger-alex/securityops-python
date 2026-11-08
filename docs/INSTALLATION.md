@@ -5,9 +5,10 @@
 1. Docker Engine und Compose installieren.
 2. `cp .env.example .env` ausführen und ein eigenes Datenbankpasswort eintragen.
 3. `SESSION_COOKIE_SECURE=false` nur für lokales HTTP belassen.
-4. `docker compose up --build` starten.
-5. Nach erfolgreicher API-/Datenbankinitialisierung den Admin-Bootstrap-Befehl aus der README mit einmaligen Shell-Umgebungsvariablen ausführen.
-6. Oberfläche unter `http://localhost:5173`, API-Dokumentation unter `http://localhost:8000/docs` öffnen.
+4. Für sensible Objektangaben einen eigenen, stabil zu sichernden 32-Byte-Schlüssel für `OBJECT_DATA_ENCRYPTION_KEY` erzeugen und setzen. Ohne ihn sind diese Angaben nicht lesbar oder speicherbar.
+5. `docker compose up --build` starten.
+6. Nach erfolgreicher API-/Datenbankinitialisierung den Admin-Bootstrap-Befehl aus der README mit einmaligen Shell-Umgebungsvariablen ausführen.
+7. Oberfläche unter `http://localhost:5173`, API-Dokumentation unter `http://localhost:8000/docs` öffnen.
 
 ## Ohne Container
 

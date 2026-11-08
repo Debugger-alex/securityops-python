@@ -20,8 +20,13 @@ from app.models import (
     CustomerAddress,
     CustomerContact,
     CustomerHistory,
+    ObjectContact,
+    ObjectHistory,
+    ObjectSensitiveData,
+    ObjectUserAssignment,
     Permission,
     Role,
+    SecurityObject,
     User,
     UserSession,
     user_roles,
@@ -66,6 +71,11 @@ def client() -> Generator[TestClient, None, None]:
         db.execute(delete(CustomerHistory))
         db.execute(delete(CustomerContact))
         db.execute(delete(CustomerAddress))
+        db.execute(delete(ObjectHistory))
+        db.execute(delete(ObjectSensitiveData))
+        db.execute(delete(ObjectContact))
+        db.execute(delete(ObjectUserAssignment))
+        db.execute(delete(SecurityObject))
         db.execute(delete(Customer))
         db.execute(delete(user_roles))
         db.execute(delete(User))
@@ -82,6 +92,15 @@ def client() -> Generator[TestClient, None, None]:
             "roles.read",
             "audit.read",
             "owks.read",
+            "objects.read",
+            "objects.manage",
+            "objects.create",
+            "objects.read_all",
+            "objects.manage_all",
+            "objects.archive",
+            "objects.assign",
+            "objects.sensitive.read",
+            "objects.sensitive.write",
         )
         permissions = {}
         for code in permission_codes:
@@ -126,6 +145,12 @@ def client() -> Generator[TestClient, None, None]:
             "Mitarbeiter",
             "Operative Testrolle",
             ("owks.read",),
+        )
+        get_or_create_role(
+            "object_manager",
+            "Objektleitung",
+            "Zugriff auf zugewiesene Objekte",
+            ("objects.read", "objects.manage"),
         )
         db.add(
             User(

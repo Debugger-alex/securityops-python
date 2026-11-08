@@ -12,6 +12,7 @@ from app.api import router
 from app.config import get_settings
 from app.database import engine
 from app.identity_api import router as identity_router
+from app.objects_api import router as objects_router
 from app.rate_limit import limiter
 
 settings = get_settings()
@@ -28,6 +29,7 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization", "X-CSRF-Token"],
 )
 app.include_router(router, prefix=settings.api_prefix)
+app.include_router(objects_router, prefix=settings.api_prefix)
 app.include_router(identity_router, prefix=settings.api_prefix)
 
 

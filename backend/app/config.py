@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import SecretStr
+from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import URL
 
@@ -15,10 +15,16 @@ class Settings(BaseSettings):
     postgres_db: str = "securityops"
     postgres_user: str = "securityops"
     postgres_password: SecretStr
+    object_data_encryption_key: SecretStr | None = None
     cors_origins: str = "http://localhost:5173"
     session_cookie_secure: bool = True
     session_idle_minutes: int = 30
     session_absolute_hours: int = 12
+
+    @field_validator("object_data_encryption_key", mode="before")
+    @classmethod
+    def empty_object_data_key_is_unconfigured(cls, value):
+        return None if value == "" else value
 
     @property
     def database_url(self) -> URL:
