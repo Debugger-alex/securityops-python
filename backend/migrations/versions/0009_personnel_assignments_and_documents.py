@@ -7,7 +7,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "0009_personnel_assignments_and_documents"
+revision: str = "0009_personnel_links_docs"
 down_revision: str | None = "0008_personnel_management"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
