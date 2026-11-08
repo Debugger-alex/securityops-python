@@ -4,11 +4,11 @@
 
 `docker-compose.yml` beschreibt die lokale Entwicklungsumgebung mit PostgreSQL 17, FastAPI und Frontend-Vite. API und Frontend-Ports sind an `127.0.0.1` gebunden; der Datenbankport wird nicht nach außen veröffentlicht. Das Frontend-Image startet Vite im Development-Modus. Der API-Container wartet auf den DB-Healthcheck und führt Alembic-Migrationen beim Containerstart aus.
 
-Die Anwendungsdatenbankverbindung und Cookie/CORS-Einstellungen kommen aus Umgebungsvariablen. `POSTGRES_PASSWORD` ist erforderlich. `SESSION_COOKIE_SECURE` fällt in Compose auf `true`; ein lokales HTTP-Setup kann es bewusst auf `false` setzen. Health-Endpunkte prüfen Prozess (`/health/live`) und Datenbankzugriff (`/health/ready`). GitHub Actions baut Backend-/Frontend-Images, deployt diese aber nicht.
+Die Anwendungsdatenbankverbindung und Cookie/CORS-Einstellungen kommen aus Umgebungsvariablen. `POSTGRES_PASSWORD` ist erforderlich. `SESSION_COOKIE_SECURE` fällt in Compose auf `true`; ein lokales HTTP-Setup kann es bewusst auf `false` setzen. Allgemeine Dokumentversionen liegen unter `DOCUMENT_STORAGE_PATH` (standardmäßig `./.private-document-storage`) im lokalen Dateisystem und nicht im PostgreSQL-Volume; der Speicherort muss beim Containerbetrieb bewusst persistent und zugriffsgeschützt bereitgestellt werden. Health-Endpunkte prüfen Prozess (`/health/live`) und Datenbankzugriff (`/health/ready`). GitHub Actions baut Backend-/Frontend-Images, deployt diese aber nicht.
 
 ## Nicht als produktives Deployment umgesetzt
 
-Es gibt keinen bereitgestellten TLS-Reverse-Proxy, Produktions-Webserver für statische Frontenddateien, zentralen Secret Store, verteilten Rate-Limit-Store, separates Release-Migrationsverfahren, Datenbankrollen-/Netzwerkdesign, Monitoring, Alerting, automatisierte Backups oder Restore-Nachweis. Healthchecks und CI ersetzen diese Kontrollen nicht. Bei mehreren API-Replikaten kann die Migration beim Start konkurrieren; der Schritt ist vor Produktion als kontrollierter Einzelprozess auszuführen.
+Es gibt keinen bereitgestellten TLS-Reverse-Proxy, Produktions-Webserver für statische Frontenddateien, zentralen Secret Store, verteilten Rate-Limit-Store, separates Release-Migrationsverfahren, Datenbankrollen-/Netzwerkdesign, Monitoring, Alerting, automatisierte Backups oder Restore-Nachweis. Ein konsistentes Backup muss neben PostgreSQL auch den privaten Dokumentenspeicher sichern. Healthchecks und CI ersetzen diese Kontrollen nicht. Bei mehreren API-Replikaten kann die Migration beim Start konkurrieren; der Schritt ist vor Produktion als kontrollierter Einzelprozess auszuführen.
 
 ## Mindestanforderungen für einen späteren Betriebsaufbau
 

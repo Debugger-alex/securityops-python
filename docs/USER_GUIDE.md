@@ -1,6 +1,6 @@
 # Kurzanleitung
 
-Diese Anleitung beschreibt Funktionen auf `main`. OWKS aus PR #23 und Dokumenten-/Vertragsfunktionen aus dem darauf gestapelten PR #24 sind bis zu Merge und Abnahme nicht Bestandteil der laufenden Anwendung; Rechnungswesen ist nicht implementiert. Siehe [`PROJECT_STATUS.md`](PROJECT_STATUS.md) für den frisch geprüften Stand.
+Diese Anleitung beschreibt die Funktionen auf `main`, einschließlich des gemergten OWKS sowie der Dokumenten- und Vertragsverwaltung aus PR #23/#24. Ein Issue ist kein Beleg für eine fachliche Abnahme; Rechnungswesen ist nicht implementiert. Siehe [`PROJECT_STATUS.md`](PROJECT_STATUS.md) für den aktuellen Repository- und GitHub-Status.
 
 ## Administratorkonto
 

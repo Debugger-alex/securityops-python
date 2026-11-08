@@ -2,7 +2,7 @@
 
 ## Projektziel und Umfang
 
-SecurityOps ist eine deutschsprachige Verwaltungsplattform für einen Sicherheitsdienst. Ziel ist ein modularer Monolith mit Python/FastAPI, SQLAlchemy, PostgreSQL, Alembic sowie React/TypeScript. Der belegte `main`-Stand umfasst Identity/RBAC, Kunden, Objekte, Personal/Qualifikationen, Dienstplanung und Zeiterfassung einschließlich Zuschlagszeitnachweisen. Offene Pull Requests sind kein Teil von `main` und dürfen in Statusaussagen nicht als integriert dargestellt werden.
+SecurityOps ist eine deutschsprachige Verwaltungsplattform für einen Sicherheitsdienst. Ziel ist ein modularer Monolith mit Python/FastAPI, SQLAlchemy, PostgreSQL, Alembic sowie React/TypeScript. Der belegte `main`-Stand umfasst Identity/RBAC, Kunden, Objekte, Personal/Qualifikationen, Dienstplanung, Zeiterfassung einschließlich Zuschlagszeitnachweisen, OWKS sowie Dokumente/Verträge. Offene Pull Requests sind kein Teil von `main` und dürfen in Statusaussagen nicht als integriert dargestellt werden.
 
 ## Verbindliche Arbeitsweise
 

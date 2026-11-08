@@ -2,7 +2,7 @@
 
 ## Quelle und Stand
 
-Diese Referenz beschreibt den Quellcode auf `main` (`5f3530463e9531c1f825f43ae4c6a6e60b9974e3`), insbesondere `backend/app/models.py` und `backend/migrations/versions/`. Die Tabellen-/Spaltenlisten sind aus den SQLAlchemy-Metadaten abgeleitet, die Migrationshistorie aus den Alembic-Dateien. Der tatsächliche Laufzeit-Schema-Head ist `0013_time_tracking_surcharges`. Die vorgeschlagenen Tabellen/Migrationen `0014_owks_wachbuch` (PR #23) und `0015_documents_contracts` (PR #24) gehören nicht zu `main` und sind hier nicht als vorhandenes Schema verzeichnet.
+Diese Referenz beschreibt den Quellcode auf `main` (`6c7679a646d30da0504d8990fefeefa351a29bfe`), insbesondere `backend/app/models.py` und `backend/migrations/versions/`. Die Tabellen-/Spaltenlisten sind aus den SQLAlchemy-Metadaten abgeleitet, die Migrationshistorie aus den Alembic-Dateien. Das Metadateninventar umfasst 52 Tabellen; der Alembic-Head ist `0015_documents_contracts`. PR #23 und #24 sind gemergt; ihre Revisionen `0014_owks_wachbuch` und `0015_documents_contracts` gehören zum aktuellen Schema.
 
 UUID-Primärschlüssel werden in PostgreSQL als UUID geführt. Datums-/Zeitpunktfelder mit `DateTime(timezone=True)` werden als zeitzonenbewusste Zeitpunkte (`TIMESTAMPTZ`) abgebildet; APIs normalisieren Zeitpunkte für operative Zeitdaten nach UTC. JSON-Spalten und Binärdaten verwenden PostgreSQL-JSON bzw. `BYTEA`. Nicht aufgeführte `CHECK`-Regeln können zusätzlich in Schemas/Service-Code validiert werden; hier werden Datenbankconstraints und -indizes dokumentiert.
 
@@ -48,6 +48,22 @@ UUID-Primärschlüssel werden in PostgreSQL als UUID geführt. Datums-/Zeitpunkt
 | `role_permissions` | zusammengesetzter PK (`role_id`, `permission_id`) |
 | `user_sessions` | PK `id`; `user_id`, `token_hash`, `csrf_token_hash`, `created_at`, `last_seen_at`, `expires_at`, `absolute_expires_at` |
 | `audit_logs` | PK `id`; `actor_id`, `action`, `entity_type`, `entity_id`, `ip_address`, `details`, `created_at` |
+| `owks_control_points` | PK `id`; `object_id`, `name`, `identifier_type`, `identifier_hash`, `is_active`, `created_by_id`, `created_at` |
+| `owks_routes` | PK `id`; `object_id`, `name`, `interval_minutes`, `is_active`, `created_by_id`, `created_at` |
+| `owks_route_points` | PK `id`; `route_id`, `control_point_id`, `position` |
+| `owks_challenges` | PK `id`; `object_id`, `user_id`, `expires_at`, `consumed_at`, `created_at` |
+| `owks_events` | PK `id`; `object_id`, `route_id`, `control_point_id`, `corrects_event_id`, `employee_id`, `actor_id`, `challenge_id`, `client_event_id`, `event_type`, `severity`, `title`, `description`, `occurred_at`, `sync_status`, `presence_verified`, `created_at` |
+| `owks_event_statuses` | PK `id`; `event_id`, `sequence_no`, `status`, `note`, `actor_id`, `created_at` |
+| `owks_attachments` | PK `id`; `event_id`, `file_name`, `media_type`, `size_bytes`, `sha256`, `content`, `uploaded_by_id`, `created_at` |
+| `documents` | PK `id`; `document_number`, `title`, `description`, `category`, `status`, `customer_id`, `object_id`, `employee_id`, `expires_on`, `created_by_id`, `archived_at`, `created_at`, `updated_at` |
+| `document_versions` | PK `id`; `document_id`, `version`, `storage_key`, `file_name`, `media_type`, `size_bytes`, `sha256`, `uploaded_by_id`, `created_at` |
+| `document_approvals` | PK `id`; `version_id`, `requested_by_id`, `decided_by_id`, `status`, `decision_note`, `created_at`, `decided_at` |
+| `document_read_receipts` | PK `id`; `version_id`, `user_id`, `read_at` |
+| `document_history` | PK `id`; `document_id`, `actor_id`, `action`, `changed_fields`, `details`, `created_at` |
+| `contracts` | PK `id`; `contract_number`, `name`, `contract_type`, `counterparty`, `customer_id`, `object_id`, `employee_id`, `starts_on`, `ends_on`, `notice_period_days`, `renewal_rule`, `status`, `document_id`, `internal_notes`, `archived_at`, `created_by_id`, `created_at`, `updated_at` |
+| `contract_history` | PK `id`; `contract_id`, `actor_id`, `action`, `changed_fields`, `details`, `created_at` |
+| `document_contract_reminder_settings` | PK `id` (Singleton); `lead_days`, `updated_by_id`, `updated_at` |
+| `document_contract_reminders` | PK `id`; `document_id`, `contract_id`, `reminder_type`, `event_on`, `remind_on`, `deduplication_key`, `status`, `created_at` |
 
 ### Nullable Spalten
 
@@ -82,6 +98,20 @@ Alle nicht in dieser Liste enthaltenen Spalten sind in den Modellen `nullable=Fa
 | `time_surcharge_calculations` | `federal_state`, `created_by_id` |
 | `time_tracking_periods` | `federal_state`, `locked_by_id` |
 | `audit_logs` | `actor_id`, `entity_id`, `ip_address` |
+| `owks_control_points` | `created_by_id` |
+| `owks_routes` | `created_by_id` |
+| `owks_challenges` | `consumed_at` |
+| `owks_events` | `route_id`, `control_point_id`, `corrects_event_id`, `employee_id`, `actor_id`, `challenge_id`, `client_event_id` |
+| `owks_event_statuses` | `actor_id` |
+| `owks_attachments` | `uploaded_by_id` |
+| `documents` | `description`, `customer_id`, `object_id`, `employee_id`, `expires_on`, `created_by_id`, `archived_at` |
+| `document_versions` | `uploaded_by_id` |
+| `document_approvals` | `requested_by_id`, `decided_by_id`, `decision_note`, `decided_at` |
+| `document_history` | `actor_id` |
+| `contracts` | `object_id`, `employee_id`, `ends_on`, `notice_period_days`, `renewal_rule`, `document_id`, `internal_notes`, `archived_at`, `created_by_id` |
+| `contract_history` | `actor_id` |
+| `document_contract_reminder_settings` | `updated_by_id` |
+| `document_contract_reminders` | `document_id`, `contract_id` |
 
 ## Fremdschlüssel und Löschverhalten
 
@@ -101,6 +131,27 @@ Alle nicht in dieser Liste enthaltenen Spalten sind in den Modellen `nullable=Fa
 | `user_sessions.user_id` | `users.id` | `CASCADE` |
 | `user_roles.user_id`, `user_roles.role_id` | `users.id`, `roles.id` | jeweils `CASCADE` |
 | `role_permissions.role_id`, `role_permissions.permission_id` | `roles.id`, `permissions.id` | jeweils `CASCADE` |
+| `owks_control_points.object_id`, `owks_routes.object_id`, `owks_challenges.object_id`, `owks_events.object_id` | `objects.id` | jeweils `RESTRICT` |
+| `owks_control_points.created_by_id`, `owks_routes.created_by_id` | `users.id` | jeweils `SET NULL` |
+| `owks_route_points.route_id`, `owks_events.route_id` | `owks_routes.id` | jeweils `RESTRICT` |
+| `owks_route_points.control_point_id`, `owks_events.control_point_id` | `owks_control_points.id` | jeweils `RESTRICT` |
+| `owks_challenges.user_id`, `owks_events.actor_id` | `users.id` | jeweils `RESTRICT` |
+| `owks_events.corrects_event_id` | `owks_events.id` | `RESTRICT` |
+| `owks_events.employee_id` | `employees.id` | `RESTRICT` |
+| `owks_events.challenge_id` | `owks_challenges.id` | `RESTRICT` |
+| `owks_event_statuses.event_id`, `owks_attachments.event_id` | `owks_events.id` | jeweils `RESTRICT` |
+| `owks_event_statuses.actor_id`, `owks_attachments.uploaded_by_id` | `users.id` | jeweils `RESTRICT` |
+| `documents.customer_id`, `contracts.customer_id` | `customers.id` | jeweils `RESTRICT` |
+| `documents.object_id`, `contracts.object_id` | `objects.id` | jeweils `RESTRICT` |
+| `documents.employee_id`, `contracts.employee_id` | `employees.id` | jeweils `RESTRICT` |
+| `documents.created_by_id`, `document_versions.uploaded_by_id`, `document_approvals.requested_by_id`, `document_approvals.decided_by_id`, `document_history.actor_id`, `contracts.created_by_id`, `contract_history.actor_id`, `document_contract_reminder_settings.updated_by_id` | `users.id` | jeweils `SET NULL` |
+| `document_versions.document_id`, `document_history.document_id` | `documents.id` | jeweils `RESTRICT` |
+| `document_approvals.version_id`, `document_read_receipts.version_id` | `document_versions.id` | jeweils `RESTRICT` |
+| `document_read_receipts.user_id` | `users.id` | `RESTRICT` |
+| `contract_history.contract_id` | `contracts.id` | `RESTRICT` |
+| `contracts.document_id` | `documents.id` | `SET NULL` |
+| `document_contract_reminders.document_id` | `documents.id` | `RESTRICT` |
+| `document_contract_reminders.contract_id` | `contracts.id` | `RESTRICT` |
 
 ## Constraints und Indizes
 
@@ -141,6 +192,22 @@ Primärschlüssel sind in der Tabellenübersicht aufgeführt. Die folgenden bena
 | `time_surcharge_rules` | Unique `uq_time_surcharge_rules_code`; Checks `ck_time_surcharge_rules_category`, `ck_time_surcharge_rules_calculation_type`, `ck_time_surcharge_rules_value`, `ck_time_surcharge_rules_validity`, `ck_time_surcharge_rules_combination`; Index `ix_time_surcharge_rules_validity` |
 | `time_surcharge_calculations` | Unique `uq_time_surcharge_calculations_version(entry_id, version)`; Checks `ck_time_surcharge_calculations_version`, `ck_time_surcharge_calculations_work_seconds`; Index `ix_time_surcharge_calculations_entry_created` |
 | `time_tracking_periods` | Unique `uq_time_tracking_periods_range(from_date, to_date)`; Check `ck_time_tracking_periods_date_order`; Index `ix_time_tracking_periods_range` |
+| `owks_control_points` | Unique `identifier_hash`; Checks `ck_owks_control_point_type`, `ck_owks_control_point_name`; Index `ix_owks_control_points_object_active` |
+| `owks_routes` | Checks `ck_owks_route_name`, `ck_owks_route_interval`; Index `ix_owks_routes_object_active` |
+| `owks_route_points` | Unique `uq_owks_route_points_position(route_id, position)`, `uq_owks_route_points_point(route_id, control_point_id)`; Check `ck_owks_route_points_position` |
+| `owks_challenges` | Index `ix_owks_challenges_expires` |
+| `owks_events` | Checks `ck_owks_events_type`, `ck_owks_events_severity`, `ck_owks_events_sync_status`; Unique `uq_owks_events_idempotency(actor_id, client_event_id)`; indexes `ix_owks_events_object_occurred`, `ix_owks_events_object_created` and partial unique `uq_owks_missed_event_client_id` for `event_type = 'missed'` |
+| `owks_event_statuses` | Checks `ck_owks_event_status`, `ck_owks_event_status_sequence`; Unique `uq_owks_event_status_sequence(event_id, sequence_no)`; Index `ix_owks_event_statuses_event_created` |
+| `owks_attachments` | Checks `ck_owks_attachments_media_type`, `ck_owks_attachments_size` (max. 10 MiB); Index `ix_owks_attachments_event_created` |
+| `documents` | Unique `document_number`; Checks `ck_documents_status`, `ck_documents_title`; indexes `ix_documents_status_expiry`, `ix_documents_customer`, `ix_documents_object`, `ix_documents_employee` |
+| `document_versions` | Unique `storage_key`, `uq_document_versions_number(document_id, version)`; Checks `ck_document_versions_version`, `ck_document_versions_size`, `ck_document_versions_media_type`; Index `ix_document_versions_document_created` |
+| `document_approvals` | Check `ck_document_approvals_status`; Index `ix_document_approvals_version_created` |
+| `document_read_receipts` | Unique `uq_document_read_receipt_user_version(version_id, user_id)`; Index `ix_document_read_receipts_version_read` |
+| `document_history` | Index `ix_document_history_document_created` |
+| `contracts` | Unique `contract_number`; Checks `ck_contracts_type`, `ck_contracts_status`, `ck_contracts_dates`, `ck_contracts_notice_period`, `ck_contracts_name`; indexes `ix_contracts_status_end`, `ix_contracts_customer`, `ix_contracts_object` |
+| `contract_history` | Index `ix_contract_history_contract_created` |
+| `document_contract_reminder_settings` | Check `ck_doc_contract_reminder_settings_singleton` (`id = 1`) |
+| `document_contract_reminders` | Unique `uq_doc_contract_reminders_dedupe`; Checks `ck_doc_contract_reminders_single_target`, `ck_doc_contract_reminders_type`, `ck_doc_contract_reminders_status`; Index `ix_doc_contract_reminders_due_status` |
 
 Die `user_roles`- und `role_permissions`-Join-Tabellen haben zusammengesetzte Primärschlüssel; ihre beiden Fremdschlüssel sind jeweils `ON DELETE CASCADE`. Einige modelldeklarierte, nicht benannte Einzelspalten-Unique-Constraints (zum Beispiel `roles.code`) sind oben als Feld-Unique erwähnt. Migrationsspezifische PostgreSQL- und partielle Indizes sind zusätzlich aufgeführt, auch wenn sie nicht vollständig in `Base.metadata` als Modell-Index gespiegelt sind.
 
@@ -183,9 +250,36 @@ erDiagram
     TIME_ENTRY_CORRECTIONS ||--o{ TIME_ENTRY_CORRECTION_SEGMENTS : proposed_segments
     TIME_ENTRIES ||--o{ TIME_ENTRY_HISTORY : history
     TIME_ENTRIES ||--o{ TIME_SURCHARGE_CALCULATIONS : snapshots
+    OBJECTS ||--o{ OWKS_CONTROL_POINTS : checkpoints
+    OBJECTS ||--o{ OWKS_ROUTES : patrol_routes
+    OWKS_ROUTES ||--o{ OWKS_ROUTE_POINTS : ordered_points
+    OWKS_CONTROL_POINTS ||--o{ OWKS_ROUTE_POINTS : included_at
+    OBJECTS ||--o{ OWKS_CHALLENGES : scan_challenges
+    USERS ||--o{ OWKS_CHALLENGES : issued_to
+    OBJECTS ||--o{ OWKS_EVENTS : log_entries
+    OWKS_ROUTES o|--o{ OWKS_EVENTS : patrol_events
+    OWKS_CONTROL_POINTS o|--o{ OWKS_EVENTS : scan_events
+    OWKS_EVENTS o|--o{ OWKS_EVENTS : correction_of
+    OWKS_EVENTS ||--o{ OWKS_EVENT_STATUSES : status_history
+    OWKS_EVENTS ||--o{ OWKS_ATTACHMENTS : attachments
+    EMPLOYEES o|--o{ OWKS_EVENTS : recorded_for
+    DOCUMENTS ||--o{ DOCUMENT_VERSIONS : versions
+    DOCUMENT_VERSIONS ||--o{ DOCUMENT_APPROVALS : approvals
+    DOCUMENT_VERSIONS ||--o{ DOCUMENT_READ_RECEIPTS : read_receipts
+    DOCUMENTS ||--o{ DOCUMENT_HISTORY : history
+    CUSTOMERS ||--o{ DOCUMENTS : customer_files
+    OBJECTS o|--o{ DOCUMENTS : object_files
+    EMPLOYEES o|--o{ DOCUMENTS : employee_files
+    CUSTOMERS ||--o{ CONTRACTS : customer_contracts
+    OBJECTS o|--o{ CONTRACTS : object_contracts
+    EMPLOYEES o|--o{ CONTRACTS : personnel_contracts
+    DOCUMENTS o|--o{ CONTRACTS : contract_document
+    CONTRACTS ||--o{ CONTRACT_HISTORY : history
+    DOCUMENTS o|--o{ DOCUMENT_CONTRACT_REMINDERS : document_reminders
+    CONTRACTS o|--o{ DOCUMENT_CONTRACT_REMINDERS : contract_reminders
 ```
 
-`schedule_settings` und `time_tracking_settings` sind Singleton-Konfigurationen. Beziehungen zu `users` als Ersteller/Prüfer/Sperrer sind aus Gründen der Lesbarkeit nicht sämtlich im Diagramm gezeichnet; die Fremdschlüsselliste oben ist vollständig.
+`schedule_settings`, `time_tracking_settings` und `document_contract_reminder_settings` sind Singleton-Konfigurationen. Beziehungen zu `users` als Ersteller/Prüfer/Sperrer sowie einzelne selbstreferenzielle/optionale OWKS-Beziehungen sind aus Gründen der Lesbarkeit nicht sämtlich im Diagramm gezeichnet; die Fremdschlüsselliste oben ist vollständig.
 
 ## Alembic-Kette auf `main`
 
@@ -204,6 +298,8 @@ erDiagram
 | `0011_scheduling_core` | `0010_customer_fields` | Planungseinstellungen, Schichten, Historie, `btree_gist` und Überschneidungs-Exclusion-Constraint |
 | `0012_time_tracking` | `0011_scheduling_core` | Zeitbuchungen, Arbeits-/Pausensegmente, Korrekturen, Historie, partielle Ein-Open-Indizes und Rechte |
 | `0013_time_tracking_surcharges` | `0012_time_tracking` | Bundesland, Zuschlagsregeln, versionierte Zuschlagszeit-Snapshots, Periodensperren und Rechte |
+| `0014_owks_wachbuch` | `0013_time_tracking_surcharges` | Objektgebundene Kontrollpunkte/Routen, Challenges, Wachbuchereignisse, Statusverlauf und Anhänge; append-only Trigger für OWKS-Ereignisse/Status/Anhänge, OWKS-Recht |
+| `0015_documents_contracts` | `0014_owks_wachbuch` | Dokumente/-versionen, Freigaben, Lesebestätigungen, Verträge/-historie, Erinnerungen und Rollenrechte |
 
 Neue Schemaänderungen benötigen eine neue Alembic-Migration. Ein `Base.metadata.create_all` ist nur in Tests zulässig. Migrationen sollten vor Rollout in PostgreSQL geprüft werden; Daten-destruktive Downgrades sind keine sichere Rollbackstrategie. Restore- und produktive Migrationsverfahren sind nicht nachgewiesen.
 
@@ -212,6 +308,8 @@ Neue Schemaänderungen benötigen eine neue Alembic-Migration. Ein `Base.metadat
 - Kunden, Objekte, Personal und Qualifikationen werden überwiegend archiviert statt physisch gelöscht; referenzierte Daten nutzen meist `RESTRICT`.
 - Historien und Auditlogs erfassen für viele Fachänderungen Aktionen/Feldnamen, nicht flächendeckend Vorher-/Nachher-Werte. Direkte privilegierte Datenbankänderungen sind nicht ausgeschlossen.
 - Mitarbeiter-Qualifikationsdateien werden inklusive Dateiinhalt in `employee_qualification_documents.content` gespeichert. `sha256` ist ein Prüfsummenfeld, keine Verschlüsselung oder Malware-Prüfung.
+- OWKS-Anhänge werden in `owks_attachments.content` als `BYTEA` abgelegt. OWKS-Ereignisse, Statushistorien und Anhänge haben Append-only-Trigger in PostgreSQL; privilegierte Datenbankadministratoren bleiben außerhalb dieser Anwendungsschutzgrenze.
+- Dokumentversionen speichern einen privaten `storage_key`, Metadaten und SHA-256; der Dateiinhalt liegt im konfigurierten privaten Dateispeicher und nicht in `document_versions`. Ein Hash ist keine Verschlüsselung oder Malware-Prüfung. Das Dateisystem muss zusätzlich konsistent gesichert werden.
 - `time_surcharge_calculations` speichert unveränderliche Zeit-/Regelsnapshots; es gibt keine Geldbetrags-Spalte. Geldberechnung ist nicht implementiert.
 - Abwesenheitsdaten und sensible Personal-/Objektdaten sind personenbezogen/sensibel; Verschlüsselung at rest, Aufbewahrung und Löschung müssen für die konkrete Betriebsumgebung entschieden werden.
 - Lokale API-Tests laufen standardmäßig gegen SQLite. PostgreSQL-Constraints, Migrationen und konkurrierende Schreibvorgänge benötigen den PostgreSQL-CI-Lauf.

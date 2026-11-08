@@ -2,7 +2,7 @@
 
 ## Charakter und Scope
 
-Dies ist eine statische, dokumentarische Zusammenfassung sichtbarer Kontrollen im `main`-Code (`5f3530463e9531c1f825f43ae4c6a6e60b9974e3`), keine unabhängige Sicherheitsprüfung, kein Penetrationstest und keine Zertifizierung. Es wurden für diese Dokumentationsarbeit keine Angriffe ausgeführt und keine realen Daten verwendet. Offene PRs #23/#24 sind nicht in den `main`-Befund eingerechnet.
+Dies ist eine statische, dokumentarische Zusammenfassung sichtbarer Kontrollen im `main`-Code (`6c7679a646d30da0504d8990fefeefa351a29bfe`), keine unabhängige Sicherheitsprüfung, kein Penetrationstest und keine Zertifizierung. Es wurden für diese Dokumentationsarbeit keine Angriffe ausgeführt und keine realen Daten verwendet. OWKS und Dokumente/Verträge aus den gemergten PRs #23/#24 sind in den `main`-Befund eingerechnet.
 
 ## Befundübersicht
 
@@ -14,7 +14,9 @@ Dies ist eine statische, dokumentarische Zusammenfassung sichtbarer Kontrollen i
 | Rate-Limit | Unvollständig | Login `5/minute` über SlowAPI und Client-IP; kein geteilter Speicher/Mehrinstanznachweis. Proxy-Header-Trust nicht eingerichtet. |
 | Audit | Teilweise | App-API erlaubt Lesen mit `audit.read`; schreibt Events für implementierte Abläufe. Kein DB-seitiger Append-only-Schutz/externes unveränderliches Archiv, keine vollständige Abdeckung aller Vorgänge. |
 | Personal-/Objektdaten | Getrennte Endpunkte | Sensible Werte und Datei-/Abwesenheitsdaten haben gesonderte Rechte. Datenschutz, Verschlüsselung at rest und Aufbewahrung sind nicht vollständig nachgewiesen. |
-| Uploads | Eingabeprüfung, aber kein Malware-Schutz | Qualifikationsnachweise: PDF/PNG/JPEG, max. 10 MiB, Erweiterung/MIME/Signaturprüfung, in PostgreSQL (`BYTEA`). Kein Malware-Scan, Quarantäne, KMS oder Anwendungsebene-Verschlüsselung. |
+| Uploads | Eingabeprüfung, aber kein Malware-Schutz | Qualifikationsnachweise und OWKS-Anhänge: PDF/PNG/JPEG, max. 10 MiB, in PostgreSQL (`BYTEA`). Dokumente: PDF/PNG/JPEG/DOCX/XLSX im privaten Dateispeicher, Standardgrenze 20 MiB. Typ-/Signaturprüfung, aber kein Malware-Scan, Quarantäne, KMS oder Anwendungsebene-Verschlüsselung. |
+| OWKS-Protokoll | Teilweise geschützt | Migration 0014 ergänzt Append-only-Trigger gegen UPDATE/DELETE an Ereignissen, Statushistorien und Anhängen. Direkte privilegierte DB-Änderungen außerhalb der Triggerberechtigung, Backup/Restore und unabhängige Integritätsprüfung sind nicht nachgewiesen. |
+| Dokumente / Verträge | Autorisierte API und privater lokaler Speicher | Dateiabruf erfolgt über Rechte-Endpunkte; private Verzeichnis-/Dateimodi. Malware-Scan, Verschlüsselung, externer geschützter Speicher und automatische Erinnerungszustellung fehlen. |
 | Transport / Deployment | Nicht umgesetzt | Kein TLS-Reverse-Proxy, HSTS/CSP oder Produktions-Webserver im Compose-Setup; Vite läuft als Entwicklungsserver. |
 | Abhängigkeiten / CI | Grundlegende CI | Ruff, Backend, PostgreSQL-Migrationen, Frontend-Build/-Tests, Docker-Build. Kein SCA/SAST/Secret-Scanning-Job. |
 | Backup / Wiederherstellung | Nicht nachgewiesen | Keine automatisierten verschlüsselten Backups oder erfolgreich durchgeführte Restoreprobe im Repository belegt. |

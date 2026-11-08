@@ -2,7 +2,7 @@
 
 ## Ist-Zustand
 
-Automatisierte Backups, definierte RPO/RTO, verschlüsselte externe Aufbewahrung und ein erfolgreicher Restore-Test sind in diesem Repository nicht implementiert bzw. nicht belegt. Das Compose-Volume `postgres_data` ist persistenter Speicher, kein Backup. Dateien von Personalqualifikationen liegen in der Datenbank (`BYTEA`) und müssen in einem konsistenten Datenbankbackup enthalten sein.
+Automatisierte Backups, definierte RPO/RTO, verschlüsselte externe Aufbewahrung und ein erfolgreicher Restore-Test sind in diesem Repository nicht implementiert bzw. nicht belegt. Das Compose-Volume `postgres_data` ist persistenter Speicher, kein Backup. Dateien von Personalqualifikationen und OWKS-Anhänge liegen in der Datenbank (`BYTEA`) und müssen in einem konsistenten Datenbankbackup enthalten sein. Allgemeine Dokumentversionen liegen getrennt im Verzeichnis `DOCUMENT_STORAGE_PATH` (Standard `./.private-document-storage`); für einen konsistenten Restore müssen Dateispeicher und Datenbank gemeinsam bzw. mit dokumentiertem Snapshot-/Zeitpunktbezug gesichert und wiederhergestellt werden. Der bestehende Compose-Stack richtet diesen Prozess nicht ein.
 
 ## Manueller PostgreSQL-Dump (Beispiel)
 
