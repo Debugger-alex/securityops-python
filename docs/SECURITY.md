@@ -6,7 +6,7 @@
 - Serverseitige opaque Sitzungen mit gleitender und absoluter Ablaufzeit.
 - HttpOnly, SameSite=Strict Sitzungscookie; CSRF-Tokenprüfung für authentifizierte Schreibzugriffe.
 - Server-RBAC und Schutz vor unberechtigter Administratorrollenvergabe.
-- Login-Rate-Limit, derzeit nur im In-Memory-Speicher eines Prozesses.
+- Login-Rate-Limit; Produktion verwendet Redis als gemeinsamen Speicher, die API-Readiness prüft dessen Verfügbarkeit. Lokale direkte Starts ohne Redis nutzen den In-Memory-Store.
 - Keine Passworthashes in API-Antworten.
 - Audit-Einträge für implementierte Anmelde-, Benutzer-, Kunden- und Objektänderungen.
 - Objektzugriff serverseitig nach globalen Rechten oder Objektzuweisung; Sicherheits- und Zutrittsdaten sind getrennt und zusätzlich berechtigt.
@@ -18,12 +18,12 @@
 
 ## Vor jedem produktiven Betrieb
 
-- TLS/HTTPS und Reverse Proxy einrichten; `SESSION_COOKIE_SECURE=true` erzwingen.
-- Rate-Limit-Speicher für alle Instanzen zentralisieren; Proxy-IP nur aus vertrauenswürdiger Infrastruktur übernehmen.
+- TLS/HTTPS und Reverse Proxy mit den dokumentierten Headern, Zertifikaten und vertrauenswürdigen Proxy-IP-Adressen betreiben.
+- `SESSION_COOKIE_SECURE=true` beibehalten; der Produktionsmodus lehnt deaktivierte Secure-Cookies oder einen nicht gemeinsam genutzten Rate-Limit-Speicher ab.
 - Secrets sicher außerhalb von Git und Image-Layern bereitstellen.
-- Produktions-Frontend als statische Assets über einen gehärteten Webserver ausliefern; Vite-Devserver nicht öffentlich nutzen.
+- Den Migrationsdienst einmalig je Release vor den API-Replikaten starten; API-Container migrieren nicht selbst.
 - Datenbankrollen mit minimalen Rechten definieren; Audit-Schreibschutz/externes unveränderliches Archiv bewerten.
-- Backups verschlüsseln, getrennt aufbewahren und Wiederherstellungen regelmäßig praktisch testen.
+- Backups verschlüsseln, getrennt aufbewahren und Wiederherstellungen regelmäßig in einer isolierten Testumgebung praktisch testen.
 - Sicherheits- und Datenschutzprüfung, Aufbewahrungs-/Löschregeln, Monitoring und Incident-Abläufe definieren.
 - OWKS-Downgrade nicht ausführen, solange Betriebsdaten vorliegen; Migration 0014 verweigert den Downgrade dann explizit. Für sichere Rollbacks müssen Datenaufbewahrung und Exportverfahren vorher festgelegt werden.
 - Dokumenten-/Vertrags-Downgrade 0015 verweigert den Rückbau, sobald Fachdaten oder angepasste Erinnerungseinstellungen bestehen. Die CI prüft die Ablehnung mit einem PostgreSQL-Testdatensatz und bestätigt, dass der Datensatz erhalten bleibt.
@@ -32,7 +32,13 @@
 
 ## Offene Sicherheitsfunktionen
 
-MFA, Passwortzurücksetzung per geprüftem Einmalprozess, aktive Sitzungsverwaltung, zentrale Rate-Limits und revisionsfester Auditbetrieb fehlen. Die Objektberechtigungen und Datentrennung des aktuellen Feature-Branches müssen noch durch PostgreSQL-CI und Review bestätigt werden. Das implementierte System ist nicht sicherheitszertifiziert und noch kein vollständiges Produkt.
+MFA, Passwortzurücksetzung per geprüftem Einmalprozess, aktive Sitzungsverwaltung und revisionsfester Auditbetrieb fehlen. Die Objektberechtigungen und Datentrennung müssen weiterhin durch PostgreSQL-CI und Review bestätigt werden. Das implementierte System ist nicht sicherheitszertifiziert und noch kein vollständiges Produkt.
+
+## Automatisierte Sicherheitsbefunde
+
+CI auditiert die in `backend/pyproject.toml` deklarierten Python-Abhängigkeiten mit `pip-audit` und den vollständigen Frontend-Lockfile-Baum mit `npm audit`; bekannte Schwachstellen ab mittlerer Schwere blockieren den Job. CodeQL analysiert Python sowie JavaScript/TypeScript bei Pull Requests, Änderungen auf `main` und wöchentlich. Findings müssen vor Freigabe auf Betroffenheit und Ausnutzbarkeit geprüft, einem Verantwortlichen zugeordnet und als Fix oder begründete Ausnahme dokumentiert werden. Eine Ausnahme nennt mindestens Begründung, kompensierende Maßnahme, Verantwortlichen und Ablauf-/Neubewertungsdatum. Scannerbefunde dürfen nicht kommentarlos unterdrückt werden; nach Fix oder Ausnahme müssen erneute Analyse und Review erfolgen.
+
+Der CI-Restore-Test erzeugt ausschließlich synthetische, kurzlebige Testdaten. Kein produktives Backup und kein echter Kunden-, Personal- oder Einsatzdatensatz wurde restauriert.
 
 ## Dokumenten- und Vertragsverwaltung
 

@@ -5,8 +5,8 @@ Die aktuelle API ist unter `/api/v1` versioniert. OpenAPI/Swagger ist während d
 | Methode | Pfad | Zugriff |
 |---|---|---|
 | GET | `/health/live` | öffentlich, Prozessstatus |
-| GET | `/health/ready` | öffentlich, Datenbankverbindung |
-| POST | `/api/v1/auth/login` | öffentlich, Rate-Limit 5/min pro Prozess |
+| GET | `/health/ready` | öffentlich, Datenbankverbindung und in Produktion Redis |
+| POST | `/api/v1/auth/login` | öffentlich, Rate-Limit 5/min je vertrauenswürdiger Client-IP, in Produktion gemeinsam über Redis |
 | GET | `/api/v1/auth/me` | angemeldete Sitzung |
 | POST | `/api/v1/auth/logout` | angemeldet + CSRF |
 | POST | `/api/v1/auth/change-password` | angemeldet + CSRF; widerruft Sitzungen |

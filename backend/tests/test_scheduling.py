@@ -8,7 +8,7 @@ import pytest
 from conftest import ADMIN_PASSWORD, TestingSessionLocal, test_engine
 from fastapi.testclient import TestClient
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from app.identity_api import password_hasher
 from app.models import (
@@ -351,7 +351,12 @@ def test_parallel_overlapping_inserts_are_rejected_by_postgresql(client: TestCli
             barrier.wait(timeout=10)
             try:
                 db.commit()
-            except IntegrityError:
+            except (IntegrityError, OperationalError) as exc:
+                if (
+                    isinstance(exc, OperationalError)
+                    and getattr(exc.orig, "sqlstate", None) != "40P01"
+                ):
+                    raise
                 db.rollback()
                 return "conflict"
             return "created"

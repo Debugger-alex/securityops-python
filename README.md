@@ -10,26 +10,28 @@ Voraussetzung ist Docker mit Compose. Im Projektordner:
 cp .env.example .env
 ```
 
-Ändere in `.env` das Datenbankpasswort und starte anschließend:
+Ändere in `.env` das Datenbankpasswort. Lokal wird die gesicherte Produktionskonfiguration mit einem ausdrücklich getrennten HTTP-Entwicklungs-Override verwendet:
 
 ```sh
-docker compose up --build
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db redis
+docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile release run --rm migrate
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
 ```
 
-Die Anwendung ist danach unter <http://localhost:5173> erreichbar. Die API-Dokumentation befindet sich unter <http://localhost:8000/docs>. Die Ports sind standardmäßig nur an `localhost` gebunden.
+Die Anwendung wird als statischer Build unter <http://localhost:5173> ausgeliefert. Die API-Dokumentation befindet sich unter <http://localhost:8000/docs>. Die Ports sind standardmäßig nur an `localhost` gebunden. Die Migration wird einmalig und vor dem API-Start ausgeführt, nicht durch jede API-Replik.
 
-Die `SESSION_COOKIE_SECURE`-Einstellung ist im lokalen HTTP-Beispiel deaktiviert. Für jeden Betrieb hinter HTTPS muss sie auf `true` gesetzt werden. `POSTGRES_PASSWORD` ist erforderlich; ändere das Beispielpasswort vor dem Start und verwende für jeden Server ein eigenes Secret.
+Der Entwicklungs-Override deaktiviert Secure-Cookies ausschließlich für lokales HTTP. Ohne ihn erzwingt Compose `APP_ENV=production`, `SESSION_COOKIE_SECURE=true` und einen gemeinsamen Redis-Speicher für Rate-Limits. `POSTGRES_PASSWORD` ist erforderlich; ändere das Beispielpasswort vor dem Start und verwende für jeden Server ein eigenes Secret.
 
 ## Erstes Administratorkonto
 
-Nach dem Start legt Alembic die Systemrollen und Berechtigungen an. Erstelle danach ein erstes Administratorkonto. Setze die vier Variablen in deiner lokalen Shell (nicht in Git) und führe aus:
+Nach der erfolgreich ausgeführten Migration sind Systemrollen und Berechtigungen angelegt. Erstelle danach ein erstes Administratorkonto. Setze die vier Variablen in deiner lokalen Shell (nicht in Git) und führe aus:
 
 ```sh
 export BOOTSTRAP_ADMIN_USERNAME=admin
 export BOOTSTRAP_ADMIN_EMAIL=admin@deine-domain.de
 export BOOTSTRAP_ADMIN_NAME="System Administration"
 export BOOTSTRAP_ADMIN_PASSWORD='ein-einmaliges-lang-passwort'
-docker compose exec \
+docker compose -f docker-compose.yml -f docker-compose.dev.yml exec \
   -e BOOTSTRAP_ADMIN_USERNAME \
   -e BOOTSTRAP_ADMIN_EMAIL \
   -e BOOTSTRAP_ADMIN_NAME \
@@ -43,7 +45,7 @@ Das Passwort muss mindestens 12 Zeichen lang sein. Der Bootstrapping-Befehl erst
 ## API
 
 - `GET /health/live` – Prozessstatus
-- `GET /health/ready` – Datenbankverbindung prüfen
+- `GET /health/ready` – Datenbankverbindung und in Produktion Redis prüfen
 - `GET /api/v1/dashboard` – Kundenkennzahlen
 - `POST /api/v1/auth/login` – Anmeldung und sichere Sitzung starten
 - `GET /api/v1/auth/me` – angemeldeten Benutzer und Berechtigungen abrufen
@@ -95,7 +97,7 @@ Zuschlagsregeln unterstützen Nacht, Samstag, Sonntag, Feiertag und betriebliche
 
 Das Backend liest `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER` und `POSTGRES_PASSWORD` aus der Umgebung. Compose setzt `POSTGRES_HOST=db` für den enthaltenen PostgreSQL-Dienst. Für einen externen PostgreSQL-Server können diese Werte in der `.env` auf dessen Verbindungsdaten gesetzt werden. `CORS_ORIGINS` steuert die erlaubte Browser-Origin. Der Datenbankport wird absichtlich nicht öffentlich freigegeben. Sitzungen verwenden zufällige opaque Cookies; der Datenbankeintrag speichert nur den Token-Hash. Schreibzugriffe erfordern einen CSRF-Header. Passwort-Hashes werden mit Argon2id erzeugt.
 
-Bei direktem Backend-Start außerhalb von Docker: Python 3.12+, `cd backend`, `pip install '.[test]'`, die PostgreSQL-Variablen setzen, für lokale HTTP-Entwicklung `SESSION_COOKIE_SECURE=false` einstellen, `alembic upgrade head` und danach `uvicorn app.main:app --reload`. `POSTGRES_PASSWORD` sollte nicht in Quellcode oder Versionsverwaltung abgelegt werden.
+Bei direktem Backend-Start außerhalb von Docker: Python 3.12+, `cd backend`, `pip install '.[test]'`, die PostgreSQL-Variablen setzen, Migrationen einmalig mit `alembic upgrade head` ausführen und danach `uvicorn app.main:app --reload` starten. Für lokale HTTP-Entwicklung müssen `APP_ENV=development` und `SESSION_COOKIE_SECURE=false` ausdrücklich gesetzt werden. `POSTGRES_PASSWORD` sollte nicht in Quellcode oder Versionsverwaltung abgelegt werden.
 
 ## Tests
 
@@ -105,7 +107,7 @@ pip install '.[test]'
 pytest
 ```
 
-Die lokalen API-Tests verwenden standardmäßig eine isolierte SQLite-Testdatenbank. Die GitHub-CI wendet alle Alembic-Migrationen zusätzlich auf PostgreSQL 17 an und führt die Backendtests gegen diese Datenbank aus; der produktive Betrieb verwendet PostgreSQL.
+Die lokalen API-Tests verwenden standardmäßig eine isolierte SQLite-Testdatenbank. Die GitHub-CI wendet alle Alembic-Migrationen auf PostgreSQL 17 an, führt die Backendtests gegen PostgreSQL und Redis aus und prüft einen verschlüsselten Backup-/Restore-Zyklus in einer isolierten Datenbank. Das belegt keinen Restore einer Produktionssicherung.
 
 ## Projektstatus und Sicherheit
 
@@ -113,7 +115,7 @@ Die Bestandsaufnahme und offenen Module sind in [`docs/PROJECT_AUDIT.md`](docs/P
 
 Die Objektverwaltung umfasst Backend, API und Frontend mit Suche, Filtern, Details, Anschriften, Ansprechpartnern, Archivierung, Historie, Zuweisungen und getrennt geschützten Sicherheitsdaten. Objektzugriff wird serverseitig anhand globaler Rechte oder einer Objektzuweisung geprüft. Personalakten, Qualifikationen, Abwesenheiten, getrennte sensible Daten und versionierte Qualifikationsdateien sind in `main`. PR #18 ist mit Merge-Commit `c8d4fbe203d179b7c4b620d604409c7217478033` gemergt; Backend/PostgreSQL, Frontend einschließlich Vitest und Docker CI waren grün, Issue #6 ist geschlossen. Issue #2 bleibt bis zur formalen Abnahme seiner Akzeptanzkriterien offen. Dienstplanung ist mit PR #19 in `main`; Zeiterfassung wurde mit PR #22 gemergt. PR #23 ergänzt OWKS mit objektspezifischen QR-/NFC-Kontrollpunkten und -Routen, einem append-only Wachbuch, geschützten Anhängen und Offline-Synchronisierung mit sichtbaren Konflikten. QR-Codes werden erzeugt und können per Kamera gescannt werden; Web-NFC liest/beschreibt NDEF-Textkennungen nur bei sicherem Kontext und kompatiblem Browser/Gerät. Der eingebaute PostgreSQL-Minutenmonitor prüft versäumte Kontrollen auch über mehrere API-Instanzen. Statische QR-/NFC-Treffer bleiben `presence_verified=false`, gelten nicht als erledigter Besuch und beweisen keine physische Anwesenheit; dynamische kryptografische Tags oder Geräte-/Standortnachweise sind nicht integriert. Issue #3 bleibt bis zur fachlichen Abnahme offen. PR #24 ergänzt auf PR #23 gestapelt Dokumenten- und Vertragsverwaltung mit Migration 0015; beide PRs bleiben bis zur jeweiligen Prüfung offen. MFA, Passwortzurücksetzung und Rechnungswesen sind noch nicht implementiert. Das Audit-Protokoll ist über die Anwendung schreibgeschützt, aber noch nicht durch getrennte Datenbankrollen gegen privilegierte Datenbankänderungen abgesichert.
 
-Die Anwendung ist ein Entwicklungsstand, keine Produktionsfreigabe. Für Zeiterfassung und die gestapelte Ergänzung mit Zuschlagszeitnachweisen sind Backend-, Ruff-, Frontend- und Offline-Migrationsprüfungen dokumentiert; Live-PostgreSQL- und Docker-Prüfungen sind separat in CI auszuführen. Vor öffentlichem Betrieb müssen unter anderem HTTPS/Reverse-Proxy, `SESSION_COOKIE_SECURE=true`, zentralisiertes Rate-Limiting, Backup/Wiederherstellung, Sicherheitsprüfung und Datenschutz-/Aufbewahrungsvorgaben eingerichtet sein. Ruhezeitregeln sind keine automatische Rechtsprüfung; gesetzliche Konformität wird nicht behauptet und erfordert unabhängige fachliche Prüfung.
+Die Anwendung ist weiterhin keine Produktionsfreigabe. Produktions-Compose liefert statische Assets über Nginx aus, erzwingt Secure-Cookies und nutzt Redis für gemeinsame Rate-Limits; Migration, Scanner sowie ein verschlüsselter PostgreSQL-17-Restore sind in CI eingebunden. Für einen realen Betrieb müssen Betreiber TLS, Zertifikate, vertrauenswürdige Proxy-IP-Adressen, externe Secrets, minimale Datenbankrechte, Überwachung und getrennte Backup-Aufbewahrung einrichten und den Restore in ihrer eigenen Testumgebung wiederholen. Es wurde kein Produktions-Restore durchgeführt. Ruhezeitregeln sind keine automatische Rechtsprüfung; gesetzliche Konformität wird nicht behauptet und erfordert unabhängige fachliche Prüfung.
 
 ## Dokumenten- und Vertragsverwaltung (PR #24, auf PR #23 gestapelt)
 
