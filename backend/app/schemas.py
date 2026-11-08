@@ -5,6 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 CustomerStatus = Literal["active", "inactive", "lead"]
+ObjectStatus = Literal["active", "inactive"]
 
 
 class LoginRequest(BaseModel):
@@ -250,6 +251,164 @@ class CustomerHistoryRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ObjectAddressInput(BaseModel):
+    street: str = Field(min_length=1, max_length=160)
+    house_number: str = Field(min_length=1, max_length=30)
+    postal_code: str = Field(min_length=1, max_length=20)
+    city: str = Field(min_length=1, max_length=100)
+    country_code: str = Field(default="DE", min_length=2, max_length=2, pattern=r"^[A-Z]{2}$")
+
+    @field_validator("street", "house_number", "postal_code", "city")
+    @classmethod
+    def address_values_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Adressfelder dürfen nicht leer sein.")
+        return value
+
+
+class ObjectAddressRead(ObjectAddressInput):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+
+
+class ObjectContactCreate(BaseModel):
+    first_name: str = Field(min_length=1, max_length=100)
+    last_name: str = Field(min_length=1, max_length=100)
+    role: str | None = Field(default=None, max_length=120)
+    email: EmailStr | None = None
+    phone: str | None = Field(default=None, max_length=40)
+    is_primary: bool = False
+
+    @field_validator("first_name", "last_name")
+    @classmethod
+    def contact_names_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Vor- und Nachname dürfen nicht leer sein.")
+        return value
+
+
+class ObjectContactUpdate(BaseModel):
+    first_name: str | None = Field(default=None, min_length=1, max_length=100)
+    last_name: str | None = Field(default=None, min_length=1, max_length=100)
+    role: str | None = Field(default=None, max_length=120)
+    email: EmailStr | None = None
+    phone: str | None = Field(default=None, max_length=40)
+    is_primary: bool | None = None
+
+    @field_validator("first_name", "last_name", "is_primary")
+    @classmethod
+    def non_nullable_contact_fields_must_not_be_null(cls, value):
+        if value is None:
+            raise ValueError("Ein gesetzter Änderungswert darf nicht null sein.")
+        return value
+
+
+class ObjectContactRead(ObjectContactCreate):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+
+
+class ObjectCreate(BaseModel):
+    customer_id: UUID
+    name: str = Field(min_length=1, max_length=200)
+    code: str | None = Field(default=None, min_length=1, max_length=50)
+    object_type: str | None = Field(default=None, max_length=120)
+    description: str | None = Field(default=None, max_length=10000)
+    status: ObjectStatus = "active"
+    operating_hours: str | None = Field(default=None, max_length=200)
+    service_times: str | None = Field(default=None, max_length=200)
+    security_requirements: str | None = Field(default=None, max_length=10000)
+    staffing_requirements: str | None = Field(default=None, max_length=10000)
+    access_information: str | None = Field(default=None, max_length=10000)
+    emergency_contact: str | None = Field(default=None, max_length=200)
+    address: ObjectAddressInput | None = None
+    contact: ObjectContactCreate | None = None
+
+    @field_validator("name", "code")
+    @classmethod
+    def values_must_not_be_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        value = value.strip()
+        if not value:
+            raise ValueError("Name und Code dürfen nicht leer sein.")
+        return value
+
+
+class ObjectUpdate(BaseModel):
+    customer_id: UUID | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    code: str | None = Field(default=None, min_length=1, max_length=50)
+    object_type: str | None = Field(default=None, max_length=120)
+    description: str | None = Field(default=None, max_length=10000)
+    status: ObjectStatus | None = None
+    operating_hours: str | None = Field(default=None, max_length=200)
+    service_times: str | None = Field(default=None, max_length=200)
+    security_requirements: str | None = Field(default=None, max_length=10000)
+    staffing_requirements: str | None = Field(default=None, max_length=10000)
+    access_information: str | None = Field(default=None, max_length=10000)
+    emergency_contact: str | None = Field(default=None, max_length=200)
+    address: ObjectAddressInput | None = None
+    contact: ObjectContactCreate | None = None
+
+    @field_validator("name", "code")
+    @classmethod
+    def values_must_not_be_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        value = value.strip()
+        if not value:
+            raise ValueError("Name und Code dürfen nicht leer sein.")
+        return value
+
+
+class ObjectHistoryRead(BaseModel):
+    id: UUID
+    actor_id: UUID | None
+    action: str
+    changed_fields: list[str]
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ObjectRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    customer_id: UUID
+    code: str
+    name: str
+    object_type: str | None
+    description: str | None
+    status: ObjectStatus
+    operating_hours: str | None
+    service_times: str | None
+    security_requirements: str | None
+    staffing_requirements: str | None
+    access_information: str | None
+    emergency_contact: str | None
+    archived_at: datetime | None
+    address: ObjectAddressRead | None
+    contacts: list[ObjectContactRead] = Field(default_factory=list)
+    created_at: datetime
+    updated_at: datetime
+
+
+class ObjectPage(BaseModel):
+    items: list[ObjectRead]
+    total: int
+    limit: int
+    offset: int
+
+
 CustomerCreate.model_rebuild()
 CustomerUpdate.model_rebuild()
 CustomerRead.model_rebuild()
+ObjectCreate.model_rebuild()
+ObjectUpdate.model_rebuild()
+ObjectRead.model_rebuild()

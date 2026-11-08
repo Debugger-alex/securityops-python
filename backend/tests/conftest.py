@@ -76,6 +76,8 @@ def client() -> Generator[TestClient, None, None]:
             "customers.create",
             "customers.update",
             "customers.archive",
+            "objects.read",
+            "objects.manage",
             "dashboard.read",
             "users.read",
             "users.manage",
@@ -119,7 +121,7 @@ def client() -> Generator[TestClient, None, None]:
             "management",
             "Geschäftsführung",
             "Testrolle ohne Administratorrechte",
-            ("users.read", "users.manage", "customers.read"),
+            ("users.read", "users.manage", "customers.read", "objects.read", "objects.manage"),
         )
         get_or_create_role(
             "employee",
