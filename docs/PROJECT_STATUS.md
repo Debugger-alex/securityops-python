@@ -1,63 +1,85 @@
 # SecurityOps – Projektstatus
 
-Arbeitsstand: PR #20 ergänzt Zeiterfassung auf dem `main`-Stand `d066d56b97fbd795be276b0414d6a88b8c779962`; die gestapelte Folgeänderung [PR #21](https://github.com/Xonni-star/securityops-python/pull/21) baut isoliert auf PR-20-Head `d3315bbc995a3fabe1d37ad6aa8be24f3744f470` auf und zielt nicht auf `main`. PR #20 und Issue #4 bleiben offen. PR #19 (Dienstplanung) ist in diesem Ausgangsstand integriert; Issue #10 bleibt bis zur fachlichen Abnahme offen. PR #18 ist mit Merge-Commit `c8d4fbe203d179b7c4b620d604409c7217478033` integriert, seine Backend/PostgreSQL-, Frontend-/Vitest- und Docker-CI war erfolgreich; Issue #6 ist geschlossen. Issue #2 bleibt bis zur formalen Abnahme seiner Akzeptanzkriterien offen. PR #24 hängt auf dem offenen OWKS-PR #23 und ergänzt Migration 0015 hinter Migration 0014. Die kombinierte PostgreSQL-17-, Frontend- und Docker-CI für Commit `80e9dc6` war erfolgreich (Run [42524872423](https://github.com/Xonni-star/securityops-python/actions/runs/42524872423)). Dieser Status beschreibt Quellcode und tatsächlich ausgeführte Prüfungen, nicht eine Produktions- oder Rechtsfreigabe.
+**Geprüft:** 08.11.2026, 22:30 CET · **`main`:** `5f3530463e9531c1f825f43ae4c6a6e60b9974e3`
 
-## Implementierter Stand
+Diese Momentaufnahme trennt gemergten Quellcode, offene PRs, CI und fachliche Abnahme. PR-Inhalt ist kein Bestandteil von `main`; grüne CI beweist weder fachliche Abnahme noch Datenschutz-, Rechts- oder Produktionsreife.
 
-- Modularer FastAPI-Monolith mit SQLAlchemy, PostgreSQL, Alembic sowie React/TypeScript/Vite.
-- Kundenkern in `main`: Anlage, Filterung, Sortierung, Suche, Detailabruf/-änderung, Geschäfts- und Rechnungsanschriften, Rechtsform, Website, Vertragsstatus, Ansprechpartner mit Primärkontakt, Archivierung/Reaktivierung, Historie und erreichbare Objektzuordnungen. PR #18 ist gemergt; Issue #6 ist geschlossen.
-- Objektverwaltung mit Kunden-FK, Suche/Filter/Sortierung/Paginierung, Detailbearbeitung, Anschrift, mehreren einzeln bearbeitbaren Ansprechpartnern, Archivierung/Reaktivierung und Historie.
-- Objektmitarbeiter-Zuweisungen auf aktive Mitarbeiter-/Objektleitungskonten; serverseitiger Objektzugriff anhand globaler Rechte oder Zuweisung. Sensible Sicherheits-/Zutrittsdaten liegen in eigener Tabelle und eigenen API-Endpunkten mit separaten Berechtigungen.
-- Personalakten mit Personalnummer, Stammdaten, optionalem Benutzerkonto, Beschäftigungsstatus, Qualifikationen, Ablaufübersicht, Abwesenheiten, Archivierung/Reaktivierung und Historie. Anschrift, Notfallkontakt und interne Notizen sind getrennt und zusätzlich berechtigt.
-- Dienstplan-Kern in `main` (PR #19): Schichtanlage/-änderung, Tages-/Wochen-/Monatsansichten, Mitarbeiter-/Objekt-/Datumsfilter, Entwurf/Veröffentlichung/Absage, Verlauf, Konfliktprüfung und konfigurierbare IANA-Zeitzone/Mindestruhezeit. UTC-Zeitpunkte, Abwesenheiten, aktiver Beschäftigungszeitraum, Qualifikation, Objektzuweisung, bestehende Schichten und Ruhezeit werden geprüft. Dieser Feature-Branch ergänzt Migration 0016 für regelmäßige Verfügbarkeitsfenster, Wunsch-/Sperrzeiträume und protokollierte Schichtvertretungen; CI und fachliche Abnahme stehen aus. Issue #10 bleibt offen.
-- Zeiterfassung in PR #20 (Migration 0012) und gestapelte Erweiterung (Migration 0013): Live-Start/-Stopp mit Arbeits-/Pausensegmenten, Korrekturversionen, Freigaben, Soll-Ist, Fehlbuchungsübersicht, Zuschlagsregeln, regionale Feiertage, priorisierte/Kombinationsregeln, versionierte Zuschlagszeitnachweise, endgültige Periodensperren sowie getrennte CSV-Exporte. Geldbeträge werden mangels bestätigter Lohn-/Prozentbasis, Festzuschlagseinheit und Rundung nicht errechnet. Lokale Gesamtprüfung: Backend 31 bestanden/1 PostgreSQL-spezifischer Test übersprungen; Frontend 4 bestanden, Produktionsbuild, Ruff/Format und Offline-Upgrade/-Downgrade erfolgreich. GitHub-CI für PR #21 (Backend/PostgreSQL/Migrationen, Frontend, Docker) erfolgreich; lokale Docker- und Live-PostgreSQL-Werkzeuge sind nicht verfügbar.
-- Anmeldung mit Argon2id, serverseitig widerrufbaren opaque Sitzungen, Idle-/Absolute-Timeout, CSRF-Prüfung und Login-Rate-Limit.
-- Serverseitige RBAC-Prüfungen, Benutzeranlage/-deaktivierung und Schutz des letzten aktiven Administrators.
-- Audit-Ereignisse für An-/Abmeldung, fehlgeschlagene Anmeldungen, Passwortwechsel, Benutzer- und Kundenänderungen.
-- Additive Rollen-/Rechtemigration `0003_role_permissions`; Administratorrollenvergabe erfordert `users.manage_admin`.
-- Compose-Standard für Secure-Cookie ist `true`; `.env.example` setzt für lokale HTTP-Entwicklung ausdrücklich `false`.
-- Das Datenbankpasswort hat keinen Standardwert in der Anwendung mehr: `POSTGRES_PASSWORD` muss gesetzt sein.
-- GitHub Actions führt Python-Lint/Format, Backendtests auf SQLite und einer temporären PostgreSQL-Testdatenbank, Migrationen, Frontendtests/-build und Docker-Image-Builds aus. PR #17 und der Issue-#6-PR #18 bestanden Backend/PostgreSQL, Frontend und Docker.
+## Tatsächlich in `main`
 
-## Teilweise implementiert oder offen
+`main` enthält die fortlaufende Alembic-Kette `0001_customers` bis `0013_time_tracking_surcharges` (Revision-Head `0013_time_tracking_surcharges`):
 
-| Bereich | Status |
-|---|---|
-| Kunden | PR #18 mit Migration 0010, Website, Vertragsstatus, Suche/Filter/Sortierung und geschützten Objektzuordnungen ist gemergt; CI Backend/PostgreSQL, Frontend/Vitest und Docker war grün. Issue #6 ist geschlossen. Vertrags- und Dokumentenmodule fehlen weiterhin ([#6](https://github.com/Xonni-star/securityops-python/issues/6)). |
-| Objekte | Backend/API/UI und Migrationen 0005–0007 in `main` implementiert; PR #16 und dessen CI sind abgeschlossen. Issue #2 bleibt offen, da die formale Abnahme der Akzeptanzkriterien noch aussteht. |
-| Personal/Qualifikationen | Migrationen 0008–0009, Personalakten, Abwesenheiten, sensible Daten, Historie, Zuweisungen und versionierte Qualifikationsdateien sind in `main`. PR #17 wurde gemergt; PostgreSQL-/Backend-, Frontend- und Docker-CI war grün und Issue #5 ist geschlossen ([#5](https://github.com/Xonni-star/securityops-python/issues/5)). |
-| Dienstplanung | Scheduling-Kern in PR [#19](https://github.com/Xonni-star/securityops-python/pull/19) ist in `main` enthalten; dieser Feature-Branch ergänzt Migration 0016, Verfügbarkeits-/Wunsch-/Sperrzeiten und protokollierte Vertretungen. Lokale Ruff-, Backend-, Frontend- und Offline-Migration-Prüfungen sind erfolgreich; PostgreSQL-CI, Docker-Build und fachliche Abnahme stehen aus. Issue #10 bleibt offen ([#10](https://github.com/Xonni-star/securityops-python/issues/10)). |
-| Zeiterfassung | PR #20 offen; gestapelte Ergänzung mit Migration 0013 und Zuschlagszeit-/Periodensperren baut auf PR-20-Head auf. Issue #4 bleibt offen; Geldbetragsberechnung ist mangels bestätigter Abrechnungskonvention bewusst nicht enthalten. |
-| OWKS/Kontrollgänge | In offenem PR #23; seine Migration 0014 ist die Vorgängermigration von PR #24. Issue #3 bleibt bis zur fachlichen Abnahme offen. |
-| Dokumente/Verträge | In offenem PR #24, gestapelt auf PR #23; Migration 0015 und die kombinierte PostgreSQL-17-/Frontend-/Docker-CI sind in Run [42524872423](https://github.com/Xonni-star/securityops-python/actions/runs/42524872423) erfolgreich geprüft ([#8](https://github.com/Xonni-star/securityops-python/issues/8)). |
-| Rechnungswesen | Nicht implementiert ([#7](https://github.com/Xonni-star/securityops-python/issues/7)). |
-| Produktion | Nicht freigegeben: Vite-Devserver statt statischer Frontend-Auslieferung, kein TLS-Reverse-Proxy und kein gemeinsamer Rate-Limit-Speicher ([#9](https://github.com/Xonni-star/securityops-python/issues/9)). |
-| Benutzerverwaltung | MFA, Passwortzurücksetzung, aktive Sitzungsübersicht und Rechteeditor fehlen. |
-| Audit | App-seitig lesbar; Objektänderungen protokollieren Aktion und geänderte Feldnamen ohne sensible Werte. Nicht gegen direkte Änderungen privilegierter Datenbankrollen abgesichert. |
+- FastAPI-Monolith mit SQLAlchemy/PostgreSQL, Alembic, React/TypeScript/Vite, Docker-Compose-Entwicklungsdiensten und GitHub Actions.
+- Anmeldung mit Argon2id, serverseitig widerrufbaren opaque Sitzungen, Idle-/Absolute-Timeout, CSRF-Schutz, Login-Limit und rollenbasierter serverseitiger Autorisierung. Benutzer, Rollen, Rechte und Anwendungs-Audit-Lesezugriff sind vorhanden.
+- Kunden mit Anschriften, Ansprechpartnern, Status, Vertragsstatus-Metadatum, Suche, Archivierung und Änderungshistorie. Vertragsmanagement/-dokumente sind nicht enthalten.
+- Objekte mit Kunden-FK, Ansprechpartnern/Adresse, Historie, Zuweisungen und separater Berechtigungsgrenze für Sicherheits-/Zutrittsdaten.
+- Personalakten mit Qualifikationen, Abwesenheiten, sensiblen Personalangaben, Zuweisungsverlauf und versionierten Qualifikationsdateien in PostgreSQL (`BYTEA`).
+- Dienstplanung mit Schichten, UTC-Speicherung, konfigurierbarer IANA-Zeitzone/Ruhezeit, Konfliktprüfungen, Verlauf und PostgreSQL-Exclusion-Constraint.
+- Zeiterfassung mit Arbeits-/Pausensegmenten, Korrekturanträgen, Freigaben, Berichten/CSV, Zuschlagszeit-Regeln und versionierten Zeitnachweisen sowie endgültigen Abrechnungsperiodensperren. Es werden keine Zuschlags-Geldbeträge berechnet; Lohnbasis, Prozentbasis, Festwert-Einheit und Rundung sind fachlich nicht festgelegt.
+- Es gibt keine eigenständige Frontend-Router-/Feature-Paketarchitektur; die React-Oberfläche ist eine Vite-Anwendung. Das Dashboard liefert derzeit Kundenkennzahlen, keine vollständigen operativen Kennzahlen.
 
-## Dokumentation und Prüfstatus
+## Offene Pull Requests – ausdrücklich nicht in `main`
 
-- Vollständige Bestandsaufnahme: [`PROJECT_AUDIT.md`](PROJECT_AUDIT.md).
-- Prioritäten und Abhängigkeiten: [`IMPLEMENTATION_ROADMAP.md`](IMPLEMENTATION_ROADMAP.md).
-- Sicherheitsbefunde und offene Maßnahmen: [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md).
-- Architektur, Betrieb und weitere Unterlagen sind im [`README.md`](../README.md) verlinkt.
-- PR #18 (Merge-Commit `c8d4fbe203d179b7c4b620d604409c7217478033`): GitHub-CI für Backend/PostgreSQL, Frontend einschließlich Vitest und Docker erfolgreich; Issue #6 geschlossen.
-- PR #19: GitHub-CI für Backend/Migration/PostgreSQL, Frontend einschließlich Vitest und Docker erfolgreich. Der PostgreSQL-Job deckt Live-Migration und den parallelen Schreibzugriffstest ab.
-- PR #20: Backend `29 passed, 1 skipped` (PostgreSQL-spezifischer Scheduling-Constraint-Test); Frontend `4 passed`, Produktionsbuild, Ruff und Offline-Migration erfolgreich. Seine GitHub-CI war zuletzt für Backend/PostgreSQL, Frontend und Docker grün.
-- Gestapelte Zeiterfassungsergänzung [PR #21](https://github.com/Xonni-star/securityops-python/pull/21): Backend `31 passed, 1 skipped` (lokal übersprungener PostgreSQL-spezifischer Constraint-Test), Frontend `4 passed`, Produktionsbuild, Ruff/Format und Offline-Alembic-Upgrade/-Downgrade durch Migration 0013 erfolgreich. GitHub-CI für Backend/PostgreSQL/Migrationen, Frontend und Docker erfolgreich. Die Docker-CLI und lokale PostgreSQL-Prüfwerkzeuge sind nicht verfügbar; Offline-SQL-Rendering allein wäre kein Live-PostgreSQL-Test.
-- PR #24, Commit `80e9dc6`: PostgreSQL-17-CI hat die vollständige Alembic-History/Head, Upgrade auf 0015, Schutz vor Downgrade mit Dokumentdaten und deren Erhalt, Downgrade auf 0014, Re-Upgrade sowie Backendtests bestanden. Frontendtests/-build und Docker-Image-Build waren ebenfalls erfolgreich. Run [42524872423](https://github.com/Xonni-star/securityops-python/actions/runs/42524872423).
-- Die CI-Ergebnisse stellen keine Produktions- oder Rechtsfreigabe dar. Issue #10 bleibt bis zur fachlichen Abnahme offen.
-- Derzeit keine E2E-, Last-, Restore-, externe Penetrations- oder unabhängige Datenschutz-/Steuerprüfung.
+| PR | Aktueller Status | Inhalt/Abhängigkeit | CI (zuletzt frisch geprüft) |
+|---|---|---|---|
+| [#23](https://github.com/Xonni-star/securityops-python/pull/23) | Offen, Ziel `main`, Head `5bcbdbe5fab3be20d5b52b3cde432539ebf5f2a0` | OWKS-Wachbuch, Kontrollgänge, QR/NFC, Migration `0014_owks_wachbuch`; nicht gemergt und nicht fachlich abgenommen. | Backend/Migration/PostgreSQL, Frontend und Docker jeweils erfolgreich. |
+| [#24](https://github.com/Xonni-star/securityops-python/pull/24) | Offen, Zielbranch PR #23, Head `a405530635a67cecb5cb223dadc59e3e16432c1a` | Dokumente/Verträge, Migration `0015_documents_contracts`; baut auf #23 auf und ist daher ebenfalls nicht in `main`. | Backend/Migration/PostgreSQL, Frontend und Docker jeweils erfolgreich nach dem Basiswechsel. |
 
-## Nächste Schritte
+Die PR-Köpfe, Basen, Dateien und CI wurden am obigen Prüfzeitpunkt über GitHub erneut abgefragt. Für die Funktions- und Schema-Dokumentation dieses Repositories gelten allein die Dateien auf `main`; PR-Änderungen sind nur als getrennte Vorschau aufgeführt.
 
-1. Gestapelte Zeiterfassungsergänzung gegen den PR-20-Branch fachlich reviewen; CI für PostgreSQL/Migrationen, Frontend und Docker ist für PR #21 grün. PR #20 weder ändern noch mergen und Issue #4 bis zur fachlichen Abnahme offen halten.
-2. Issue #10 und Issue #2 bleiben bis zur jeweiligen formalen Abnahme offen; keine geschlossenen Issues erneut öffnen.
-3. OWKS und weitere Module gemäß Roadmap getrennt angehen.
-4. Produktionshärtung, Monitoring, unabhängige Rechtsprüfung und Backup/Restore aus [Issue #9](https://github.com/Xonni-star/securityops-python/issues/9) bleiben separat offen.
+## Vollständiger PR- und Issue-Index
 
-## Repository-Arbeitsstand
+| PR | Status am Prüftag | Titel |
+|---|---|---|
+| [#24](https://github.com/Xonni-star/securityops-python/pull/24) | Offen | Geschützte Dokumenten- und Vertragsverwaltung |
+| [#23](https://github.com/Xonni-star/securityops-python/pull/23) | Offen | OWKS-Wachbuch und QR/NFC-Kontrollgänge integrieren |
+| [#22](https://github.com/Xonni-star/securityops-python/pull/22) | Gemergt | Complete time tracking surcharges and approval controls |
+| [#21](https://github.com/Xonni-star/securityops-python/pull/21) | Geschlossen, nicht gemergt | Complete time tracking surcharges and period locking |
+| [#20](https://github.com/Xonni-star/securityops-python/pull/20) | Gemergt | Implement complete time tracking module |
+| [#19](https://github.com/Xonni-star/securityops-python/pull/19) | Gemergt | Dienstplanung mit Besetzungs- und Konfliktprüfung |
+| [#18](https://github.com/Xonni-star/securityops-python/pull/18) | Gemergt | Kundenverwaltung in Issue #6 vervollständigen |
+| [#17](https://github.com/Xonni-star/securityops-python/pull/17) | Gemergt | Personalverwaltung und Qualifikationen ergänzen |
+| [#16](https://github.com/Xonni-star/securityops-python/pull/16) | Gemergt | Objektverwaltung vervollständigen und Zugriff absichern |
+| [#15](https://github.com/Xonni-star/securityops-python/pull/15) | Gemergt | Behebt Backend-CI-Lintfehler für Objektverwaltung |
+| [#14](https://github.com/Xonni-star/securityops-python/pull/14) | Gemergt | Add object management backend and tests |
+| [#13](https://github.com/Xonni-star/securityops-python/pull/13) | Gemergt | Objektverwaltung ergänzen |
+| [#12](https://github.com/Xonni-star/securityops-python/pull/12) | Gemergt | Phase 2: Complete customer management |
+| [#11](https://github.com/Xonni-star/securityops-python/pull/11) | Gemergt | Phase 1: CI, Rechtehärtung und Projektdokumentation |
+| [#1](https://github.com/Xonni-star/securityops-python/pull/1) | Gemergt | Add authentication, RBAC, and audit foundation |
 
-- Der aktuelle Folgebranch baut isoliert auf PR-20-Head auf und zielt gegen den PR-20-Branch, nicht gegen `main`.
-- PR #18 und PR #19 sind im Ausgangsstand integriert; Issue #6 ist geschlossen. PR #20 ist offen und nicht gemergt; Issue #4 bleibt ebenfalls offen. Issue #10 bleibt bis fachlicher Akzeptanz offen. Issue #2 bleibt bis zur formalen Akzeptanz offen.
-- Die bereits in `main` gemergte Objektverwaltung wurde nicht neu entwickelt; Personalakten greifen über ihr verknüpftes Benutzerkonto auf die bestehende Zuweisungstabelle zu.
+### Issues
+
+| Issue | Status am Prüftag | Thema |
+|---|---|---|
+| [#10](https://github.com/Xonni-star/securityops-python/issues/10) | Offen | Dienstplanung mit Besetzungs- und Konfliktprüfung implementieren |
+| [#9](https://github.com/Xonni-star/securityops-python/issues/9) | Offen | Produktionshärtung und PostgreSQL-Integrationsprüfungen einrichten |
+| [#8](https://github.com/Xonni-star/securityops-python/issues/8) | Offen | Geschützte Dokumenten- und Vertragsverwaltung entwickeln |
+| [#7](https://github.com/Xonni-star/securityops-python/issues/7) | Offen | Rechnungswesen, Freigaben und Buchhaltungsexport implementieren |
+| [#6](https://github.com/Xonni-star/securityops-python/issues/6) | Geschlossen | Kundenverwaltung um Ansprechpartner, Anschriften und Archivierung ergänzen |
+| [#5](https://github.com/Xonni-star/securityops-python/issues/5) | Geschlossen | Personalverwaltung und Qualifikationsnachweise entwickeln |
+| [#4](https://github.com/Xonni-star/securityops-python/issues/4) | Offen | Zeiterfassung mit Korrekturfreigaben und Änderungsverlauf ergänzen |
+| [#3](https://github.com/Xonni-star/securityops-python/issues/3) | Offen | OWKS-Wachbuch und QR/NFC-Kontrollgänge integrieren |
+| [#2](https://github.com/Xonni-star/securityops-python/issues/2) | Offen | Objektverwaltung mit Kundenbeziehung und Objektzugriffsrechten implementieren |
+
+## PR- und Issue-Verlauf
+
+- PR #20 und PR #22 sind gemergt; der aktuelle `main`-SHA ist der Merge-Commit von #22.
+- PR #21 ist geschlossen, weil seine relevanten Commits bereits in #22/`main` enthalten sind. Er ist kein offener Feature-Branch.
+- PR #17 Personal, #18 Kunden und #19 Dienstplanung sind gemergt. Die jeweiligen GitHub-CI-Läufe auf den Merge-Commits waren erfolgreich.
+- Die jüngsten `main`-CI-Läufe zu #22 (`5f35304`), #19 (`d066d56`), #18 (`c8d4fbe`), #17 (`fc8c7e8`) und #16 (`6cda443`) wurden als erfolgreich verzeichnet. Der ältere Lauf für #14 war fehlgeschlagen; spätere Korrektur-/Merge-Läufe sind erfolgreich. Ein früherer Fehler wird nicht als aktueller Main-Fehler interpretiert.
+- Offene Issues laut letzter GitHub-Abfrage: #2 Objektverwaltung, #3 OWKS, #4 Zeiterfassung, #7 Rechnungswesen, #8 Dokumente/Verträge, #9 Produktionshärtung und #10 Dienstplanung.
+- Geschlossene Issues: #5 Personal/Qualifikationen und #6 Kundenverwaltung.
+- #2, #4 und #10 bleiben trotz implementierter Main-Funktionen bis zur formalen fachlichen Abnahme offen. #3 und #8 sind durch offene PRs in Arbeit, nicht integriert. #7 und #9 sind nicht abgeschlossen. Kein Issue wurde durch diese Dokumentationsarbeit verändert oder geschlossen.
+
+## Tests, Betrieb und Abnahme
+
+Im Repository vorhanden sind Backendtests für Konfiguration, Kunden, Identität, Objekte, Personal, Planung und Zeiterfassung sowie ein Frontend-Test für die App; die GitHub-CI prüft zusätzlich Python-Lint/Format, Migrationen und Tests auf temporärem PostgreSQL 17, Frontend-Build/-Tests und Backend-/Frontend-Docker-Images. Es gibt keine dokumentierten E2E-, Last-, Restore-, externen Penetrations- oder unabhängigen Datenschutz-/Rechts-/Steuerprüfungen.
+
+Compose bindet API und Vite an Loopback, stellt aber kein Produktionsdeployment bereit. Nicht umgesetzt bzw. nicht nachgewiesen sind unter anderem MFA, Passwortzurücksetzung, Sitzungsübersicht, zentral verteilter Rate-Limit-Speicher, TLS-Reverse-Proxy, produktive statische Frontendauslieferung, Malware-Scan, Anwendungsebene-Verschlüsselung, automatisierte verschlüsselte Backups mit Restore-Nachweis, Monitoring und Incident-Prozess. Auditdaten sind nicht gegen direkte Änderungen privilegierter Datenbankrollen geschützt.
+
+**Gesamturteil:** ein fortgeschrittener Entwicklungsstand mit CI-geprüften Funktionsbereichen, keine Produktionsfreigabe. Arbeitszeit-/Dienstplanungskonfiguration ist keine Rechtskonformitätsgarantie; Geldbeträge werden nicht berechnet. Datenschutz, Aufbewahrung und Betrieb müssen für eine reale Umgebung eigenständig geprüft und umgesetzt werden.
+
+## Verweise
+
+- [Architektur](ARCHITECTURE.md) · [Datenbank/Migrationen](DATABASE.md) · [API](API.md)
+- [Sicherheit](SECURITY.md) · [Deployment](DEPLOYMENT.md) · [Backup/Restore](BACKUP_RESTORE.md)
+- [Audit](PROJECT_AUDIT.md) · [Sicherheitsprüfung](SECURITY_REVIEW.md) · [Roadmap](IMPLEMENTATION_ROADMAP.md)

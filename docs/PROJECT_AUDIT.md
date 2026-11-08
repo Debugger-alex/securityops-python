@@ -1,84 +1,35 @@
-# SecurityOps – Repository-Audit
+# Repository-Audit
 
-Grundlage ist `main` nach dem Merge von PR #16 sowie der Feature-Branch `feature/personnel-management` mit Draft-PR #17. Die Objektverwaltung ist in `main`; Personaländerungen wurden durch CI mit PostgreSQL-Migrationen/-Tests sowie Frontend- und Docker-Builds geprüft.
+## Umfang und Stand
 
-## Bestand
+Direkte Bestandsaufnahme des `main`-Quellcodes `5f3530463e9531c1f825f43ae4c6a6e60b9974e3` am 08.11.2026: Routerregistrierung, Models, 13 Alembic-Revisionen, Tests, Compose, Containerdefinitionen und Workflow. GitHub-PR-/Issue-/CI-Status stehen in [`PROJECT_STATUS.md`](PROJECT_STATUS.md). Offene PR-Änderungen sind nicht als Teil des Audits von `main` gezählt.
 
-| Bereich/Funktion | Status | Tatsächlicher Stand |
+## Module und Implementierungsstand
+
+| Bereich | Ist-Stand auf `main` | Grenzen / Abnahme |
 |---|---|---|
-| Backend-Struktur | TEILWEISE | Ein FastAPI-Monolith mit `api.py`, `identity_api.py`, `auth.py`, zentralen SQLAlchemy-Modellen und Konfiguration. Noch keine fachlichen Modulgrenzen für Objekte, Personal, Planung, OWKS, Dokumente oder Abrechnung. |
-| Frontend | TEILWEISE | React-Anmeldung, Kunden- und Objektverwaltung sowie Personaloberfläche mit Navigation, Listen, Suche, Filtern, Details und Formularen. Personal-Frontend-Produktionsbuild bestanden; keine E2E- oder Komponententests. |
-| PostgreSQL/ORM | TEILWEISE | SQLAlchemy-Modelle und neun Migrationen. Migrationen 0005–0007 ergänzen Objekte; 0008 Personal/Qualifikationen; 0009 Zuweisungsverlauf und versionierte Qualifikationsdateien. Lokale API-Tests laufen auf SQLite; PostgreSQL-CI muss die aktuelle Revision 0009 noch prüfen. |
-| Alembic | TEILWEISE | Explizite Migrationen vorhanden. Upgrade bis 0009 und Downgrade 0009→0008 lokal offline gerendert; ein echter PostgreSQL-Lauf für die aktuellen Änderungen steht aus. |
-| Anmeldung | TEILWEISE | Benutzername/Passwort, Argon2id, serverseitig widerrufbare opaque Sitzung, generische Fehlermeldung. MFA und Passwortzurücksetzung fehlen. |
-| Sitzungen/CSRF | TEILWEISE | HttpOnly-Sitzungscookie, CSRF-Cookie/Header-Abgleich, SameSite=Strict, Idle-/Absolute-Timeout, Logout und Widerruf beim Passwortwechsel. Keine Sitzungsübersicht oder gezielte Einzelwiderruf-UI. |
-| Rate-Limit | TEILWEISE | Login ist auf 5 Versuche pro Minute begrenzt. Speicherung ist im Prozessspeicher, nicht instanzübergreifend; Proxy-Client-IP-Konfiguration ist nicht eingerichtet. |
-| RBAC | TEILWEISE | Backend prüft Modulrechte sowie Objektzuweisung oder globale Objektberechtigungen. Sensitive Objekt- und Personaldaten sowie Abwesenheiten haben eigene Rechte. Kein Rolleneditor. Administratorrollenvergabe bleibt auf `users.manage_admin` beschränkt. |
-| Benutzerverwaltung | TEILWEISE | Benutzer anlegen/listen/aktivieren/deaktivieren, Rollen zuweisen. Kein Rollen-/Rechteeditor, Einladungs- oder Passwortzurücksetzungsablauf. |
-| Audit | TEILWEISE | Anmeldung, fehlgeschlagene Anmeldung, Passwortwechsel, Benutzer- und Kundenänderungen werden geloggt. Keine Änderungen/Löschungen über die Anwendungs-API; kein Schutz vor direkten privilegierten Datenbankänderungen, keine Vollständigkeit über noch nicht implementierte Module. |
-| Kunden | TEILWEISE | Anlage, Suche, Filter/Sortierung, UUID-Detailabruf/-änderung, Geschäfts-/Rechnungsanschriften, Ansprechpartner mit Primärkontakt, Archivierung/Reaktivierung und Historie sind implementiert. Die Objektbeziehung ist vorhanden; Vertrags- und Dokumentzuordnung fehlen. Kunden werden archiviert statt physisch gelöscht. |
-| Objekte | TEILWEISE / BRANCH | Backend, API, React-Oberfläche und Migrationen 0005–0007: Kunde-FK, Suche/Filter/Sortierung/Paginierung, Detailbearbeitung, Adresse, mehrere einzelne Ansprechpartner, Archivierung, Historie, Zuweisungen sowie separate Sicherheitsdaten. Zugriff wird serverseitig kontrolliert. Zuweisungen binden an aktive Konten mit Mitarbeiter-/Objektleitungsrolle, nicht an Personalakten. PostgreSQL-CI, Docker-Builds und Review dieses Branches ausstehend. |
-| Personal | TEILWEISE / BRANCH | Migrationen 0008–0009, Personalakten, Qualifikationen und Ablaufübersicht, Abwesenheiten, getrennte sensible Daten, Historie, Zuweisungen über bestehende Benutzerkonten, versionierte Qualifikationsdateien, API und React-Oberfläche sind implementiert. Dateiinhalte liegen in PostgreSQL; PostgreSQL-CI und Review der aktuellen Änderungen stehen aus. |
-| Dienstplanung | FEHLT | Keine Dienste, Zuweisungen, Konflikt- oder Arbeitszeitprüfung. |
-| Zeiterfassung | FEHLT | Keine Zeitbuchungen, Korrekturfreigaben oder Abrechnungsschnittstelle. |
-| OWKS/Kontrollen | FEHLT | Keine Wachbucheinträge, Kontrollpunkte, QR-/NFC-Validierung oder Offline-Warteschlange. |
-| Dokumente/Verträge/Rechnungen | FEHLT | Kein Dateiablage-, Vertrags- oder Rechnungsmodell. |
-| Dashboard | TEILWEISE | Kundenanzahl, aktive Kunden und Interessenten werden aus der Datenbank gezählt; operative Kennzahlen fehlen. |
-| Docker/Deployment | TEILWEISE | Compose startet PostgreSQL, API und Vite-Entwicklungsserver. Es gibt keinen produktionsfähigen React-Static-Build, Reverse Proxy, TLS- oder Backup-Aufbau. Docker wurde in der Umgebung nicht ausgeführt. |
-| Tests | TEILWEISE | 21 Backendtests bestanden lokal auf SQLite; Ruff-Lint/Format sowie Frontend-TypeScript/Produktionsbuild bestanden. Frühere CI bestätigt PostgreSQL-Migrationen/-Tests und Docker-Builds für den vorherigen PR-Commit; neueste Negativtests benötigen einen erneuten CI-Lauf. Keine E2E-, Last-, Backup-/Restore- oder Frontend-Komponententests. |
+| Identity / Rollen | Passwortlogin, Argon2id, Session-/CSRF-Schutz, Benutzer-/Rollenzuordnung, Berechtigungen und Audit-Lese-API | Kein MFA, Passwortreset, Rolleneditor oder Sitzungsübersicht. Audit nicht gegen DB-Owner geschützt. |
+| Kunden | Kundenstammdaten, Suche/Filter, Anschriften, Kontakte, Archivierung, Historie, Website und Vertragsstatus-Feld | Vertragsverwaltung und Vertragsdateien fehlen. Issue #6 geschlossen; #2 ist nicht für Kunden, sondern Objekte offen. |
+| Objekte | Kundenbeziehung, Suche/Filter, Adressen/Kontakte, Archivierung/Historie, Zuweisungen und getrennte Sicherheitsdaten | Implementiert; Issue #2 bleibt bis formaler Abnahme offen. |
+| Personal | Personalakten, Beschäftigungsstatus, Qualifikationen, Ablaufübersicht, Abwesenheiten, sensible Daten, Zuweisungsverlauf und versionierte Qualifikationsnachweise | Dateien liegen als `BYTEA` in PostgreSQL. Kein Malware-Scan, keine Anwendungsebene-Verschlüsselung. Issue #5 geschlossen. |
+| Dienstplanung | Schichten, Ansichten/Filter, Veröffentlichung/Absage, IANA-Zeitzone, Ruhezeit, Qualifikation-/Abwesenheits-/Scope-/Konfliktprüfung und Verlauf | Individuelle Wiederholungsverfügbarkeit nicht modelliert; kein Nachweis rechtlicher Konformität. Issue #10 offen bis Abnahme. |
+| Zeiterfassung | Arbeits-/Pausensegmente, Korrekturen/Freigaben, Historie, Berichte/CSV, Zuschlagszeitregeln, Snapshots und Periodensperren | Keine Geldbetrags-/Payrollberechnung; fehlende fachliche Rechenkonvention. Issue #4 offen bis Abnahme. |
+| OWKS | Nicht in `main` | PR #23 offen, Migration 0014 nicht gemergt. |
+| Dokumente/Verträge | Nur Qualifikationsdateien; allgemeine Dokumenten-/Vertragsverwaltung fehlt | PR #24 offen auf #23 gestapelt, Migration 0015 nicht gemergt. |
+| Rechnungswesen | Nicht implementiert | Issue #7 offen; fachliche Vertrags-/Leistungs-/Steuerregeln fehlen. |
+| Frontend | React/TypeScript/Vite, gemeinsame App, Kunden-/Objekt-/Personal-/Planungs-/Zeitansichten | Vite-Devserver in Compose; Produktionsauslieferung und UI-Komponententests jenseits der App-Testdatei fehlen. |
+| Datenbank | PostgreSQL, 13 lineare Alembic-Migrationen bis `0013_time_tracking_surcharges` | PostgreSQL CI vorhanden; kein Schema-Deployprozess für Produktion oder Restore-Nachweis. |
+| Tests / CI | Backendtests und Ruff; PostgreSQL 17-Migration/Testjob; Frontend-Build/Tests; zwei Docker-Image-Builds | Keine E2E-, Last-, SCA/SAST-, externe Penetrations-, Malware- oder Restoretests. CI ist kein Produktivitätsnachweis. |
+| Betrieb | Compose für lokale Entwicklung, Loopback-Ports, DB-Healthcheck und explizites Passwort | Kein TLS/Reverse Proxy, kein Monitoring, verteiltes Rate-Limit, Secret Store, automatische Backups oder produktive Vite-Alternative. |
 
-## Fehler und Risiken
+## Dateien, auf denen die Bestandsaufnahme beruht
 
-### Behoben in der aktuellen Phase
+- Router und Berechtigungen: `backend/app/main.py`, `api.py`, `identity_api.py`, `personnel_api.py`, `scheduling_api.py`, `time_tracking_api.py`, `time_tracking_surcharges.py`, `auth.py`.
+- Datenbank: `backend/app/models.py` und `backend/migrations/versions/0001_customers.py` bis `0013_time_tracking_surcharges.py`.
+- Tests: `backend/tests/test_config.py`, `test_customer_management.py`, `test_customers.py`, `test_identity.py`, `test_objects.py`, `test_personnel.py`, `test_scheduling.py`, `test_time_tracking.py`, `frontend/src/App.test.tsx`.
+- Betrieb/CI: `.github/workflows/ci.yml`, `docker-compose.yml`, `backend/Dockerfile`, `frontend/Dockerfile`, `.env.example`, Package-/Python-Manifeste.
+- Die vollständige Tabellen-/FK-/Constraint-/Indexreferenz ist in [`DATABASE.md`](DATABASE.md), alle registrierten API-Routen in [`API.md`](API.md).
 
-- **HOCH – fehlende Objektzuweisungsprüfung:** Vorherige Prüfung ergab, dass Endpunkte mit Modulrechten fremde Objekte hätten lesen oder ändern können. PR #16 ergänzt serverseitige Zuweisungsprüfungen und Negativtests für Listen, Details, Historie und Änderungen; CI für PR #16 war erfolgreich.
-- **HOCH – sensible Zutrittsdaten in normalen Objektantworten:** Sicherheits-, Zutritts- und Notfallangaben werden aus Standardlisten/-details entfernt, in eigene Tabelle migriert und über gesonderte Rechte/Endpunkte geschützt. Negativtests prüfen Trennung und Verlauf ohne Werte; PR #16 wurde mit erfolgreicher CI gemergt.
-- **FEHLERHAFT – Rechteausweitung über Benutzerverwaltung:** Die Geschäftsführungsrolle hatte `users.manage`, und die Benutzeranlage nahm beliebige vorhandene Rollen an. Damit hätte sie Administratorrechte vergeben können. Die neue additive Migration trennt `users.manage_admin` ab; Create und Update kontrollieren dieses Recht serverseitig. Ein Regressionstest deckt die Ablehnung ab.
-- **SICHERHEIT – unsichere implizite Cookie-Standardeinstellung:** Compose setzte `SESSION_COOKIE_SECURE` standardmäßig auf `false`. Jetzt ist der Compose-Fallback `true`; die lokale `.env.example` setzt für lokales HTTP ausdrücklich `false`.
-- **SICHERHEIT – implizites Datenbankpasswort:** Anwendungskonfiguration verlangte kein explizit gesetztes Datenbankpasswort. Sie verlangt jetzt `POSTGRES_PASSWORD`; der Testaufbau setzt einen ausschließlich für Tests bestimmten Wert.
+## Offene Sicherheits- und Qualitätsrisiken
 
-### Offen
-
-- **Sicherheits-/Betriebsrisiko:** Der In-Memory-Rate-Limiter kann zwischen Instanzen nicht teilen und wird nach Prozessneustart zurückgesetzt. Mehrere Worker benötigen gemeinsamen Speicher und eine vertrauenswürdige Proxy-IP-Konfiguration.
-- **Sicherheits-/Betriebsrisiko:** Compose startet im Frontend `vite --host`; es ist ein Entwicklungsserver, kein gehärteter Produktions-Webserver. HTTPS/Reverse Proxy fehlt.
-- **Sicherheits-/Betriebsrisiko:** Der Audit-Datensatz ist nur über die App-API schreibgeschützt. Datenbankbesitzer oder Administratoren können die Tabelle ändern; Append-only-Berechtigungen/externes unveränderliches Archiv fehlen.
-- **Datenbank-/Betriebsrisiko:** Der API-Container führt `alembic upgrade head` bei jedem Start aus. Das ist bei mehreren parallel startenden API-Replikaten zu koordinieren; es gibt kein separates Deployment-Migrationsverfahren.
-- **Datenbanklücke:** Kundenstammdaten sind erweitert; die Kundennummer bleibt ein eindeutiger zufälliger UUID-basierter Identifikator statt einer fortlaufenden Nummer. Kunden- und Objekthistorien enthalten nur geänderte Feldnamen, keine Vorher-/Nachher-Werte.
-- **RBAC-Lücke:** Standardrollen und Rechte werden derzeit nur durch Migration initialisiert. Rollenverwaltung in der Oberfläche/API fehlt; Administratorzuweisungen werden durch die laufende Phase separat geschützt.
-- **Integrationslücke:** Lokale Tests verwenden SQLite. Gehostete CI deckt Migrationen und API-Tests gegen PostgreSQL ab; systematische Schema-Differenzprüfung und weitere Datenbanktests bleiben offen.
-- **Qualitätssicherung:** GitHub Actions prüft Backend, Migrationen gegen temporäres PostgreSQL, Frontend- und Docker-Build. SCA/SAST sind noch nicht eingerichtet.
-- **Dokumentationslücke:** Vor dieser Phase waren nur README und ein kurzer Projektstatus vorhanden; Betriebs-, Datenbank-, Sicherheits- und API-Dokumentation fehlten.
-
-## Datenbankbeobachtungen
-
-- UUID-Primärschlüssel, Fremdschlüssel, Status-Constraints und Zeitstempel sind in Grundtabellen vorhanden.
-- Benutzerrollen und Rollenberechtigungen sind Many-to-many verknüpft; Löschregeln sind überwiegend `CASCADE`. Kunden werden derzeit nicht physisch über eine API gelöscht.
-- `UserSession.token_hash` ist eindeutig; absolute und gleitende Fristen sind gespeichert.
-- `AuditLog.details` ist JSON; es gibt keine Datenbankregel, die Updates/Deletes für die Laufzeitrolle verhindert.
-- Modell- und Migrationsdefinitionen müssen weiter gegen echte PostgreSQL-Instanzen geprüft werden.
-
-## Architekturbeobachtungen
-
-- Ein modularer Monolith ist für den aktuellen Umfang angemessen.
-- Fachmodule sind noch nicht aus dem API-/Modellkern extrahiert; beim Wachstum sollten Domänen und Zugriffsgrenzen getrennt werden.
-- Die Oberfläche ruft die API zentral über `api.ts` auf, hat aber noch kein Router-/Feature-Modul-Layout.
-- Produktive Frontend-Auslieferung, Reverse Proxy, zentrale Secrets-/Rate-Limit-Verwaltung und Monitoring fehlen.
-
-## Empfohlene Entwicklungsreihenfolge
-
-1. Phase 1 abschließen: PostgreSQL-Integrationslauf und reproduzierbare Deployment-Prüfung ([#9](https://github.com/Xonni-star/securityops-python/issues/9)).
-2. Kundenverwaltung fachlich prüfen und Vertrags-/Dokumentzuordnung planen ([#6](https://github.com/Xonni-star/securityops-python/issues/6)).
-3. Personalverwaltungs-Branch gegen PostgreSQL, Docker und CI prüfen und danach Issue #5 anhand aller Akzeptanzkriterien bewerten.
-4. Die neue Personalzuweisungs- und Dokumentfunktion gegen PostgreSQL prüfen und Issue #5 anhand aller Akzeptanzkriterien bewerten ([#5](https://github.com/Xonni-star/securityops-python/issues/5)).
-5. Dienstplanung mit Konflikt-/Qualifikationsprüfungen ([#10](https://github.com/Xonni-star/securityops-python/issues/10)), danach Zeiterfassung/Freigaben ([#4](https://github.com/Xonni-star/securityops-python/issues/4)).
-6. OWKS und manipulationsnachweisbare Kontrollereignisse ([#3](https://github.com/Xonni-star/securityops-python/issues/3)).
-7. Dokumente, Verträge und Fristüberwachung ([#8](https://github.com/Xonni-star/securityops-python/issues/8)).
-8. Rechnungswesen mit versionierten, nach Freigabe nicht überschreibbaren Rechnungen ([#7](https://github.com/Xonni-star/securityops-python/issues/7)).
-9. Dashboard, E2E-/PostgreSQL-/Backup-Tests, Härtung und produktionsfähiges Deployment ([#9](https://github.com/Xonni-star/securityops-python/issues/9)).
-
-## Prüfbelege
-
-- Objektverwaltung PR #16: in `main` gemergt; die CI nach den Korrekturen war erfolgreich.
-- Personalverwaltungs-Branch: 18 Backendtests, Ruff-Lint/Format und Frontend-TypeScript-/Produktionsbuild lokal bestanden; PR #17 CI bestätigt PostgreSQL-Migrationen/-Tests und Docker-Builds.
-- Lokales PostgreSQL und Docker waren in der Entwicklungsumgebung nicht verfügbar; gehostete CI für den aktuellen Branch ist erfolgreich.
-- Der GitHub-Actions-Lauf mit kurzlebigem PostgreSQL, Frontend-Build und Docker-Images war nach Behebung der Test-Fixture erfolgreich.
+Verteiltes Rate-Limiting, sichere externe Bereitstellung, MFA/Account Recovery, Upload-Malwareprüfung, Schutz vor privilegierter Auditänderung, Datenschutz-/Aufbewahrungsregeln, verschlüsselte Backup-/Restorepraxis, Monitoring, Incident-Abläufe und unabhängige Sicherheits-/Rechtsprüfung sind nicht nachgewiesen. Die priorisierte Behandlung steht in [`SECURITY.md`](SECURITY.md) und [`IMPLEMENTATION_ROADMAP.md`](IMPLEMENTATION_ROADMAP.md).

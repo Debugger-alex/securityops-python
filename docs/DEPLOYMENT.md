@@ -1,67 +1,24 @@
-# Deployment
+# Deployment-Status
 
-## Laufzeitaufbau
+## Was im Repository existiert
 
-Das Produktions-Compose-Setup baut das Frontend als statische Vite-Dateien und liefert sie über einen unprivilegierten Nginx-Prozess auf Port 8080 im Container aus. Nginx leitet `/api/` intern an FastAPI weiter; PostgreSQL und Redis liegen in einem internen Compose-Netz ohne veröffentlichte Ports. Nur Frontend und API sind am Host-Loopback gebunden. Die API erzwingt im Produktionsmodus Secure-Cookies und Redis als gemeinsamen Rate-Limit-Speicher. Ein eigener `migrate`-Dienst ist nur über das Profil `release` verfügbar und wird nicht automatisch von API-Replikaten gestartet.
+`docker-compose.yml` beschreibt die lokale Entwicklungsumgebung mit PostgreSQL 17, FastAPI und Frontend-Vite. API und Frontend-Ports sind an `127.0.0.1` gebunden; der Datenbankport wird nicht nach außen veröffentlicht. Das Frontend-Image startet Vite im Development-Modus. Der API-Container wartet auf den DB-Healthcheck und führt Alembic-Migrationen beim Containerstart aus.
 
-Für den ersten Start oder ein Release:
+Die Anwendungsdatenbankverbindung und Cookie/CORS-Einstellungen kommen aus Umgebungsvariablen. `POSTGRES_PASSWORD` ist erforderlich. `SESSION_COOKIE_SECURE` fällt in Compose auf `true`; ein lokales HTTP-Setup kann es bewusst auf `false` setzen. Health-Endpunkte prüfen Prozess (`/health/live`) und Datenbankzugriff (`/health/ready`). GitHub Actions baut Backend-/Frontend-Images, deployt diese aber nicht.
 
-```sh
-docker compose up -d db redis
-docker compose --profile release run --rm migrate
-docker compose up --build -d api frontend
-```
+## Nicht als produktives Deployment umgesetzt
 
-Die Migration muss erfolgreich abgeschlossen sein, bevor API-Replikate aktualisiert oder skaliert werden. Bei einem Rollback darf ein destruktiver Downgrade nicht ungeprüft ausgeführt werden. Nach dem Start `GET /health/ready` prüfen; in Produktion umfasst die Readiness Datenbank und Redis. API-Prozesse führen keine Migration aus.
+Es gibt keinen bereitgestellten TLS-Reverse-Proxy, Produktions-Webserver für statische Frontenddateien, zentralen Secret Store, verteilten Rate-Limit-Store, separates Release-Migrationsverfahren, Datenbankrollen-/Netzwerkdesign, Monitoring, Alerting, automatisierte Backups oder Restore-Nachweis. Healthchecks und CI ersetzen diese Kontrollen nicht. Bei mehreren API-Replikaten kann die Migration beim Start konkurrieren; der Schritt ist vor Produktion als kontrollierter Einzelprozess auszuführen.
 
-Beim Upgrade vom bisherigen root-basierten API-Image muss das private Dokumentenvolume einmalig auf den neuen Containerbenutzer übertragen werden. Zuerst ein Backup erstellen und die alte API stoppen, dann gezielt nur das Dokumentenvolume anpassen:
+## Mindestanforderungen für einen späteren Betriebsaufbau
 
-```sh
-docker compose stop api
-docker compose run --rm --no-deps --user 0 --entrypoint chown api \
-  -R 10001:10001 /var/lib/securityops/documents
-```
+- Unterstützte, gepflegte Infrastruktur und Images mit geprüften Versionen; Images auf feste Artefakte/Versionen pinnen.
+- PostgreSQL nur im internen Netzwerk betreiben. Getrennte minimale Laufzeit-, Migrations- und Backuprollen verwenden; Zugangsdaten über einen Secret Manager injizieren.
+- Alembic genau einmal in einem kontrollierten Deploy-Schritt ausführen und Schema-/Anwendungskompatibilität verifizieren. Daten-destruktive Downgrades nicht als Rollbackstrategie einsetzen.
+- Frontend als geprüfte statische Produktionsdateien ausliefern; Vite-Devserver nicht exponieren.
+- TLS am vertrauenswürdigen Reverse Proxy, korrekte Proxy-Header, Secure-Cookie, HSTS und weitere nach Sicherheitsprüfung bestimmte Browser-Header einrichten.
+- CORS-Origin, Uploadgrenzen/-Quarantäne, Rate-Limits und Authentifizierungs-/Autorisierungsfehler konkret testen.
+- Logs ohne Passwörter, Session-/CSRF-Tokens, unnötige personenbezogene Werte oder Dateiinhalt; zentrale Aufbewahrung, Monitoring und Alarmierung festlegen.
+- Backup/Restore, Incident-Abläufe, Wiederanlauf-/Rollbackverfahren und Datenschutz-/Aufbewahrungspflichten vor Inbetriebnahme testen.
 
-Der Befehl ändert Dateieigentümer, nicht Dokumentinhalte. Bei Neuinstallationen mit leerem Volume ist er nicht erforderlich.
-
-## TLS-Reverse-Proxy und vertrauenswürdige Header
-
-TLS wird von einem separat verwalteten Reverse Proxy terminiert. Beispiel für Nginx auf demselben Host; Zertifikatspfade, Hostname und TLS-Parameter müssen an die Betriebsumgebung angepasst werden:
-
-```nginx
-server {
-    listen 443 ssl;
-    server_name securityops.example.invalid;
-
-    ssl_certificate /etc/letsencrypt/live/securityops.example.invalid/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/securityops.example.invalid/privkey.pem;
-    ssl_protocols TLSv1.2 TLSv1.3;
-
-    add_header Strict-Transport-Security "max-age=31536000" always;
-
-    location / {
-        proxy_pass http://127.0.0.1:5173;
-        proxy_set_header Host $host;
-        # Eingehenden, nicht vertrauenswürdigen X-Forwarded-For-Wert ersetzen.
-        proxy_set_header X-Forwarded-For $remote_addr;
-        proxy_set_header X-Forwarded-Proto https;
-    }
-}
-```
-
-HSTS nur aktivieren, wenn die Domain dauerhaft ausschließlich über HTTPS erreichbar ist; `includeSubDomains` nur setzen, wenn ausnahmslos alle Subdomains HTTPS unterstützen. Der statische Nginx-Webserver setzt `nosniff`, Frame-Schutz, Referrer-Policy, eine restriktive Content-Security-Policy und eine Kamera-erlaubende Permissions-Policy. Der TLS-Proxy muss eingehende `X-Forwarded-*`-Header überschreiben, statt sie ungeprüft von Clients zu übernehmen.
-
-Uvicorn vertraut ausschließlich den in `FORWARDED_ALLOW_IPS` aufgelisteten Adressen; Wildcards sind verboten und werden im Produktionsmodus abgelehnt. Standard ist die feste Frontend-Container-IP `172.28.0.10`, die der API als unmittelbarer Proxy-Hop bekannt ist. `APP_NETWORK_SUBNET` und `APP_FRONTEND_IP` müssen zusammenpassen und dürfen keine bestehenden Host-/Docker-Netze überlappen. Läuft ein TLS-Proxy vor dem veröffentlichten Frontend-Port, anhand der Nginx-Logs die von der Frontend-Instanz tatsächlich beobachtete Proxy-/Bridge-IP ermitteln und nur diese zusätzlich in `FORWARDED_ALLOW_IPS` aufnehmen; die Frontend-Container-IP muss enthalten bleiben. Keine beliebigen Client-Adressen oder `*` vertrauen. Der TLS-Proxy muss `X-Forwarded-For` mit der ermittelten Client-IP neu setzen, damit die Weitergabe an FastAPI eine kontrollierte Kette bildet. Die Rate-Limit-IP wird nur aus dieser vertrauenswürdigen Proxy-Kette abgeleitet.
-
-## Secrets und Betrieb
-
-- `POSTGRES_PASSWORD`, TLS-Schlüssel und Backup-Identitäten aus einem Secret-Manager bereitstellen; nicht in `.env`, Git oder Images veröffentlichen.
-- Die Beispielkonfiguration nutzt eine lokale PostgreSQL-Rolle. Für Produktion eine dedizierte Rolle mit minimalen Datenbankrechten und getrennte Migrationsberechtigungen einrichten.
-- Redis ist nur im internen Compose-Netz erreichbar und speichert flüchtige Rate-Limit-Zähler. Für externe Redis-Installationen `rediss://` und die dafür erforderlichen Zugriffsdaten sicher bereitstellen.
-- Dokumente liegen im privaten Volume und niemals im statischen Webroot. Volume-Verschlüsselung, Zugriff, Aufbewahrung und Backup sind Betreiberaufgaben.
-- Images, OS-Pakete und Abhängigkeiten regelmäßig aktualisieren; CI-Images bauen keine Images mit festgeschriebenem Digest. Für den produktiven Rollout geprüfte Images/Digests freigeben und einen Rollback-Ablauf erproben.
-- Monitoring, Protokollaufbewahrung ohne Tokens/Passwörter, Alarmierung, Datenbankrechte, Datenschutz und Incident-Verfahren vor öffentlichem Betrieb festlegen.
-
-## Grenzen und Nachweise
-
-CI baut die Container, prüft die Migrationen und API-Tests auf PostgreSQL 17 und führt einen verschlüsselten Backup-/Restore-Zyklus für Datenbank und Dokumentenvolume in isolierten Testressourcen aus. Der CI-Restore ist kein Restore einer Produktionssicherung. TLS-Zertifikate, DNS, produktive Proxy-IP, Secret-Manager, Produktionsrechte, Verfügbarkeit und Wiederherstellung im Betreiberumfeld wurden dadurch nicht eingerichtet oder nachgewiesen. Es wird keine Produktionsfreigabe behauptet.
+Diese Liste ist eine offene Betriebsanforderung, kein Nachweis bereits ausgeführter Kontrollen. Das Projekt ist nicht produktionsfreigegeben.

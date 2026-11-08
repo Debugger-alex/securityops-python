@@ -1,5 +1,7 @@
 # Kurzanleitung
 
+Diese Anleitung beschreibt Funktionen auf `main`. OWKS aus PR #23 und Dokumenten-/Vertragsfunktionen aus dem darauf gestapelten PR #24 sind bis zu Merge und Abnahme nicht Bestandteil der laufenden Anwendung; Rechnungswesen ist nicht implementiert. Siehe [`PROJECT_STATUS.md`](PROJECT_STATUS.md) für den frisch geprüften Stand.
+
 ## Administratorkonto
 
 Nach Migrationen legt `python -m app.bootstrap_admin` ein Administratorkonto aus den explizit gesetzten `BOOTSTRAP_ADMIN_*`-Variablen an. Ein Standardpasswort existiert nicht. Zugangsdaten sicher verwahren und den Bootstrap nicht mit wiederverwendeten oder öffentlich gespeicherten Passwörtern ausführen.

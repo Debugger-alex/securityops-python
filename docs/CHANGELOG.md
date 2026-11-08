@@ -1,11 +1,11 @@
 # Änderungsprotokoll
 
-## 2026-11-08 – Fehlende Dienstplanfunktionen für Issue #10
+## 2026-11-08 – Dokumentationssynchronisierung
 
-- Migration 0016 ergänzt regelmäßige Wochenverfügbarkeiten, einmalige Dienstwunsch-/Sperrzeiträume, das Recht zur Einreichung eigener Einträge und Vertretungsdetails in der Schichthistorie.
-- Dienstplanprüfungen berücksichtigen Verfügbarkeitsfenster und offene/angenommene Sperrzeiten. Konflikte mit bestehenden Schichten werden für Sperrzeitanträge ausgewiesen; sie müssen vor Annahme geklärt werden.
-- Deutsche responsive UI zur Pflege wiederkehrender Fenster, Erfassung/Prüfung von Dienstwünschen und nachvollziehbaren Schichtvertretungen ergänzt.
-- Issue #10 bleibt bis zur fachlichen Abnahme offen; keine automatische gesetzliche Konformität wird behauptet.
+- Status von `main` (SHA `5f3530463e9531c1f825f43ae4c6a6e60b9974e3`), Issues/PRs und CI frisch abgeglichen; offene PRs #23/#24 getrennt von `main` gekennzeichnet.
+- Architektur-, Datenbank-/Migrations-, OpenAPI-/Rechte-, Sicherheits-, Betriebs- und Roadmap-Dokumentation gegen den aktuellen Quellcode überarbeitet.
+- Frühere Einträge darunter sind zeitgebundene Entwicklungsnotizen und beschreiben teilweise den damaligen Stand vor Merge oder Statuswechsel; für den heutigen Bestand gilt [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
+- Ausschließlich Dokumentationen und `AGENTS.md` geändert; keine Anwendung, Schema- oder Migrationsdatei.
 
 ## 2026-11-08 – Gestapelte Ergänzung zu Zeiterfassung/Zuschlägen
 

@@ -1,35 +1,58 @@
 # Architektur
 
-## Ziel und aktueller Stand
+## Ist-Architektur auf `main`
 
-SecurityOps ist als modularer Monolith mit Python/FastAPI, SQLAlchemy, PostgreSQL, Alembic und React/TypeScript/Vite angelegt. Der aktuelle Code umfasst Identity/RBAC, Kunden-, Objekt-, Personal-, Planungs- und Zeiterfassungsverwaltung, das OWKS-Wachbuch sowie Dokumenten- und Vertragsverwaltung mit getrennten Verwaltungsansichten. Rechnungswesen ist nicht implementiert.
+SecurityOps ist ein modular gedachter, derzeit noch zentral organisierter Monolith. Die API-Router sind nach fachlichen Dateien getrennt, die SQLAlchemy-Modelle liegen jedoch gemeinsam in `backend/app/models.py`, und das Frontend ist eine gemeinsame React-Anwendung ohne eigenständige Modul-Bundles. PostgreSQL ist die Betriebsdatenbank; Alembic verwaltet Schemaänderungen. Docker Compose ist für lokale Entwicklung ausgelegt.
 
-## Laufzeitkomponenten
+```mermaid
+flowchart LR
+    Browser["Browser"]
+    UI["React / TypeScript / Vite<br/>Frontend"]
+    API["FastAPI-Prozess<br/>app/main.py"]
+    Identity["Identity / RBAC / Audit<br/>identity_api.py · auth.py"]
+    Customer["Kunden / Objekte<br/>api.py"]
+    People["Personal / Qualifikationen<br/>personnel_api.py"]
+    Scheduling["Dienstplanung<br/>scheduling_api.py"]
+    Time["Zeiterfassung / Zuschlagszeit<br/>time_tracking_api.py · time_tracking_surcharges.py"]
+    Models["Gemeinsame SQLAlchemy-Modelle<br/>models.py"]
+    DB[("PostgreSQL")]
+    Migrations["Alembic-Migrationen<br/>0001–0013 auf main"]
+    CI["GitHub Actions<br/>PostgreSQL · Tests · Build · Docker"]
+    Browser --> UI
+    UI -->|"HTTP /api/v1 · Session-Cookie · CSRF-Header"| API
+    API --> Identity
+    API --> Customer
+    API --> People
+    API --> Scheduling
+    API --> Time
+    Identity --> Models
+    Customer --> Models
+    People --> Models
+    Scheduling --> Models
+    Time --> Models
+    Models --> DB
+    Migrations --> DB
+    CI --> API
+    CI --> UI
+    CI --> DB
+```
 
-- `backend/app/main.py`: FastAPI-Anwendung, Middleware und Router.
-- `backend/app/identity_api.py`: Anmeldung, Benutzer, Rollen und Audit-Lesezugriff.
-- `backend/app/api.py`: Kunden-, Objekt- und Dashboard-Endpunkte einschließlich objektbezogener Zugriffskontrolle.
-- `backend/app/documents_contracts_api.py`: geschützte Dokument-, Freigabe-, Vertrags- und Erinnerungsrouten.
-- `backend/app/document_storage.py`: Upload-Prüfung sowie privater Dateispeicher ohne öffentliche Dateipfade.
-- `backend/app/auth.py`: Sitzungen, CSRF und Rechteabhängigkeiten.
-- `backend/app/models.py`: SQLAlchemy-Modelle.
-- `backend/migrations`: Alembic-Schemaänderungen.
-- `frontend/src`: React-Anwendung mit Kunden-, Objekt-, Personal-, Planungs-, Zeiterfassungs-, OWKS- und Dokumenten-/Vertragsverwaltung.
-- `docker-compose.yml`: lokale Entwicklungsdienste PostgreSQL, API, Vite und persistenter privater Dokumentenspeicher.
-- `.github/workflows/ci.yml`: Backendtests, Migrationen auf einem temporären PostgreSQL-Dienst und Frontend-Build bei Pull Requests und Änderungen an `main`.
+## Request- und Berechtigungsfluss
 
-## Request- und Sicherheitsfluss
+`main.py` registriert Router aus `api.py`, `personnel_api.py`, `scheduling_api.py`, `time_tracking_api.py`, `time_tracking_surcharges.py` und `identity_api.py` unter `/api/v1`; die Health-Endpunkte liegen außerhalb des Präfixes. Authentifizierte Requests lesen ein zufälliges opaque Session-Cookie. Gespeichert wird der Hash des Session-Tokens; Berechtigungen werden aus Benutzerrollen und Rollenrechten serverseitig ermittelt. Für zustandsändernde authentifizierte Requests müssen CSRF-Cookie und `X-CSRF-Token` übereinstimmen und der gespeicherte Tokenhash passen. Objekt-/Personal-Scope ist zusätzlich zu Modulrechten relevant. Frontend-Sichtbarkeit ist keine Sicherheitsgrenze.
 
-Der Browser authentifiziert sich mit einem zufälligen, HttpOnly-Session-Cookie. Der Server speichert nur den Hash des Session-Tokens. Schreibzugriffe erfordern einen CSRF-Cookie, den das Frontend als `X-CSRF-Token` wiederholt; der Server vergleicht Cookie, Header und gespeicherten Hash. Geschützte Endpunkte laden Benutzerrollen und Berechtigungen serverseitig. UI-Sichtbarkeit ist nur UX und keine Zugriffsgrenze.
+`/health/live` prüft nur den Prozess. `/health/ready` versucht eine Datenbankabfrage und liefert bei nicht verfügbarer Datenbank HTTP 503. CORS wird aus `CORS_ORIGINS` geladen. Ein allgemeines Security-Header-/TLS-Middleware-Setup ist nicht vorhanden.
 
-Dokumentdateien werden nicht als statische Ressourcen oder öffentliche API-Pfade gemountet. Uploads werden begrenzt in Speicher gelesen, anhand Endung, deklarierter MIME-Angabe und Dateisignatur geprüft, mit zufälliger Storage-ID in einem privaten Verzeichnis abgelegt und ausschließlich nach serverseitiger Berechtigungs-/Objektprüfung als Download-Response ausgegeben. Dateiversion, Metadaten, Auditereignis und Historie werden innerhalb derselben Datenbanktransaktion gespeichert; bei fehlgeschlagenem Commit wird die neu geschriebene Datei entfernt. Bereits gespeicherte Versionen werden nicht überschrieben.
+## Daten- und Integritätsgrenzen
 
-Die Erinnerungsplanung persistiert Fristdatensätze in PostgreSQL. Ein eindeutiger Schlüssel und `ON CONFLICT DO NOTHING` machen die manuelle Generierung mehrprozesssicher. Ein periodischer Worker, Mail-/Push-Versand und ein Virenscanner sind nicht Bestandteil der Architektur.
+Geschäftsdaten und Benutzerrechte liegen in PostgreSQL. Die fachlichen Tabellen, Beziehungen und Constraints stehen in [`DATABASE.md`](DATABASE.md). Migrationen sind eine lineare Alembic-Kette bis Revision `0013_time_tracking_surcharges` auf `main`. PR #23 schlägt `0014_owks_wachbuch` vor und PR #24 darauf aufbauend `0015_documents_contracts`; beide sind offen und nicht Teil des Diagramm-/Ist-Standes.
 
-## Fachmodule (Ziel)
+Mehrere Datenbereiche haben separate sensitive Tabellen und Endpunkte. Qualifikationsdateien werden derzeit in der Datenbank gespeichert. Ein KMS-/Schlüsselrotationssystem, Malware-Prüfung und externe private Dateiablage sind nicht vorhanden. Für Planungs- und Zeiterfassungsoperationen bestehen Datenbankconstraints und PostgreSQL-Advisory-Locks; dies wird in der Detaildokumentation beschrieben.
 
-Kunden → Objekte → Verträge und Dienste → Personal und Qualifikationen → Dienstplanung → Zeiterfassung → OWKS/Nachweise → Abrechnung. Gemeinsame Identity-, Dokumenten- und Audit-Funktionen dienen diesen Modulen. Die Objektverwaltung besitzt bereits serverseitige Zugriffsprüfungen und Zuweisungen auf Benutzerkonten; diese ersetzen noch keine Personalverwaltung.
+## Lokale Entwicklung und CI
 
-## Betrieb
+Compose startet PostgreSQL 17, API und Vite-Devserver. Der API-Container führt Migrationen bei Start aus. Das ist kein koordinierter Release-Migrationsschritt für mehrere Replikate. CI führt Migrationen einmal auf temporärem PostgreSQL 17 aus, dann Backendtests; zusätzlich prüft sie Ruff, `npm run build`, `npm test` und baut beide Container-Images. CI-Erfolg belegt keine Produktionsfähigkeit.
 
-Compose dient derzeit der lokalen Entwicklung. Das Frontend läuft über Vite; Produktionsauslieferung, TLS-Reverse-Proxy und gemeinsamer Rate-Limit-Speicher sind noch offen. Migrationen werden derzeit beim API-Containerstart ausgeführt und sollen für Mehrfachreplikate in einen kontrollierten Deploy-Schritt verlagert werden. CI führt die Migrationen unabhängig davon auf einem kurzlebigen PostgreSQL-17-Dienst aus; dies ersetzt keine Prüfung in der Zielbetriebsumgebung.
+## Nicht im aktuellen `main`
+
+OWKS befindet sich in PR #23, Dokumenten-/Vertragsfunktionen in davon abhängigem PR #24. Beide umfassen unter anderem noch nicht gemergten Quellcode und eigene Migrationen; sie dürfen nicht als bestehende Laufzeitkomponenten dargestellt werden. Rechnungswesen ist nicht implementiert. Eine verteilte Modul-/Servicearchitektur ist nicht vorhanden und auch nicht vorausgesetzt.
