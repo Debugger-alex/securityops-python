@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     postgres_db: str = "securityops"
     postgres_user: str = "securityops"
     postgres_password: SecretStr
+    mfa_encryption_key: SecretStr | None = None
     cors_origins: str = "http://localhost:5173"
     session_cookie_secure: bool = True
     rate_limit_storage_uri: str = "memory://"

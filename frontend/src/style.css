@@ -91,6 +91,23 @@ footer span { padding: 0 5px; }
 .text-button { padding: 4px 0; border: 0; background: transparent; color: #177d79; cursor: pointer; font-size: .82rem; font-weight: 600; }
 .text-button:hover { text-decoration: underline; }
 .danger-text { color: #a43b33; }
+.identity-security { display: grid; gap: 16px; }
+.identity-security > .panel-heading { margin-bottom: 0; }
+.security-panel { display: grid; gap: 16px; }
+.security-panel h3 { margin: 0; }
+.security-form { display: grid; gap: 12px; max-width: 520px; }
+.security-form label { display: grid; gap: 6px; color: #43515c; font-size: .82rem; font-weight: 600; }
+.security-form input, .security-form select { min-height: 42px; border: 1px solid #dfe6ea; border-radius: 7px; padding: 0 11px; outline-color: #177d79; }
+.security-form button { justify-self: start; border: 0; border-radius: 7px; background: #177d79; color: white; font-weight: 600; padding: 11px 14px; cursor: pointer; }
+.security-form button:disabled { opacity: .65; cursor: wait; }
+.security-session-list, .recovery-codes ul { display: grid; gap: 12px; list-style: none; margin: 0; padding: 0; }
+.security-session-list li { display: flex; justify-content: space-between; gap: 14px; border-top: 1px solid #e5eaed; padding-top: 14px; }
+.security-session-list li > div { display: grid; gap: 4px; overflow-wrap: anywhere; }
+.security-session-list li span { color: #64727e; font-size: .82rem; }
+.mfa-secret { display: block; padding: 12px; background: #f3f6f7; border-radius: 6px; overflow-wrap: anywhere; }
+.recovery-codes { padding: 16px; border: 1px solid #e0cf97; border-radius: 8px; background: #fffaf0; }
+.recovery-codes ul { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); margin: 12px 0; }
+.success-message { color: #17664d; background: #eef9f3; border: 1px solid #c9e8d7; border-radius: 7px; padding: 10px 12px; font-size: .86rem; }
 .secondary-button, .primary-button, .danger-button {
   padding: 8px 11px; border: 1px solid #dfe6ea; border-radius: 7px; background: white; color: #42515d; cursor: pointer; font-weight: 600;
 }

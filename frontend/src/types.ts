@@ -346,6 +346,27 @@ export interface AuthUser {
 
 export interface Session {
   user: AuthUser;
+  password_change_required?: boolean;
+}
+
+export interface UserSession {
+  id: string;
+  created_at: string;
+  last_seen_at: string;
+  expires_at: string;
+  absolute_expires_at: string;
+  ip_address: string | null;
+  user_agent: string | null;
+  is_current: boolean;
+}
+
+export interface MFAStatus {
+  enabled: boolean;
+}
+
+export interface MFASetup {
+  secret: string;
+  otpauth_uri: string;
 }
 
 export interface ObjectAddress {

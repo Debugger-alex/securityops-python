@@ -27,6 +27,34 @@ OWKSEventState = Literal["open", "in_progress", "resolved"]
 class LoginRequest(BaseModel):
     username: str = Field(min_length=1, max_length=80)
     password: str = Field(min_length=1, max_length=128)
+    mfa_code: str | None = None
+    recovery_code: str | None = None
+
+    @field_validator("mfa_code")
+    @classmethod
+    def mfa_code_must_have_six_digits(cls, value: str | None) -> str | None:
+        if value is not None and (len(value) != 6 or not value.isascii() or not value.isdigit()):
+            raise ValueError("Der MFA-Code muss aus sechs Ziffern bestehen.")
+        return value
+
+    @field_validator("recovery_code")
+    @classmethod
+    def recovery_code_must_have_valid_format(cls, value: str | None) -> str | None:
+        if value is not None:
+            normalized = value.replace("-", "")
+            if (
+                len(normalized) != 32
+                or not normalized.isascii()
+                or any(character not in "0123456789ABCDEFabcdef" for character in normalized)
+            ):
+                raise ValueError("Der Wiederherstellungscode hat ein ungültiges Format.")
+        return value
+
+    @model_validator(mode="after")
+    def only_one_mfa_factor(self):
+        if self.mfa_code and self.recovery_code:
+            raise ValueError("MFA-Code und Wiederherstellungscode dürfen nicht kombiniert werden.")
+        return self
 
 
 class UserRead(BaseModel):
@@ -41,6 +69,58 @@ class UserRead(BaseModel):
 
 class SessionRead(BaseModel):
     user: UserRead
+    password_change_required: bool = False
+
+
+class UserSessionRead(BaseModel):
+    id: UUID
+    created_at: datetime
+    last_seen_at: datetime
+    expires_at: datetime
+    absolute_expires_at: datetime
+    ip_address: str | None
+    user_agent: str | None
+    is_current: bool
+
+
+class MFAStatusRead(BaseModel):
+    enabled: bool
+
+
+class MFASetupRequest(BaseModel):
+    current_password: str = Field(min_length=1, max_length=128)
+
+
+class MFASetupRead(BaseModel):
+    secret: str
+    otpauth_uri: str
+
+
+class MFAEnableRequest(BaseModel):
+    code: str
+
+    @field_validator("code")
+    @classmethod
+    def code_must_have_six_digits(cls, value: str) -> str:
+        if len(value) != 6 or not value.isascii() or not value.isdigit():
+            raise ValueError("Der MFA-Code muss aus sechs Ziffern bestehen.")
+        return value
+
+
+class MFARecoveryCodesRead(BaseModel):
+    recovery_codes: list[str]
+
+
+class MFADisableRequest(BaseModel):
+    current_password: str = Field(min_length=1, max_length=128)
+    code: str
+
+    @field_validator("code")
+    @classmethod
+    def code_must_have_six_digits(cls, value: str) -> str:
+        if len(value) != 6 or not value.isascii() or not value.isdigit():
+            raise ValueError("Der MFA-Code muss aus sechs Ziffern bestehen.")
+        return value
 
 
 class UserCreate(BaseModel):
@@ -96,6 +176,17 @@ class RoleRead(BaseModel):
 class PasswordChange(BaseModel):
     current_password: str = Field(min_length=1, max_length=128)
     new_password: str = Field(min_length=12, max_length=128)
+
+
+class AdminPasswordReset(BaseModel):
+    temporary_password: str
+
+    @field_validator("temporary_password")
+    @classmethod
+    def temporary_password_must_be_long_enough(cls, value: str) -> str:
+        if not 12 <= len(value) <= 128:
+            raise ValueError("Das Übergangspasswort muss zwischen 12 und 128 Zeichen lang sein.")
+        return value
 
 
 class AuditLogRead(BaseModel):

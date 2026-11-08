@@ -81,6 +81,10 @@ class User(Base):
     __table_args__ = (
         CheckConstraint("length(trim(username)) > 0", name="ck_users_username"),
         CheckConstraint("length(trim(full_name)) > 0", name="ck_users_full_name"),
+        CheckConstraint(
+            "mfa_enabled = false OR mfa_secret_encrypted IS NOT NULL",
+            name="ck_users_mfa_secret",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
@@ -89,6 +93,14 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(String(160), nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
+    mfa_enabled: Mapped[bool] = mapped_column(
+        default=False, server_default=text("false"), nullable=False
+    )
+    mfa_secret_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
+    mfa_last_counter: Mapped[int | None] = mapped_column(nullable=True)
+    force_password_change: Mapped[bool] = mapped_column(
+        default=False, server_default=text("false"), nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
@@ -106,6 +118,9 @@ class User(Base):
     )
     employee_record: Mapped["Employee | None"] = relationship(back_populates="user", uselist=False)
     sessions: Mapped[list["UserSession"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    mfa_recovery_codes: Mapped[list["UserMFARecoveryCode"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
 
@@ -128,7 +143,23 @@ class UserSession(Base):
     )
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     absolute_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(500), nullable=True)
     user: Mapped[User] = relationship(back_populates="sessions")
+
+
+class UserMFARecoveryCode(Base):
+    __tablename__ = "user_mfa_recovery_codes"
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    code_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    user: Mapped[User] = relationship(back_populates="mfa_recovery_codes")
 
 
 class AuditLog(Base):

@@ -8,6 +8,7 @@ import type { Customer } from "./types";
 
 vi.mock("./api", () => ({
   archiveCustomer: vi.fn(),
+  changePassword: vi.fn(),
   createCustomer: vi.fn(),
   createCustomerContact: vi.fn(),
   createScheduleAvailabilityRequest: vi.fn(),
@@ -21,6 +22,10 @@ vi.mock("./api", () => ({
   getEmployeeAvailability: vi.fn(),
   getObjects: vi.fn(),
   getSession: vi.fn(),
+  getUserSessions: vi.fn(),
+  getUserSessionsForAdmin: vi.fn(),
+  getMFAStatus: vi.fn(),
+  getUsers: vi.fn(),
   getScheduleSettings: vi.fn(),
   getScheduleAvailabilityRequests: vi.fn(),
   getScheduleShifts: vi.fn(),
@@ -31,6 +36,11 @@ vi.mock("./api", () => ({
   getTimeCorrections: vi.fn(),
   getMissingShifts: vi.fn(),
   login: vi.fn(),
+  revokeUserSession: vi.fn(),
+  resetUserPassword: vi.fn(),
+  startMFASetup: vi.fn(),
+  enableMFA: vi.fn(),
+  disableMFA: vi.fn(),
   logout: vi.fn(),
   reactivateCustomer: vi.fn(),
   updateCustomer: vi.fn(),
@@ -85,6 +95,32 @@ describe("Kundenformulare", () => {
     vi.mocked(api.createCustomer).mockResolvedValue(customer);
     vi.mocked(api.getCustomer).mockResolvedValue(customer);
     vi.mocked(api.getCustomerHistory).mockResolvedValue([]);
+  });
+
+  it("sendet den MFA-Code beim Anmelden an den Server", async () => {
+    vi.mocked(api.getSession).mockRejectedValueOnce(new Error("Nicht angemeldet"));
+    vi.mocked(api.login).mockResolvedValue({
+      user: {
+        id: "mfa-user",
+        username: "test",
+        email: "test@example.de",
+        full_name: "Testkonto",
+        is_active: true,
+        roles: [],
+        permissions: [],
+      },
+    });
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Anmelden" });
+    fireEvent.change(screen.getByLabelText("Benutzername"), { target: { value: "test" } });
+    fireEvent.change(screen.getByLabelText("Passwort"), { target: { value: "test-passwort" } });
+    fireEvent.change(screen.getByLabelText(/MFA-Code/), { target: { value: "123456" } });
+    fireEvent.submit(screen.getByLabelText(/MFA-Code/).closest("form")!);
+
+    await waitFor(() => {
+      expect(api.login).toHaveBeenCalledWith("test", "test-passwort", { mfa_code: "123456" });
+    });
   });
 
   it("sendet Website und Vertragsstatus beim Anlegen", async () => {
