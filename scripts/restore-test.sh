@@ -46,7 +46,7 @@ age --decrypt --identity "$BACKUP_AGE_IDENTITY_FILE" "$1/database.dump.age" \
     | docker compose exec -T db pg_restore --exit-on-error --no-owner --no-acl \
         -U "$db_user" -d "$target_database"
 age --decrypt --identity "$BACKUP_AGE_IDENTITY_FILE" "$1/documents.tar.age" \
-    | docker compose --profile restore-test run --rm --no-deps -T restore-documents
+    | docker compose --profile restore-test run --rm --no-deps -T -i restore-documents
 
 migration=$(docker compose exec -T db psql -v ON_ERROR_STOP=1 -U "$db_user" \
     -d "$target_database" -Atc "SELECT version_num FROM alembic_version")
