@@ -9,6 +9,15 @@ import type {
   CustomerSort,
   CustomerStatus,
   Dashboard,
+  Employee,
+  EmployeeAbsence,
+  EmployeeAbsenceStatus,
+  EmployeeAbsenceType,
+  EmployeeHistory,
+  EmployeePage,
+  EmployeeQualification,
+  EmployeeSensitiveDetails,
+  EmployeeStatus,
   ObjectAddressInput,
   ObjectAssignment,
   ObjectAssignmentCandidate,
@@ -149,6 +158,140 @@ export const deleteCustomerContact = (customerId: string, contactId: string) =>
   request<void>(`/customers/${customerId}/contacts/${contactId}`, { method: "DELETE" });
 
 export const getUsers = () => request<AuthUser[]>("/users");
+
+export interface EmployeeFilters {
+  q: string;
+  status: EmployeeStatus | "";
+  includeArchived: boolean;
+  sortBy: "employee_number" | "full_name" | "hired_on" | "employment_status";
+  sortOrder: "asc" | "desc";
+  limit: number;
+  offset: number;
+}
+
+export type EmployeeInput = {
+  employee_number: string;
+  user_id?: string | null;
+  full_name: string;
+  email?: string | null;
+  phone?: string | null;
+  job_title?: string | null;
+  employment_status?: EmployeeStatus;
+  hired_on: string;
+  ended_on?: string | null;
+  contract_type?: string | null;
+  weekly_hours?: number | null;
+};
+
+export type EmployeeUpdateInput = Partial<EmployeeInput>;
+
+export const getEmployees = (filters: EmployeeFilters) => {
+  const params = new URLSearchParams({
+    limit: String(filters.limit),
+    offset: String(filters.offset),
+    sort_by: filters.sortBy,
+    sort_order: filters.sortOrder,
+  });
+  if (filters.q.trim()) params.set("q", filters.q.trim());
+  if (filters.status) params.set("status", filters.status);
+  if (filters.includeArchived) params.set("include_archived", "true");
+  return request<EmployeePage>(`/employees?${params}`);
+};
+
+export const createEmployee = (data: EmployeeInput) =>
+  request<Employee>("/employees", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const getEmployee = (id: string) => request<Employee>(`/employees/${id}`);
+
+export const updateEmployee = (id: string, data: EmployeeUpdateInput) =>
+  request<Employee>(`/employees/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+
+export const archiveEmployee = (id: string) =>
+  request<Employee>(`/employees/${id}/archive`, { method: "POST" });
+
+export const reactivateEmployee = (id: string) =>
+  request<Employee>(`/employees/${id}/reactivate`, { method: "POST" });
+
+export const getEmployeeQualifications = (id: string, includeArchived = false) =>
+  request<EmployeeQualification[]>(
+    `/employees/${id}/qualifications${includeArchived ? "?include_archived=true" : ""}`,
+  );
+
+export const createEmployeeQualification = (
+  id: string,
+  data: {
+    category: string;
+    name: string;
+    issuer?: string;
+    valid_from?: string;
+    expires_on?: string;
+  },
+) =>
+  request<EmployeeQualification>(`/employees/${id}/qualifications`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const archiveEmployeeQualification = (employeeId: string, qualificationId: string) =>
+  request<EmployeeQualification>(
+    `/employees/${employeeId}/qualifications/${qualificationId}/archive`,
+    { method: "POST" },
+  );
+
+export const getExpiringEmployeeQualifications = (days = 30) =>
+  request<Array<EmployeeQualification & {
+    employee_number: string;
+    employee_name: string;
+    days_until_expiry: number;
+  }>>(`/employees/qualifications/expiring?days=${days}`);
+
+export const getEmployeeAbsences = (id: string) =>
+  request<EmployeeAbsence[]>(`/employees/${id}/absences`);
+
+export const createEmployeeAbsence = (
+  id: string,
+  data: {
+    absence_type: EmployeeAbsenceType;
+    starts_on: string;
+    ends_on: string;
+    status?: EmployeeAbsenceStatus;
+  },
+) =>
+  request<EmployeeAbsence>(`/employees/${id}/absences`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const updateEmployeeAbsence = (
+  employeeId: string,
+  absenceId: string,
+  data: { status: EmployeeAbsenceStatus },
+) =>
+  request<EmployeeAbsence>(`/employees/${employeeId}/absences/${absenceId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+
+export const getEmployeeSensitiveDetails = (id: string) =>
+  request<EmployeeSensitiveDetails>(`/employees/${id}/sensitive`);
+
+export const updateEmployeeSensitiveDetails = (
+  id: string,
+  data: { address: string | null; emergency_contact: string | null; internal_notes: string | null },
+) =>
+  request<EmployeeSensitiveDetails>(`/employees/${id}/sensitive`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+
+export const getEmployeeHistory = (id: string) =>
+  request<EmployeeHistory[]>(`/employees/${id}/history?limit=100`);
 
 export interface ObjectFilters {
   q: string;
