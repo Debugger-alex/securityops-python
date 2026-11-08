@@ -1,6 +1,6 @@
 # SecurityOps – Implementierungs-Roadmap
 
-Diese Roadmap beschreibt den geprüften Ist-Stand im Branch `feature/object-management-completion` und die priorisierte Reihenfolge. Ein Issue bleibt offen, bis Code, Migrationen, Berechtigungsprüfungen, Tests, Dokumentation und CI vollständig geprüft sind. Der Funktionsumfang ist nicht produktionsreif.
+Diese Roadmap beschreibt `main` nach dem Merge von PR #16 sowie den aktuellen Arbeitsstand im Branch `feature/personnel-management`. Ein Issue bleibt offen, bis Code, Migrationen, Berechtigungsprüfungen, Tests, Dokumentation und CI vollständig geprüft sind. Der Funktionsumfang ist nicht produktionsreif.
 
 ## Statusübersicht
 
@@ -9,8 +9,8 @@ Diese Roadmap beschreibt den geprüften Ist-Stand im Branch `feature/object-mana
 | Einzelmandanten-Grundgerüst | Teilweise | FastAPI, React/TypeScript, PostgreSQL, Alembic und Compose sind vorhanden; keine Mandantenstrukturen. |
 | Anmeldung und Rollen | Teilweise | Argon2id, serverseitige Sitzungen, CSRF, RBAC und Admin-Bootstrap vorhanden. MFA, Passwortzurücksetzung und Sitzungsverwaltung fehlen. Objektbezogene Rechte sind im aktuellen Branch ergänzt. |
 | Kunden | Teilweise umgesetzt | Backend/API/Migration, filter- und sortierbare Liste, Details, Anschriften, Ansprechpartner, Archivierung/Reaktivierung und Historie sind implementiert; Migration 0004 und Backendtests bestehen in gehosteter PostgreSQL-CI. Vertrags-/Dokumentzuordnung fehlt ([#6](https://github.com/Xonni-star/securityops-python/issues/6)). |
-| Objekte | Teilweise umgesetzt, Branch-Prüfung offen | Backend/API/UI, Migrationen 0005–0007, Kundenbeziehung, Adressen, Ansprechpartner, Archivierung, Historie, Zuweisungen und separate Sicherheitsdaten vorhanden. Lokal getestet; PostgreSQL-CI, Docker-Builds und Review dieses Branches ausstehend ([#2](https://github.com/Xonni-star/securityops-python/issues/2)). |
-| Personal und Qualifikationen | Nicht implementiert | Personalstammdaten, Nachweise, Verfügbarkeiten und Abwesenheiten fehlen ([#5](https://github.com/Xonni-star/securityops-python/issues/5)). |
+| Objekte | In `main` umgesetzt; Abnahme offen | Backend/API/UI und Migrationen 0005–0007; PR #16 gemergt und CI erfolgreich. Akzeptanzkriterien von Issue #2 sind noch formal zu bestätigen ([#2](https://github.com/Xonni-star/securityops-python/issues/2)). |
+| Personal und Qualifikationen | Teilweise umgesetzt, Feature-Branch | Migration 0008, Personalakten, Qualifikationen/Ablaufübersicht, Abwesenheiten, sensible Daten, Historie, API, Berechtigungen, UI und lokale Tests vorhanden. PostgreSQL-/Docker-CI, Dokumentuploads und Objektzuweisungsintegration fehlen ([#5](https://github.com/Xonni-star/securityops-python/issues/5)). |
 | Dienstplanung | Nicht implementiert | Schichten, Besetzung, Konflikt- und Qualifikationsprüfung fehlen ([#10](https://github.com/Xonni-star/securityops-python/issues/10)). |
 | Zeiterfassung | Nicht implementiert | Nachvollziehbare Buchungen, Korrekturfreigaben und Export fehlen ([#4](https://github.com/Xonni-star/securityops-python/issues/4)). |
 | OWKS | Nicht implementiert | Kontrollpunkte, QR/NFC, Rundgänge und Offline-Synchronisierung fehlen ([#3](https://github.com/Xonni-star/securityops-python/issues/3)). |
@@ -24,17 +24,17 @@ Diese Roadmap beschreibt den geprüften Ist-Stand im Branch `feature/object-mana
 
 1. **CI und PostgreSQL-Integration:** Den aktuellen Feature-Branch auf einer kurzlebigen Datenbank `securityops_test`, mit Frontend- und Docker-Build prüfen; lokale Offline-SQL-Generierung ersetzt diese Integrationsprüfung nicht ([#9](https://github.com/Xonni-star/securityops-python/issues/9)).
 2. **Produktionshärtung:** Frontend nicht über den Vite-Entwicklungsserver ausliefern, TLS/Reverse Proxy und Security-Header dokumentieren, Secrets ohne Standardwerte, gemeinsames Rate-Limit für mehrere Instanzen, SCA/SAST und Wiederherstellung praktisch testen ([#9](https://github.com/Xonni-star/securityops-python/issues/9)).
-3. **Zugriffsgrenzen und Audit:** Objektzuweisungs- und sensible Berechtigungsprüfungen dieses Branches in PostgreSQL-CI bestätigen; Grenzen der Audit-Unveränderbarkeit und Aufbewahrung festlegen.
+3. **Zugriffsgrenzen und Audit:** Sensible Personalberechtigungen und Historien-/Audit-Trennung in PostgreSQL-CI bestätigen; Grenzen der Audit-Unveränderbarkeit und Aufbewahrung festlegen.
 4. **Datenbankverträglichkeit:** Migrationen gegen PostgreSQL validieren; SQLite bleibt für schnelle isolierte API-Tests, ersetzt aber keine Integrationstests.
 
 ### P1 – Kunden und Objekte
 
 1. Kundenverwaltung fachlich prüfen und Vertrags-/Dokumentzuordnung planen ([#6](https://github.com/Xonni-star/securityops-python/issues/6)).
-2. Objektverwaltungs-Branch abschließend in CI prüfen und nach Review alle Akzeptanzkriterien von Issue #2 bewerten; Issue bis dahin offen halten.
+2. Akzeptanzkriterien von Issue #2 nach dem Merge von PR #16 formal bewerten; Issue bis zur bestätigten Abnahme offen halten.
 
 ### P2 – Personal und Einsatzbetrieb
 
-1. Personal, Qualifikationen und sensible Personalzugriffe ([#5](https://github.com/Xonni-star/securityops-python/issues/5)).
+1. Personal-Branch gegen Migration, PostgreSQL, Docker und CI prüfen; Abnahme von Issue #5 erst nach Review. Mitarbeiterakten und bestehende Objektzuweisungen nachvollziehbar verknüpfen ([#5](https://github.com/Xonni-star/securityops-python/issues/5)).
 2. Dienstplanung mit Qualifikations-, Verfügbarkeits-, Ruhezeit- und Doppelbelegungsprüfungen ([#10](https://github.com/Xonni-star/securityops-python/issues/10)).
 3. Arbeitszeitbuchungen mit begründeten, genehmigten Korrekturen und unverändertem Original ([#4](https://github.com/Xonni-star/securityops-python/issues/4)).
 4. OWKS auf Objekte und Personal aufbauen; eindeutige Kontrollereignisse, QR/NFC und idempotente spätere Offline-Synchronisierung ([#3](https://github.com/Xonni-star/securityops-python/issues/3)).

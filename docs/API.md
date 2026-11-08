@@ -38,6 +38,20 @@ Die aktuelle API ist unter `/api/v1` versioniert. OpenAPI/Swagger ist während d
 | GET/PUT | `/api/v1/objects/{object_id}/assignments` | `objects.assign` und globales Verwaltungsrecht oder Objektzuweisung; PUT + CSRF |
 | GET | `/api/v1/objects/{object_id}/security` | `objects.sensitive.read` und globales Leserecht oder Objektzuweisung |
 | PATCH | `/api/v1/objects/{object_id}/security` | `objects.sensitive.manage` und globales Verwaltungsrecht oder Objektzuweisung + CSRF |
+| GET | `/api/v1/employees` | `employees.read`; `q`, `status`, `include_archived`, `sort_by`, `sort_order`, `limit`, `offset` |
+| POST | `/api/v1/employees` | `employees.manage` + CSRF |
+| GET | `/api/v1/employees/{employee_id}` | `employees.read` |
+| PATCH | `/api/v1/employees/{employee_id}` | `employees.manage` + CSRF |
+| POST | `/api/v1/employees/{employee_id}/archive` und `/reactivate` | `employees.manage` + CSRF |
+| GET | `/api/v1/employees/{employee_id}/history` | `employees.read`; `limit`, `offset` |
+| GET/POST | `/api/v1/employees/{employee_id}/qualifications` | Lesen: `employees.read`; Schreiben: `employees.manage` + CSRF |
+| PATCH | `/api/v1/employees/{employee_id}/qualifications/{qualification_id}` | `employees.manage` + CSRF |
+| POST | `/api/v1/employees/{employee_id}/qualifications/{qualification_id}/archive` | `employees.manage` + CSRF |
+| GET | `/api/v1/employees/qualifications/expiring` | `employees.read`; `days` |
+| GET/POST | `/api/v1/employees/{employee_id}/absences` | Lesen: `employees.absences.read`; Schreiben: `employees.absences.manage` + CSRF |
+| PATCH | `/api/v1/employees/{employee_id}/absences/{absence_id}` | `employees.absences.manage` + CSRF |
+| GET | `/api/v1/employees/{employee_id}/sensitive` | `employees.sensitive.read` |
+| PATCH | `/api/v1/employees/{employee_id}/sensitive` | `employees.sensitive.manage` + CSRF |
 | GET | `/api/v1/dashboard` | `dashboard.read` |
 
 Kundenlisten blenden archivierte Datensätze standardmäßig aus. Die Sortierfelder sind `company_name`, `customer_number`, `created_at` und `status`; die Sortierrichtung ist `asc` oder `desc`. Die Suche berücksichtigt Kunden-, Kontakt- und Anschriftendaten.
@@ -45,5 +59,7 @@ Kundenlisten blenden archivierte Datensätze standardmäßig aus. Die Sortierfel
 Kunden können Geschäfts- und Rechnungsanschrift, Rechtsform, Umsatzsteuer-ID, Steuernummer und interne Notizen enthalten. Ansprechpartner werden separat verwaltet; pro Kunde kann höchstens einer als primär markiert sein. Kunden werden archiviert statt physisch gelöscht. Historieneinträge speichern Ereignis, Akteur, Zeitpunkt und geänderte Feldnamen, aber keine vorherigen/neuen Feldwerte.
 
 Objektlisten und normale Objektdetails enthalten keine Sicherheits-, Zutritts- oder Notfallangaben. Diese Felder werden ausschließlich über die getrennten `/security`-Endpunkte mit separaten Berechtigungen ausgeliefert. Objektlisten und Detail-Endpunkte wenden den Objektzugriff serverseitig an; Nutzer ohne globale Rechte sehen nur zugewiesene Objekte. Zuweisungen können derzeit aktive Konten mit Mitarbeiter- oder Objektleitungsrolle enthalten. Objektkontakte werden einzeln geändert oder gelöscht; ein allgemeines Objekt-PATCH ersetzt sie nicht.
+
+Personalantworten enthalten keine Anschrift, Notfallkontakt- oder internen Notizfelder; diese liegen getrennt und benötigen `employees.sensitive.read` beziehungsweise `employees.sensitive.manage`. Abwesenheiten haben eigene Les-/Schreibrechte. Mitarbeiterhistorien und Audit-Einträge speichern geänderte Feldnamen, keine vertraulichen Feldwerte. Qualifikationsnachweise enthalten derzeit Metadaten, keine hochgeladenen Dateien. Mitarbeiterakten sind noch nicht mit den bestehenden Objektzuweisungen verbunden.
 
 Schreibzugriffe nutzen den Session-Cookie und müssen `X-CSRF-Token` senden. Archivierte Kunden müssen vor Änderungen reaktiviert werden. Nicht aufgeführte Fachmodule und Endpunkte sind nicht implementiert.

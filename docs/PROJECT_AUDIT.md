@@ -1,38 +1,38 @@
 # SecurityOps – Repository-Audit
 
-Grundlage ist der Quellcode des Feature-Branches `feature/object-management-completion`; der Branch ist noch nicht gegen PostgreSQL-CI oder Docker-Builds geprüft.
+Grundlage ist `main` nach dem Merge von PR #16 sowie der ungemergte Feature-Branch `feature/personnel-management`. Die Objektverwaltung ist in `main`; die unten beschriebene Personalverwaltung ist noch nicht durch CI/PostgreSQL/Docker geprüft.
 
 ## Bestand
 
 | Bereich/Funktion | Status | Tatsächlicher Stand |
 |---|---|---|
 | Backend-Struktur | TEILWEISE | Ein FastAPI-Monolith mit `api.py`, `identity_api.py`, `auth.py`, zentralen SQLAlchemy-Modellen und Konfiguration. Noch keine fachlichen Modulgrenzen für Objekte, Personal, Planung, OWKS, Dokumente oder Abrechnung. |
-| Frontend | TEILWEISE | React-Anmeldung, Kunden- und Objektverwaltung mit Navigation, Listen, Suche, Filtern, Details und Formularen. Keine E2E- oder Komponententests. |
-| PostgreSQL/ORM | TEILWEISE | SQLAlchemy-Modelle und sieben Migrationen. Migrationen 0005–0007 ergänzen Objektstammdaten, Zuweisungen und getrennte Sicherheitsdaten. Lokale API-Tests laufen auf SQLite; Branch-Migrationen wurden offline für PostgreSQL gerendert. |
-| Alembic | TEILWEISE | Explizite Migrationen vorhanden. Upgrade bis 0007 und Downgrade 0007→0006 lokal offline generiert; echter PostgreSQL-Lauf für diesen Branch steht aus. |
+| Frontend | TEILWEISE | React-Anmeldung, Kunden- und Objektverwaltung sowie Personaloberfläche mit Navigation, Listen, Suche, Filtern, Details und Formularen. Personal-Frontend-Produktionsbuild bestanden; keine E2E- oder Komponententests. |
+| PostgreSQL/ORM | TEILWEISE | SQLAlchemy-Modelle und acht Migrationen. Migrationen 0005–0007 ergänzen Objekte; Migration 0008 ergänzt Personal, Qualifikationen, Abwesenheiten, sensible Daten und Historie. Aktuelle API-Tests laufen lokal auf SQLite; Upgrade bis 0008 und Downgrade 0008→0007 wurden offline für PostgreSQL gerendert, aber nicht an einem laufenden PostgreSQL ausgeführt. |
+| Alembic | TEILWEISE | Explizite Migrationen vorhanden. Upgrade bis 0008 und Downgrade 0008→0007 lokal offline generiert; echter PostgreSQL-Lauf für diesen Branch steht aus. |
 | Anmeldung | TEILWEISE | Benutzername/Passwort, Argon2id, serverseitig widerrufbare opaque Sitzung, generische Fehlermeldung. MFA und Passwortzurücksetzung fehlen. |
 | Sitzungen/CSRF | TEILWEISE | HttpOnly-Sitzungscookie, CSRF-Cookie/Header-Abgleich, SameSite=Strict, Idle-/Absolute-Timeout, Logout und Widerruf beim Passwortwechsel. Keine Sitzungsübersicht oder gezielte Einzelwiderruf-UI. |
 | Rate-Limit | TEILWEISE | Login ist auf 5 Versuche pro Minute begrenzt. Speicherung ist im Prozessspeicher, nicht instanzübergreifend; Proxy-Client-IP-Konfiguration ist nicht eingerichtet. |
-| RBAC | TEILWEISE | Backend prüft Modulrechte sowie Objektzuweisung oder globale Objektberechtigungen. Sensitive Objektdaten haben eigene Rechte. Keine eigenständige Personalverwaltung und kein Rolleneditor. Administratorrollenvergabe bleibt auf `users.manage_admin` beschränkt. |
+| RBAC | TEILWEISE | Backend prüft Modulrechte sowie Objektzuweisung oder globale Objektberechtigungen. Sensitive Objekt- und Personaldaten sowie Abwesenheiten haben eigene Rechte. Kein Rolleneditor. Administratorrollenvergabe bleibt auf `users.manage_admin` beschränkt. |
 | Benutzerverwaltung | TEILWEISE | Benutzer anlegen/listen/aktivieren/deaktivieren, Rollen zuweisen. Kein Rollen-/Rechteeditor, Einladungs- oder Passwortzurücksetzungsablauf. |
 | Audit | TEILWEISE | Anmeldung, fehlgeschlagene Anmeldung, Passwortwechsel, Benutzer- und Kundenänderungen werden geloggt. Keine Änderungen/Löschungen über die Anwendungs-API; kein Schutz vor direkten privilegierten Datenbankänderungen, keine Vollständigkeit über noch nicht implementierte Module. |
 | Kunden | TEILWEISE | Anlage, Suche, Filter/Sortierung, UUID-Detailabruf/-änderung, Geschäfts-/Rechnungsanschriften, Ansprechpartner mit Primärkontakt, Archivierung/Reaktivierung und Historie sind implementiert. Die Objektbeziehung ist vorhanden; Vertrags- und Dokumentzuordnung fehlen. Kunden werden archiviert statt physisch gelöscht. |
 | Objekte | TEILWEISE / BRANCH | Backend, API, React-Oberfläche und Migrationen 0005–0007: Kunde-FK, Suche/Filter/Sortierung/Paginierung, Detailbearbeitung, Adresse, mehrere einzelne Ansprechpartner, Archivierung, Historie, Zuweisungen sowie separate Sicherheitsdaten. Zugriff wird serverseitig kontrolliert. Zuweisungen binden an aktive Konten mit Mitarbeiter-/Objektleitungsrolle, nicht an Personalakten. PostgreSQL-CI, Docker-Builds und Review dieses Branches ausstehend. |
-| Personal | FEHLT | Kein Mitarbeitermodell, keine Personalakten oder Qualifikationen. |
+| Personal | TEILWEISE / BRANCH | Migration 0008, Personalakten, Qualifikationen und Ablaufübersicht, Abwesenheiten, getrennte sensible Daten, Historie, CRUD-/Archivierungs-API und React-Oberfläche sind implementiert. Qualifikationsdateien, Mitarbeiter-Objektzuweisungen, PostgreSQL-CI und Review fehlen. |
 | Dienstplanung | FEHLT | Keine Dienste, Zuweisungen, Konflikt- oder Arbeitszeitprüfung. |
 | Zeiterfassung | FEHLT | Keine Zeitbuchungen, Korrekturfreigaben oder Abrechnungsschnittstelle. |
 | OWKS/Kontrollen | FEHLT | Keine Wachbucheinträge, Kontrollpunkte, QR-/NFC-Validierung oder Offline-Warteschlange. |
 | Dokumente/Verträge/Rechnungen | FEHLT | Kein Dateiablage-, Vertrags- oder Rechnungsmodell. |
 | Dashboard | TEILWEISE | Kundenanzahl, aktive Kunden und Interessenten werden aus der Datenbank gezählt; operative Kennzahlen fehlen. |
 | Docker/Deployment | TEILWEISE | Compose startet PostgreSQL, API und Vite-Entwicklungsserver. Es gibt keinen produktionsfähigen React-Static-Build, Reverse Proxy, TLS- oder Backup-Aufbau. Docker wurde in der Umgebung nicht ausgeführt. |
-| Tests | TEILWEISE | 16 Backendtests bestanden lokal auf SQLite; Ruff-Lint/Format, Frontend-TypeScript/Produktionsbuild bestanden. Migrationen bis 0007 und Downgrade 0007→0006 offline für PostgreSQL gerendert. Kein echter PostgreSQL- oder Docker-Lauf für den aktuellen Branch; keine E2E-, Last-, Backup-/Restore- oder Frontend-Komponententests. |
+| Tests | TEILWEISE | 18 Backendtests bestanden lokal auf SQLite; Ruff-Lint besteht, Formatierung wurde angewendet, Frontend-TypeScript/Produktionsbuild bestanden. Offline-Prüfung von Upgrade/Downgrade für Migration 0008 sowie PostgreSQL- und Docker-Läufe stehen noch aus. Keine E2E-, Last-, Backup-/Restore- oder Frontend-Komponententests. |
 
 ## Fehler und Risiken
 
 ### Behoben in der aktuellen Phase
 
-- **HOCH – fehlende Objektzuweisungsprüfung:** Vorherige Prüfung ergab, dass Endpunkte mit Modulrechten fremde Objekte hätten lesen oder ändern können. Feature-Branch ergänzt serverseitige Zuweisungsprüfungen und Negativtests für Listen, Details, Historie und Änderungen. Noch nicht in CI gegen PostgreSQL bestätigt.
-- **HOCH – sensible Zutrittsdaten in normalen Objektantworten:** Sicherheits-, Zutritts- und Notfallangaben werden aus Standardlisten/-details entfernt, in eigene Tabelle migriert und über gesonderte Rechte/Endpunkte geschützt. Negativtests prüfen Trennung und Verlauf ohne Werte.
+- **HOCH – fehlende Objektzuweisungsprüfung:** Vorherige Prüfung ergab, dass Endpunkte mit Modulrechten fremde Objekte hätten lesen oder ändern können. PR #16 ergänzt serverseitige Zuweisungsprüfungen und Negativtests für Listen, Details, Historie und Änderungen; CI für PR #16 war erfolgreich.
+- **HOCH – sensible Zutrittsdaten in normalen Objektantworten:** Sicherheits-, Zutritts- und Notfallangaben werden aus Standardlisten/-details entfernt, in eigene Tabelle migriert und über gesonderte Rechte/Endpunkte geschützt. Negativtests prüfen Trennung und Verlauf ohne Werte; PR #16 wurde mit erfolgreicher CI gemergt.
 - **FEHLERHAFT – Rechteausweitung über Benutzerverwaltung:** Die Geschäftsführungsrolle hatte `users.manage`, und die Benutzeranlage nahm beliebige vorhandene Rollen an. Damit hätte sie Administratorrechte vergeben können. Die neue additive Migration trennt `users.manage_admin` ab; Create und Update kontrollieren dieses Recht serverseitig. Ein Regressionstest deckt die Ablehnung ab.
 - **SICHERHEIT – unsichere implizite Cookie-Standardeinstellung:** Compose setzte `SESSION_COOKIE_SECURE` standardmäßig auf `false`. Jetzt ist der Compose-Fallback `true`; die lokale `.env.example` setzt für lokales HTTP ausdrücklich `false`.
 - **SICHERHEIT – implizites Datenbankpasswort:** Anwendungskonfiguration verlangte kein explizit gesetztes Datenbankpasswort. Sie verlangt jetzt `POSTGRES_PASSWORD`; der Testaufbau setzt einen ausschließlich für Tests bestimmten Wert.
@@ -68,8 +68,8 @@ Grundlage ist der Quellcode des Feature-Branches `feature/object-management-comp
 
 1. Phase 1 abschließen: PostgreSQL-Integrationslauf und reproduzierbare Deployment-Prüfung ([#9](https://github.com/Xonni-star/securityops-python/issues/9)).
 2. Kundenverwaltung fachlich prüfen und Vertrags-/Dokumentzuordnung planen ([#6](https://github.com/Xonni-star/securityops-python/issues/6)).
-3. Objektverwaltungs-Branch gegen PostgreSQL, Docker und CI prüfen und danach Issue #2 anhand aller Akzeptanzkriterien abschließen.
-4. Personal, Qualifikationen und restriktive Personalaktenberechtigungen ([#5](https://github.com/Xonni-star/securityops-python/issues/5)).
+3. Personalverwaltungs-Branch gegen PostgreSQL, Docker und CI prüfen und danach Issue #5 anhand aller Akzeptanzkriterien bewerten.
+4. Mitarbeiterakten mit den bestehenden Objektzuweisungen verbinden, ohne Objektzugriff oder Personalinformationen unberechtigt auszuweiten ([#5](https://github.com/Xonni-star/securityops-python/issues/5)).
 5. Dienstplanung mit Konflikt-/Qualifikationsprüfungen ([#10](https://github.com/Xonni-star/securityops-python/issues/10)), danach Zeiterfassung/Freigaben ([#4](https://github.com/Xonni-star/securityops-python/issues/4)).
 6. OWKS und manipulationsnachweisbare Kontrollereignisse ([#3](https://github.com/Xonni-star/securityops-python/issues/3)).
 7. Dokumente, Verträge und Fristüberwachung ([#8](https://github.com/Xonni-star/securityops-python/issues/8)).
@@ -78,6 +78,7 @@ Grundlage ist der Quellcode des Feature-Branches `feature/object-management-comp
 
 ## Prüfbelege
 
-- Aktueller Objektverwaltungs-Branch: 16 Backendtests bestanden; Ruff-Lint/Formatprüfung und Frontend-TypeScript-/Produktionsbuild bestanden; PostgreSQL-Upgrade bis 0007 und Downgrade 0007→0006 offline gerendert.
-- PostgreSQL und Docker waren in der Entwicklungsumgebung nicht verfügbar; erfolgreiche gehostete CI für diesen Branch liegt noch nicht vor.
+- Objektverwaltung PR #16: in `main` gemergt; die CI nach den Korrekturen war erfolgreich.
+- Personalverwaltungs-Branch: 18 Backendtests, Ruff-Lint/Format und Frontend-TypeScript-/Produktionsbuild lokal bestanden; Migration 0008 wurde offline gerendert, aber nicht an einem laufenden PostgreSQL ausgeführt.
+- PostgreSQL und Docker waren für die aktuelle Personalverwaltungsarbeit in der Entwicklungsumgebung nicht verifiziert; gehostete CI liegt noch nicht vor.
 - Der GitHub-Actions-Lauf mit kurzlebigem PostgreSQL, Frontend-Build und Docker-Images war nach Behebung der Test-Fixture erfolgreich.
