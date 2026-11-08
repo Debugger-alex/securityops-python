@@ -1,5 +1,5 @@
-from collections.abc import Generator
 import os
+from collections.abc import Generator
 
 os.environ.setdefault("POSTGRES_PASSWORD", "test-only-not-for-production")
 
@@ -14,8 +14,8 @@ from app.database import get_db
 from app.identity_api import password_hasher
 from app.main import app
 from app.models import (
-    Base,
     AuditLog,
+    Base,
     Customer,
     Permission,
     Role,
@@ -40,9 +40,7 @@ else:
         or parsed_test_url.host not in {"localhost", "127.0.0.1"}
         or parsed_test_url.database != "securityops_test"
     ):
-        raise RuntimeError(
-            "PostgreSQL-Tests sind nur für localhost/securityops_test zulässig."
-        )
+        raise RuntimeError("PostgreSQL-Tests sind nur für localhost/securityops_test zulässig.")
 test_engine = create_engine(test_database_url, **engine_options)
 TestingSessionLocal = sessionmaker(bind=test_engine, autoflush=False, expire_on_commit=False)
 
@@ -116,7 +114,7 @@ def client() -> Generator[TestClient, None, None]:
             "Testrolle ohne Administratorrechte",
             ("users.read", "users.manage", "customers.read"),
         )
-        employee = get_or_create_role(
+        get_or_create_role(
             "employee",
             "Mitarbeiter",
             "Operative Testrolle",

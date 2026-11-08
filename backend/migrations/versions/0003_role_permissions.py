@@ -1,10 +1,10 @@
 """Expand standard roles and guard administrator assignment."""
 
-from typing import Sequence
+from collections.abc import Sequence
 from uuid import NAMESPACE_URL, uuid5
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "0003_role_permissions"
@@ -117,9 +117,7 @@ def upgrade() -> None:
             "audit.read",
         },
     }
-    all_permission_codes = {
-        code for code, _ in NEW_PERMISSIONS
-    } | {
+    all_permission_codes = {code for code, _ in NEW_PERMISSIONS} | {
         "dashboard.read",
         "customers.read",
         "customers.create",
@@ -136,16 +134,11 @@ def upgrade() -> None:
         "reports.read",
         "audit.read",
     }
-    permission_ids = {
-        code: stable_id("permission", code)
-        for code in all_permission_codes
-    }
+    permission_ids = {code: stable_id("permission", code) for code in all_permission_codes}
     rows = [
         {
             "role_id": (
-                administrator_id
-                if role_code == "administrator"
-                else stable_id("role", role_code)
+                administrator_id if role_code == "administrator" else stable_id("role", role_code)
             ),
             "permission_id": permission_ids[permission_code],
         }
@@ -167,11 +160,7 @@ def downgrade() -> None:
         sa.column("id", postgresql.UUID(as_uuid=True)),
         sa.column("code", sa.String),
     )
-    added_permission_ids = [
-        stable_id("permission", code) for code, _ in NEW_PERMISSIONS
-    ]
+    added_permission_ids = [stable_id("permission", code) for code, _ in NEW_PERMISSIONS]
     added_role_ids = [stable_id("role", code) for code, _, _ in NEW_ROLES]
-    connection.execute(
-        sa.delete(permissions).where(permissions.c.id.in_(added_permission_ids))
-    )
+    connection.execute(sa.delete(permissions).where(permissions.c.id.in_(added_permission_ids)))
     connection.execute(sa.delete(roles).where(roles.c.id.in_(added_role_ids)))

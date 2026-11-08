@@ -50,7 +50,10 @@ def main() -> int:
             return 1
         administrator = db.scalar(select(Role).where(Role.code == "administrator"))
         if administrator is None:
-            print("Rolle 'administrator' fehlt. Zuerst Alembic-Migrationen ausführen.", file=sys.stderr)
+            print(
+                "Rolle 'administrator' fehlt. Zuerst Alembic-Migrationen ausführen.",
+                file=sys.stderr,
+            )
             return 1
         db.add(
             User(

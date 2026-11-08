@@ -47,7 +47,11 @@ jobs:
           cache: pip
           cache-dependency-path: backend/pyproject.toml
       - name: Backend und Testabhängigkeiten installieren
-        run: python -m pip install -e ".[test]"
+        run: python -m pip install -e ".[test,quality]"
+      - name: Python-Lint und Format prüfen
+        run: |
+          ruff check app tests migrations
+          ruff format --check app tests migrations
       - name: Migrationen auf PostgreSQL anwenden
         run: alembic upgrade head
       - name: Backend-Tests ausführen

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 from uuid import UUID
 
@@ -47,11 +47,7 @@ def user_read(user: User) -> UserRead:
         is_active=user.is_active,
         roles=sorted(role.code for role in user.roles),
         permissions=sorted(
-            {
-                permission.code
-                for role in user.roles
-                for permission in role.permissions
-            }
+            {permission.code for role in user.roles for permission in role.permissions}
         ),
     )
 
@@ -89,7 +85,7 @@ def login(
         )
 
     settings = get_settings()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     session_token, csrf_token = issue_session_tokens()
     user_session = UserSession(
         user_id=user.id,
@@ -182,9 +178,7 @@ def list_roles(
     db: Annotated[Session, Depends(get_db)],
 ) -> list[RoleRead]:
     roles = db.scalars(
-        select(Role)
-        .options(selectinload(Role.permissions))
-        .order_by(Role.name)
+        select(Role).options(selectinload(Role.permissions)).order_by(Role.name)
     ).all()
     return [
         RoleRead(
@@ -206,7 +200,9 @@ def list_users(
     if "users.read" not in principal.permission_codes:
         raise HTTPException(status_code=403, detail="Keine Berechtigung für diese Aktion")
     users = db.scalars(
-        select(User).options(selectinload(User.roles).selectinload(Role.permissions)).order_by(User.username)
+        select(User)
+        .options(selectinload(User.roles).selectinload(Role.permissions))
+        .order_by(User.username)
     ).all()
     return [user_read(user) for user in users]
 
@@ -284,9 +280,7 @@ def update_user(
             detail="Das eigene Administratorkonto kann hier nicht geändert werden",
         )
 
-    user = db.scalar(
-        select(User).options(selectinload(User.roles)).where(User.id == user_id)
-    )
+    user = db.scalar(select(User).options(selectinload(User.roles)).where(User.id == user_id))
     if user is None:
         raise HTTPException(status_code=404, detail="Benutzer nicht gefunden")
 
@@ -300,10 +294,7 @@ def update_user(
 
     current_admin = any(role.code == "administrator" for role in user.roles)
     desired_admin = any(role.code == "administrator" for role in new_roles)
-    if (
-        (current_admin or desired_admin)
-        and "users.manage_admin" not in principal.permission_codes
-    ):
+    if (current_admin or desired_admin) and "users.manage_admin" not in principal.permission_codes:
         raise HTTPException(
             status_code=403,
             detail="Nur Administratoren dürfen Administratorrechte ändern",
@@ -313,17 +304,16 @@ def update_user(
     will_be_active = changes.get("is_active", user.is_active)
     will_be_admin = any(role.code == "administrator" for role in new_roles)
     if was_active_admin and (not will_be_active or not will_be_admin):
-        db.scalar(
-            select(Role)
-            .where(Role.code == "administrator")
-            .with_for_update()
+        db.scalar(select(Role).where(Role.code == "administrator").with_for_update())
+        admin_count = (
+            db.scalar(
+                select(func.count(User.id))
+                .join(user_roles, user_roles.c.user_id == User.id)
+                .join(Role, Role.id == user_roles.c.role_id)
+                .where(User.is_active.is_(True), Role.code == "administrator")
+            )
+            or 0
         )
-        admin_count = db.scalar(
-            select(func.count(User.id))
-            .join(user_roles, user_roles.c.user_id == User.id)
-            .join(Role, Role.id == user_roles.c.role_id)
-            .where(User.is_active.is_(True), Role.code == "administrator")
-        ) or 0
         if admin_count <= 1:
             raise HTTPException(
                 status_code=409,
@@ -372,7 +362,5 @@ def list_audit_logs(
         raise HTTPException(status_code=403, detail="Keine Berechtigung für diese Aktion")
     if not 1 <= limit <= 100:
         raise HTTPException(status_code=422, detail="Limit muss zwischen 1 und 100 liegen")
-    rows = db.scalars(
-        select(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit)
-    ).all()
+    rows = db.scalars(select(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit)).all()
     return [AuditLogRead.model_validate(row) for row in rows]

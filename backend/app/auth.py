@@ -2,7 +2,7 @@ import hashlib
 import hmac
 import secrets
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, status
@@ -22,11 +22,11 @@ def hash_token(token: str) -> str:
 
 
 def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def as_utc(value: datetime) -> datetime:
-    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value
 
 
 @dataclass
@@ -36,11 +36,7 @@ class AuthPrincipal:
 
     @property
     def permission_codes(self) -> set[str]:
-        return {
-            permission.code
-            for role in self.user.roles
-            for permission in role.permissions
-        }
+        return {permission.code for role in self.user.roles for permission in role.permissions}
 
     @property
     def role_codes(self) -> list[str]:
@@ -63,9 +59,7 @@ def get_auth_principal(
     session = db.scalar(
         select(UserSession)
         .options(
-            selectinload(UserSession.user)
-            .selectinload(User.roles)
-            .selectinload(Role.permissions)
+            selectinload(UserSession.user).selectinload(User.roles).selectinload(Role.permissions)
         )
         .where(UserSession.token_hash == hash_token(token))
     )

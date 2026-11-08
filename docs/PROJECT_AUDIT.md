@@ -8,7 +8,7 @@ Stand: 2026-11-08. Grundlage ist der tatsächlich geprüfte Quellcode im Reposit
 |---|---|---|
 | Backend-Struktur | TEILWEISE | Ein FastAPI-Monolith mit `api.py`, `identity_api.py`, `auth.py`, zentralen SQLAlchemy-Modellen und Konfiguration. Noch keine fachlichen Modulgrenzen für Objekte, Personal, Planung, OWKS, Dokumente oder Abrechnung. |
 | Frontend | TEILWEISE | Eine React-Seite mit Anmeldung, Kundenliste, Suche, Neuanlage, Statusänderung und Kennzahlen. Noch keine modulare Navigation, Detailseiten, Formularbibliothek oder UI-Test-Suite. |
-| PostgreSQL/ORM | TEILWEISE | SQLAlchemy-Modelle und drei Migrationen im aktuellen Arbeitsstand; die dritte ergänzt Rollen/Rechte. Lokale API-Tests benutzen SQLite; GitHub Actions führt Migrationen und API-Tests zusätzlich auf einem temporären PostgreSQL-Dienst aus. Der erste Lauf bestätigte Migrationen, fand aber einen inzwischen behobenen Test-Fixture-Konflikt; Wiederholung steht aus. |
+| PostgreSQL/ORM | TEILWEISE | SQLAlchemy-Modelle und drei Migrationen im aktuellen Arbeitsstand; die dritte ergänzt Rollen/Rechte. Lokale API-Tests benutzen SQLite; GitHub Actions hat Migrationen und API-Tests zusätzlich auf einem temporären PostgreSQL-Dienst erfolgreich ausgeführt. |
 | Alembic | TEILWEISE | Migrationsumgebung und explizite Migrationen vorhanden. Migrationen wurden offline in PostgreSQL-SQL übersetzt, nicht gegen einen laufenden PostgreSQL-Server angewandt. |
 | Anmeldung | TEILWEISE | Benutzername/Passwort, Argon2id, serverseitig widerrufbare opaque Sitzung, generische Fehlermeldung. MFA und Passwortzurücksetzung fehlen. |
 | Sitzungen/CSRF | TEILWEISE | HttpOnly-Sitzungscookie, CSRF-Cookie/Header-Abgleich, SameSite=Strict, Idle-/Absolute-Timeout, Logout und Widerruf beim Passwortwechsel. Keine Sitzungsübersicht oder gezielte Einzelwiderruf-UI. |
@@ -25,7 +25,7 @@ Stand: 2026-11-08. Grundlage ist der tatsächlich geprüfte Quellcode im Reposit
 | Dokumente/Verträge/Rechnungen | FEHLT | Kein Dateiablage-, Vertrags- oder Rechnungsmodell. |
 | Dashboard | TEILWEISE | Kundenanzahl, aktive Kunden und Interessenten werden aus der Datenbank gezählt; operative Kennzahlen fehlen. |
 | Docker/Deployment | TEILWEISE | Compose startet PostgreSQL, API und Vite-Entwicklungsserver. Es gibt keinen produktionsfähigen React-Static-Build, Reverse Proxy, TLS- oder Backup-Aufbau. Docker wurde in der Umgebung nicht ausgeführt. |
-| Tests | TEILWEISE | 9 Backend-API-/Auth-/RBAC-/Konfigurationstests und erfolgreicher TypeScript-/Vite-Build. CI führt Migrationen und Backendtests gegen temporäres PostgreSQL aus und baut Docker-Images; erster Lauf migrierte erfolgreich, API-Tests werden nach einem Fixture-Fix wiederholt. Keine E2E-, Last-, Backup-/Restore- oder Frontend-Komponententests. |
+| Tests | TEILWEISE | 9 Backend-API-/Auth-/RBAC-/Konfigurationstests; gehostete CI prüft Python-Lint/Format, PostgreSQL-Migration/API-Tests, Frontend- und Docker-Build. Keine E2E-, Last-, Backup-/Restore- oder Frontend-Komponententests. |
 
 ## Fehler und Risiken
 
@@ -43,7 +43,7 @@ Stand: 2026-11-08. Grundlage ist der tatsächlich geprüfte Quellcode im Reposit
 - **Datenbank-/Betriebsrisiko:** Der API-Container führt `alembic upgrade head` bei jedem Start aus. Das ist bei mehreren parallel startenden API-Replikaten zu koordinieren; es gibt kein separates Deployment-Migrationsverfahren.
 - **Datenbanklücke:** Im `Customer`-Modell fehlen Rechtsform, Anschriften, Ansprechpartner, Archivierungszeitpunkt und Historie. Kundennummern sind zufällige UUID-basierte Identifikatoren statt einer benutzerfreundlichen fortlaufenden Nummer.
 - **RBAC-Lücke:** Standardrollen und Rechte werden derzeit nur durch Migration initialisiert. Rollenverwaltung in der Oberfläche/API fehlt; Administratorzuweisungen werden durch die laufende Phase separat geschützt.
-- **Integrationslücke:** Lokale Tests verwenden SQLite. CI ist nun zusätzlich für Migrationen und API-Tests gegen PostgreSQL konfiguriert; der gehostete Lauf muss noch geprüft werden.
+- **Integrationslücke:** Lokale Tests verwenden SQLite. Der gehostete CI-Lauf deckt nun Migrationen und API-Tests gegen PostgreSQL ab; systematische Schema-Differenzprüfung und weitere Datenbanktests bleiben offen.
 - **Qualitätssicherung:** GitHub Actions prüft Backend, Migrationen gegen temporäres PostgreSQL und Frontend-Build. Der erste gehostete Lauf ist nach dem Push auszuwerten; SCA/SAST sind noch nicht eingerichtet.
 - **Dokumentationslücke:** Vor dieser Phase waren nur README und ein kurzer Projektstatus vorhanden; Betriebs-, Datenbank-, Sicherheits- und API-Dokumentation fehlten.
 
@@ -78,4 +78,4 @@ Stand: 2026-11-08. Grundlage ist der tatsächlich geprüfte Quellcode im Reposit
 
 - Aktueller Lauf: 9 Backend-Tests bestanden; Frontend-Build erfolgreich; alle Alembic-Migrationen offline in PostgreSQL-SQL umgewandelt.
 - Das zusätzliche PostgreSQL-Integrationssystem und Docker waren in der Entwicklungsumgebung nicht verfügbar; entsprechende Prüfungen sind offen und nicht als erfolgreich gewertet.
-- Eine GitHub-Actions-Prüfung mit einem kurzlebigen PostgreSQL-Dienst ist eingerichtet; ihr tatsächliches Ergebnis wird erst nach dem Push berichtet.
+- Der GitHub-Actions-Lauf mit kurzlebigem PostgreSQL, Frontend-Build und Docker-Images war nach Behebung der Test-Fixture erfolgreich.

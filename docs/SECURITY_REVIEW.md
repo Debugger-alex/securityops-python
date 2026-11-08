@@ -38,7 +38,7 @@ Stand: 2026-11-08. Diese Prüfung ist eine statische Bestandsaufnahme des versio
 
 ## Grenzen und Prüfbelege
 
-- Lokale Backend-API-Tests verwenden SQLite. Im ersten CI-Lauf wurden Migrationen und Docker-/Frontend-Builds erfolgreich ausgeführt; ein Konflikt der Test-Fixture mit migrierten Rollen wurde gefunden und korrigiert. Der wiederholte PostgreSQL-API-Testlauf steht aus.
+- Lokale Backend-API-Tests verwenden SQLite. Ein gehosteter CI-Lauf hat nach Behebung eines Test-Fixture-Konflikts Migrationen und API-Tests gegen temporäres PostgreSQL sowie Frontend- und Docker-Builds erfolgreich ausgeführt.
 - Der lokale Arbeitslauf hat keine Docker-/PostgreSQL-Integration und keinen externen Penetrationstest ausgeführt.
 - Die Prüfung bewertet keinen konkreten Server, Reverse Proxy, Firewall, Secret Store, Backup-Speicher oder administrativen Datenbankzugang.
 - Die Anwendung ist derzeit ein Entwicklungsstand. Vor öffentlichem oder produktivem Betrieb sind die offenen Punkte sowie Datenschutz-, Arbeitszeit- und Abrechnungsanforderungen fachlich und sicherheitstechnisch zu prüfen.

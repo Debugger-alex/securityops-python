@@ -12,7 +12,7 @@ Stand: 2026-11-08. Aktuelle Arbeitsgrundlage ist der Feature-Branch `feature/pha
 - Additive Rollen-/Rechtemigration `0003_role_permissions`; Administratorrollenvergabe erfordert `users.manage_admin`.
 - Compose-Standard für Secure-Cookie ist `true`; `.env.example` setzt für lokale HTTP-Entwicklung ausdrücklich `false`.
 - Das Datenbankpasswort hat keinen Standardwert in der Anwendung mehr: `POSTGRES_PASSWORD` muss gesetzt sein.
-- GitHub Actions führt Backendtests auf SQLite und einer temporären PostgreSQL-Testdatenbank aus, wendet Migrationen an und baut Frontend sowie Docker-Images. Der erste Lauf zeigte einen Konflikt der Test-Fixture mit den migrierten Rollen; die Fixture ist korrigiert, der nächste Lauf steht noch aus.
+- GitHub Actions führt Python-Lint/Format, Backendtests auf SQLite und einer temporären PostgreSQL-Testdatenbank, Migrationen, Frontendbuild und Docker-Image-Builds aus. Der erste Lauf zeigte einen Test-Fixture-Konflikt; nach Korrektur waren alle Jobs erfolgreich.
 
 ## Teilweise implementiert oder offen
 
@@ -37,7 +37,7 @@ Stand: 2026-11-08. Aktuelle Arbeitsgrundlage ist der Feature-Branch `feature/pha
 - Sicherheitsbefunde und offene Maßnahmen: [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md).
 - Architektur, Betrieb und weitere Unterlagen sind im [`README.md`](../README.md) verlinkt.
 - Lokal: **9 Backend-Tests bestanden** (SQLite); Frontend-TypeScript-Prüfung und Produktionsbuild erfolgreich; Alembic 0001–0003 erfolgreich offline als PostgreSQL-SQL generiert.
-- Kein lokaler Docker- oder PostgreSQL-Dienst verfügbar. Der erste gehostete Lauf hat die PostgreSQL-Migrationen und beide Docker-Images erfolgreich gebaut; die Backendtests scheiterten zunächst an doppelten Berechtigungsdaten in der Test-Fixture. Die Fixture wurde angepasst; die Wiederholung steht aus.
+- Kein lokaler Docker- oder PostgreSQL-Dienst verfügbar. Im korrigierten gehosteten Lauf waren PostgreSQL-Migration und API-Tests sowie Frontend- und beide Docker-Builds erfolgreich.
 - Derzeit keine E2E-, Last-, Restore-, externe Penetrations- oder unabhängige Datenschutz-/Steuerprüfung.
 
 ## Nächste Schritte
@@ -49,5 +49,5 @@ Stand: 2026-11-08. Aktuelle Arbeitsgrundlage ist der Feature-Branch `feature/pha
 ## Repository-Arbeitsstand
 
 - Aktueller PR: [#11 – Phase 1: Rechtehärtung und Projektdokumentation](https://github.com/Xonni-star/securityops-python/pull/11).
-- In diesem Update: CI mit kurzlebigem PostgreSQL (Migration und API-Tests), Frontend-/Docker-Builds, verpflichtendes Datenbank-Secret, zugehöriger Regressionstest, Implementierungs-Roadmap und statische Sicherheitsprüfung.
+- In diesem Update: CI mit Python-Lint/Format, kurzlebigem PostgreSQL (Migration und API-Tests), Frontend-/Docker-Builds, verpflichtendes Datenbank-Secret, zugehöriger Regressionstest, Implementierungs-Roadmap und statische Sicherheitsprüfung.
 - Issues #2 bis #10 bestehen bereits; in diesem Update wurden keine neuen Issues angelegt.

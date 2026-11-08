@@ -1,6 +1,6 @@
+from conftest import ADMIN_PASSWORD, TestingSessionLocal
 from fastapi.testclient import TestClient
 
-from conftest import ADMIN_PASSWORD, TestingSessionLocal
 from app.identity_api import password_hasher
 from app.models import Role, User
 
@@ -26,18 +26,26 @@ def test_login_session_csrf_and_logout(client: TestClient) -> None:
     assert session_cookie and csrf_cookie
     set_cookie = signed_in.headers.get_list("set-cookie")
     assert any("securityops_session=" in value and "HttpOnly" in value for value in set_cookie)
-    assert any("securityops_session=" in value and "SameSite=strict" in value for value in set_cookie)
+    assert any(
+        "securityops_session=" in value and "SameSite=strict" in value for value in set_cookie
+    )
     assert "password_hash" not in signed_in.text
 
     assert client.get("/api/v1/auth/me").status_code == 200
-    assert client.post(
-        "/api/v1/customers",
-        json={"company_name": "Ohne CSRF"},
-    ).status_code == 403
-    assert client.post(
-        "/api/v1/auth/logout",
-        headers={"X-CSRF-Token": csrf_cookie},
-    ).status_code == 204
+    assert (
+        client.post(
+            "/api/v1/customers",
+            json={"company_name": "Ohne CSRF"},
+        ).status_code
+        == 403
+    )
+    assert (
+        client.post(
+            "/api/v1/auth/logout",
+            headers={"X-CSRF-Token": csrf_cookie},
+        ).status_code
+        == 204
+    )
     assert client.get("/api/v1/auth/me").status_code == 401
 
 
@@ -66,11 +74,14 @@ def test_rbac_and_user_administration(client: TestClient) -> None:
     assert client.get("/api/v1/roles").status_code == 200
     assert client.get("/api/v1/audit-logs").status_code == 200
     own_id = client.get("/api/v1/auth/me").json()["user"]["id"]
-    assert client.patch(
-        f"/api/v1/users/{own_id}",
-        headers=headers,
-        json={"is_active": False},
-    ).status_code == 409
+    assert (
+        client.patch(
+            f"/api/v1/users/{own_id}",
+            headers=headers,
+            json={"is_active": False},
+        ).status_code
+        == 409
+    )
 
     client.post(
         "/api/v1/auth/logout",
@@ -89,15 +100,21 @@ def test_rbac_and_user_administration(client: TestClient) -> None:
         json={"username": "admin", "password": ADMIN_PASSWORD},
     )
     admin_csrf = admin_login.cookies.get("securityops_csrf", "")
-    assert client.patch(
-        f"/api/v1/users/{created.json()['id']}",
-        headers={"X-CSRF-Token": admin_csrf},
-        json={"is_active": False},
-    ).status_code == 200
-    assert client.post(
-        "/api/v1/auth/login",
-        json={"username": "operator", "password": "langes-testpasswort-2026"},
-    ).status_code == 401
+    assert (
+        client.patch(
+            f"/api/v1/users/{created.json()['id']}",
+            headers={"X-CSRF-Token": admin_csrf},
+            json={"is_active": False},
+        ).status_code
+        == 200
+    )
+    assert (
+        client.post(
+            "/api/v1/auth/login",
+            json={"username": "operator", "password": "langes-testpasswort-2026"},
+        ).status_code
+        == 401
+    )
 
 
 def test_employee_role_is_restricted_to_assigned_permissions(client: TestClient) -> None:
@@ -150,11 +167,14 @@ def test_management_cannot_grant_or_change_administrator_role(client: TestClient
 
     with TestingSessionLocal() as db:
         admin_id = str(db.query(User).filter_by(username="admin").one().id)
-    assert client.patch(
-        f"/api/v1/users/{admin_id}",
-        headers=headers,
-        json={"role_codes": ["employee"]},
-    ).status_code == 403
+    assert (
+        client.patch(
+            f"/api/v1/users/{admin_id}",
+            headers=headers,
+            json={"role_codes": ["employee"]},
+        ).status_code
+        == 403
+    )
 
 
 def test_login_rate_limit(client: TestClient) -> None:
@@ -184,11 +204,17 @@ def test_password_change_revokes_sessions(client: TestClient) -> None:
     )
     assert response.status_code == 204
     assert client.get("/api/v1/auth/me").status_code == 401
-    assert client.post(
-        "/api/v1/auth/login",
-        json={"username": "admin", "password": ADMIN_PASSWORD},
-    ).status_code == 401
-    assert client.post(
-        "/api/v1/auth/login",
-        json={"username": "admin", "password": "neues-sehr-sicheres-passwort-2026"},
-    ).status_code == 200
+    assert (
+        client.post(
+            "/api/v1/auth/login",
+            json={"username": "admin", "password": ADMIN_PASSWORD},
+        ).status_code
+        == 401
+    )
+    assert (
+        client.post(
+            "/api/v1/auth/login",
+            json={"username": "admin", "password": "neues-sehr-sicheres-passwort-2026"},
+        ).status_code
+        == 200
+    )

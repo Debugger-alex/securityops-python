@@ -1,10 +1,10 @@
 """Add users, RBAC, sessions, and audit log."""
 
-from typing import Sequence
+from collections.abc import Sequence
 from uuid import NAMESPACE_URL, uuid5
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "0002_identity_audit"
@@ -51,28 +51,66 @@ PERMISSION_ROWS = [
 ROLE_PERMISSIONS = {
     "administrator": {code for code, _ in PERMISSION_ROWS},
     "management": {
-        "dashboard.read", "customers.read", "customers.create", "customers.update",
-        "customers.archive", "objects.read", "objects.manage", "employees.read",
-        "employees.manage", "scheduling.read", "scheduling.manage", "time.read",
-        "time.manage", "owks.read", "documents.read", "documents.manage",
-        "billing.read", "billing.manage", "reports.read", "users.read", "users.manage",
-        "roles.read", "audit.read",
+        "dashboard.read",
+        "customers.read",
+        "customers.create",
+        "customers.update",
+        "customers.archive",
+        "objects.read",
+        "objects.manage",
+        "employees.read",
+        "employees.manage",
+        "scheduling.read",
+        "scheduling.manage",
+        "time.read",
+        "time.manage",
+        "owks.read",
+        "documents.read",
+        "documents.manage",
+        "billing.read",
+        "billing.manage",
+        "reports.read",
+        "users.read",
+        "users.manage",
+        "roles.read",
+        "audit.read",
     },
     "operations": {
-        "dashboard.read", "customers.read", "objects.read", "objects.manage",
-        "employees.read", "scheduling.read", "scheduling.manage", "time.read",
-        "owks.read", "owks.create", "documents.read", "reports.read",
+        "dashboard.read",
+        "customers.read",
+        "objects.read",
+        "objects.manage",
+        "employees.read",
+        "scheduling.read",
+        "scheduling.manage",
+        "time.read",
+        "owks.read",
+        "owks.create",
+        "documents.read",
+        "reports.read",
     },
     "object_manager": {
-        "dashboard.read", "objects.read", "scheduling.read", "owks.read",
-        "owks.create", "documents.read",
+        "dashboard.read",
+        "objects.read",
+        "scheduling.read",
+        "owks.read",
+        "owks.create",
+        "documents.read",
     },
     "hr": {
-        "dashboard.read", "employees.read", "employees.manage", "scheduling.read",
-        "time.read", "documents.read",
+        "dashboard.read",
+        "employees.read",
+        "employees.manage",
+        "scheduling.read",
+        "time.read",
+        "documents.read",
     },
     "employee": {
-        "scheduling.read", "time.read", "owks.read", "owks.create", "documents.read",
+        "scheduling.read",
+        "time.read",
+        "owks.read",
+        "owks.create",
+        "documents.read",
     },
 }
 
@@ -103,8 +141,12 @@ def upgrade() -> None:
         sa.Column("full_name", sa.String(160), nullable=False),
         sa.Column("password_hash", sa.String(255), nullable=False),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
         sa.CheckConstraint("length(trim(username)) > 0", name="ck_users_username"),
         sa.CheckConstraint("length(trim(full_name)) > 0", name="ck_users_full_name"),
     )
@@ -112,22 +154,51 @@ def upgrade() -> None:
     op.create_index("ix_users_email", "users", ["email"])
     op.create_table(
         "user_roles",
-        sa.Column("user_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
-        sa.Column("role_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
+        sa.Column(
+            "user_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("users.id", ondelete="CASCADE"),
+            primary_key=True,
+        ),
+        sa.Column(
+            "role_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("roles.id", ondelete="CASCADE"),
+            primary_key=True,
+        ),
     )
     op.create_table(
         "role_permissions",
-        sa.Column("role_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
-        sa.Column("permission_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("permissions.id", ondelete="CASCADE"), primary_key=True),
+        sa.Column(
+            "role_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("roles.id", ondelete="CASCADE"),
+            primary_key=True,
+        ),
+        sa.Column(
+            "permission_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("permissions.id", ondelete="CASCADE"),
+            primary_key=True,
+        ),
     )
     op.create_table(
         "user_sessions",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("user_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "user_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("users.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("token_hash", sa.String(64), nullable=False, unique=True),
         sa.Column("csrf_token_hash", sa.String(64), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("last_seen_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
+        sa.Column(
+            "last_seen_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("absolute_expires_at", sa.DateTime(timezone=True), nullable=False),
     )
@@ -135,15 +206,24 @@ def upgrade() -> None:
     op.create_table(
         "audit_logs",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("actor_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
+        sa.Column(
+            "actor_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("users.id", ondelete="SET NULL"),
+            nullable=True,
+        ),
         sa.Column("action", sa.String(100), nullable=False),
         sa.Column("entity_type", sa.String(100), nullable=False),
         sa.Column("entity_id", sa.String(100), nullable=True),
         sa.Column("ip_address", sa.String(45), nullable=True),
         sa.Column("details", sa.JSON(), nullable=False, server_default=sa.text("'{}'")),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
     )
-    op.create_index("ix_audit_logs_entity_created", "audit_logs", ["entity_type", "entity_id", "created_at"])
+    op.create_index(
+        "ix_audit_logs_entity_created", "audit_logs", ["entity_type", "entity_id", "created_at"]
+    )
     op.create_index("ix_audit_logs_actor_created", "audit_logs", ["actor_id", "created_at"])
 
     roles = sa.table(

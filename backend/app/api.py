@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.database import get_db
 from app.auth import add_audit_entry, require_permission
+from app.database import get_db
 from app.models import Customer
 from app.schemas import (
     CustomerCreate,
@@ -39,18 +39,12 @@ def list_customers(
         count_query = count_query.where(search_filter)
 
     items = db.scalars(
-        query.order_by(Customer.company_name, Customer.customer_number)
-        .limit(limit)
-        .offset(offset)
+        query.order_by(Customer.company_name, Customer.customer_number).limit(limit).offset(offset)
     ).all()
-    return CustomerPage(
-        items=items, total=db.scalar(count_query) or 0, limit=limit, offset=offset
-    )
+    return CustomerPage(items=items, total=db.scalar(count_query) or 0, limit=limit, offset=offset)
 
 
-@router.post(
-    "/customers", response_model=CustomerRead, status_code=status.HTTP_201_CREATED
-)
+@router.post("/customers", response_model=CustomerRead, status_code=status.HTTP_201_CREATED)
 def create_customer(
     payload: CustomerCreate,
     db: Session = Depends(get_db),
