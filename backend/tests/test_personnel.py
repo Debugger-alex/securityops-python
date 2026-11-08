@@ -18,7 +18,7 @@ def sign_in_as(client: TestClient, username: str, password: str) -> str:
     return client.cookies.get("securityops_csrf", "")
 
 
-def create_test_user(username: str, role_code: str) -> UUID:
+def create_test_user(username: str, role_code: str, *, is_active: bool = True) -> UUID:
     with TestingSessionLocal() as db:
         role = db.scalar(select(Role).where(Role.code == role_code))
         assert role is not None
@@ -27,6 +27,7 @@ def create_test_user(username: str, role_code: str) -> UUID:
             email=f"{username}@example.com",
             full_name=f"Test {username}",
             password_hash=password_hasher.hash("personal-test-passwort-2026"),
+            is_active=is_active,
             roles=[role],
         )
         db.add(user)
@@ -58,6 +59,29 @@ def test_employee_management_qualification_expiry_and_retention(client: TestClie
     assert employee["user_id"] == str(employee_user_id)
     assert "address" not in employee
     assert "internal_notes" not in employee
+    duplicate_user_link = client.post(
+        "/api/v1/employees",
+        headers=admin_headers,
+        json={
+            "employee_number": "P-1003",
+            "user_id": str(employee_user_id),
+            "full_name": "Doppelte Kontoverknüpfung",
+            "hired_on": str(today),
+        },
+    )
+    assert duplicate_user_link.status_code == 409
+    inactive_user_id = create_test_user("deaktiviertes-konto", "employee", is_active=False)
+    inactive_user_link = client.post(
+        "/api/v1/employees",
+        headers=admin_headers,
+        json={
+            "employee_number": "P-1004",
+            "user_id": str(inactive_user_id),
+            "full_name": "Konto nicht aktiv",
+            "hired_on": str(today),
+        },
+    )
+    assert inactive_user_link.status_code == 422
     assert (
         client.patch(
             f"/api/v1/employees/{employee['id']}",
@@ -352,6 +376,48 @@ def test_employee_object_assignments_update_object_access_and_keep_history(
     history = client.get(f"/api/v1/employees/{employee['id']}/object-assignment-history").json()
     assert [entry["action"] for entry in history] == ["ended", "assigned", "ended", "assigned"]
     assert client.get(f"/api/v1/employees/{employee['id']}/objects").json() == []
+
+
+def test_employee_object_assignment_requires_explicit_permission(client: TestClient) -> None:
+    admin_headers = {"X-CSRF-Token": sign_in_as(client, "admin", ADMIN_PASSWORD)}
+    employee_user_id = create_test_user("rechte-test-mitarbeiter", "employee")
+    employee = client.post(
+        "/api/v1/employees",
+        headers=admin_headers,
+        json={
+            "employee_number": "P-3501",
+            "user_id": str(employee_user_id),
+            "full_name": "Rechte-Testperson",
+            "hired_on": str(date.today()),
+        },
+    ).json()
+    customer = client.post(
+        "/api/v1/customers",
+        headers=admin_headers,
+        json={"company_name": "Testkunde Rechteprüfung GmbH"},
+    ).json()
+    obj = client.post(
+        "/api/v1/objects",
+        headers=admin_headers,
+        json={
+            "customer_id": customer["id"],
+            "name": "Testobjekt Rechteprüfung",
+            "code": "OBJ-PERSONAL-RECHTE",
+        },
+    ).json()
+
+    create_test_user("hr-ohne-objektrechte", "hr")
+    hr_headers = {
+        "X-CSRF-Token": sign_in_as(client, "hr-ohne-objektrechte", "personal-test-passwort-2026")
+    }
+    assert client.get("/api/v1/employees/object-assignment-candidates").status_code == 403
+    assert (
+        client.post(
+            f"/api/v1/employees/{employee['id']}/objects/{obj['id']}",
+            headers=hr_headers,
+        ).status_code
+        == 403
+    )
 
 
 def test_qualification_documents_are_versioned_and_permission_protected(
