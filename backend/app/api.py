@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.auth import add_audit_entry, require_permission
@@ -14,9 +15,13 @@ from app.models import (
     CustomerContact,
     CustomerHistory,
     ObjectAddress,
+    ObjectAssignment,
     ObjectContact,
     ObjectHistory,
+    ObjectSecurityDetails,
+    Role,
     SecurityObject,
+    User,
 )
 from app.schemas import (
     CustomerAddressInput,
@@ -31,6 +36,9 @@ from app.schemas import (
     CustomerUpdate,
     DashboardRead,
     ObjectAddressInput,
+    ObjectAssignmentCandidateRead,
+    ObjectAssignmentRead,
+    ObjectAssignmentUpdate,
     ObjectContactCreate,
     ObjectContactRead,
     ObjectContactUpdate,
@@ -38,10 +46,51 @@ from app.schemas import (
     ObjectHistoryRead,
     ObjectPage,
     ObjectRead,
+    ObjectSecurityRead,
+    ObjectSecurityUpdate,
+    ObjectStatus,
     ObjectUpdate,
 )
 
 router = APIRouter()
+
+
+def commit_object_transaction(db: Session) -> None:
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Die Objektänderung verletzt eine Datenbankbedingung",
+        ) from exc
+
+
+def flush_object_transaction(db: Session) -> None:
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Die Objektänderung verletzt eine Datenbankbedingung",
+        ) from exc
+
+
+def ensure_object_code_available(
+    db: Session,
+    code: str,
+    *,
+    exclude_object_id: UUID | None = None,
+) -> None:
+    query = select(SecurityObject.id).where(SecurityObject.code == code)
+    if exclude_object_id is not None:
+        query = query.where(SecurityObject.id != exclude_object_id)
+    if db.scalar(query) is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Die Objektnummer ist bereits vergeben",
+        )
 
 
 def customer_query():
@@ -123,8 +172,20 @@ def object_query():
     )
 
 
-def get_object_or_404(db: Session, object_id: UUID) -> SecurityObject:
-    obj = db.scalar(object_query().where(SecurityObject.id == object_id))
+def get_object_or_404(
+    db: Session,
+    object_id: UUID,
+    principal,
+    *,
+    for_write: bool = False,
+) -> SecurityObject:
+    global_permission = "objects.manage_all" if for_write else "objects.read_all"
+    query = object_query().where(SecurityObject.id == object_id)
+    if global_permission not in principal.permission_codes:
+        query = query.where(
+            SecurityObject.assignments.any(ObjectAssignment.user_id == principal.user.id)
+        )
+    obj = db.scalar(query)
     if obj is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Objekt nicht gefunden")
     return obj
@@ -183,44 +244,6 @@ def set_object_address(
         return
     for field, value in values.items():
         setattr(obj.address, field, value)
-
-
-def set_object_contact(
-    db: Session,
-    obj: SecurityObject,
-    payload: ObjectContactCreate | None,
-) -> None:
-    if payload is None:
-        if obj.contacts:
-            for contact in list(obj.contacts):
-                db.delete(contact)
-                obj.contacts.remove(contact)
-        return
-
-    if obj.contacts and any(contact.is_primary for contact in obj.contacts):
-        for contact in obj.contacts:
-            contact.is_primary = False
-
-    if not obj.contacts:
-        obj.contacts.append(
-            ObjectContact(
-                first_name=payload.first_name.strip(),
-                last_name=payload.last_name.strip(),
-                role=payload.role.strip() if payload.role else None,
-                email=str(payload.email).lower() if payload.email else None,
-                phone=payload.phone.strip() if payload.phone else None,
-                is_primary=payload.is_primary,
-            )
-        )
-        return
-
-    contact = obj.contacts[0]
-    contact.first_name = payload.first_name.strip()
-    contact.last_name = payload.last_name.strip()
-    contact.role = payload.role.strip() if payload.role else None
-    contact.email = str(payload.email).lower() if payload.email else None
-    contact.phone = payload.phone.strip() if payload.phone else None
-    contact.is_primary = payload.is_primary
 
 
 @router.get("/customers", response_model=CustomerPage)
@@ -626,6 +649,7 @@ def delete_customer_contact(
 def list_objects(
     q: str | None = Query(default=None, max_length=200),
     customer_id: UUID | None = Query(default=None),
+    object_status: ObjectStatus | None = Query(default=None, alias="status"),
     include_archived: bool = False,
     sort_by: Literal["name", "code", "created_at", "status"] = "name",
     sort_order: Literal["asc", "desc"] = "asc",
@@ -641,6 +665,12 @@ def list_objects(
         filters.append(SecurityObject.archived_at.is_(None))
     if customer_id is not None:
         filters.append(SecurityObject.customer_id == customer_id)
+    if object_status is not None:
+        filters.append(SecurityObject.status == object_status)
+    if "objects.read_all" not in _principal.permission_codes:
+        filters.append(
+            SecurityObject.assignments.any(ObjectAssignment.user_id == _principal.user.id)
+        )
     if q and q.strip():
         term = f"%{q.strip()}%"
         contact_matches = (
@@ -675,7 +705,6 @@ def list_objects(
                 SecurityObject.code.ilike(term),
                 SecurityObject.object_type.ilike(term),
                 SecurityObject.description.ilike(term),
-                SecurityObject.emergency_contact.ilike(term),
                 contact_matches,
                 address_matches,
             )
@@ -711,6 +740,11 @@ def create_object(
     db: Session = Depends(get_db),
     principal=Depends(require_permission("objects.manage")),
 ) -> ObjectRead:
+    if "objects.manage_all" not in principal.permission_codes:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Nur die globale Objektverwaltung darf neue Objekte anlegen",
+        )
     customer = db.get(Customer, payload.customer_id)
     if customer is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Kunde nicht gefunden")
@@ -719,8 +753,8 @@ def create_object(
             status_code=status.HTTP_409_CONFLICT,
             detail="Objekte können keinem archivierten Kunden zugeordnet werden",
         )
-
     code = payload.code.strip() if payload.code else f"OBJ-{uuid4().hex.upper()[:12]}"
+    ensure_object_code_available(db, code)
     obj = SecurityObject(
         customer_id=customer.id,
         code=code,
@@ -730,36 +764,32 @@ def create_object(
         status=payload.status,
         operating_hours=payload.operating_hours.strip() if payload.operating_hours else None,
         service_times=payload.service_times.strip() if payload.service_times else None,
-        security_requirements=payload.security_requirements.strip()
-        if payload.security_requirements
-        else None,
         staffing_requirements=payload.staffing_requirements.strip()
         if payload.staffing_requirements
         else None,
-        access_information=payload.access_information.strip()
-        if payload.access_information
-        else None,
-        emergency_contact=payload.emergency_contact.strip() if payload.emergency_contact else None,
     )
     db.add(obj)
-    db.flush()
+    flush_object_transaction(db)
     if payload.address is not None:
         set_object_address(db, obj, payload.address)
+    initial_contacts = [*payload.contacts]
     if payload.contact is not None:
+        initial_contacts.append(payload.contact)
+    for contact in initial_contacts:
         obj.contacts.append(
             ObjectContact(
-                first_name=payload.contact.first_name.strip(),
-                last_name=payload.contact.last_name.strip(),
-                role=payload.contact.role.strip() if payload.contact.role else None,
-                email=str(payload.contact.email).lower() if payload.contact.email else None,
-                phone=payload.contact.phone.strip() if payload.contact.phone else None,
-                is_primary=payload.contact.is_primary,
+                first_name=contact.first_name.strip(),
+                last_name=contact.last_name.strip(),
+                role=contact.role.strip() if contact.role else None,
+                email=str(contact.email).lower() if contact.email else None,
+                phone=contact.phone.strip() if contact.phone else None,
+                is_primary=contact.is_primary,
             )
         )
     changed_fields = {"customer_id", "code", "name", "status"}
     if payload.address is not None:
         changed_fields.add("address")
-    if payload.contact is not None:
+    if initial_contacts:
         changed_fields.add("contact")
 
     record_object_event(
@@ -770,8 +800,8 @@ def create_object(
         changed_fields=changed_fields,
         ip_address=request.client.host if request.client else None,
     )
-    db.commit()
-    return ObjectRead.model_validate(get_object_or_404(db, obj.id))
+    commit_object_transaction(db)
+    return ObjectRead.model_validate(get_object_or_404(db, obj.id, principal))
 
 
 @router.get("/objects/{object_id}/history", response_model=list[ObjectHistoryRead])
@@ -782,8 +812,7 @@ def list_object_history(
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ) -> list[ObjectHistoryRead]:
-    if db.get(SecurityObject, object_id) is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Objekt nicht gefunden")
+    get_object_or_404(db, object_id, _principal)
     rows = db.scalars(
         select(ObjectHistory)
         .where(ObjectHistory.object_id == object_id)
@@ -794,13 +823,193 @@ def list_object_history(
     return [ObjectHistoryRead.model_validate(row) for row in rows]
 
 
+@router.get(
+    "/objects/assignment-candidates",
+    response_model=list[ObjectAssignmentCandidateRead],
+)
+def list_object_assignment_candidates(
+    db: Session = Depends(get_db),
+    _principal=Depends(require_permission("objects.assign")),
+) -> list[ObjectAssignmentCandidateRead]:
+    users = db.scalars(
+        select(User)
+        .where(
+            User.is_active.is_(True),
+            User.roles.any(Role.code.in_(("employee", "object_manager"))),
+        )
+        .order_by(User.full_name, User.username)
+    ).all()
+    return [
+        ObjectAssignmentCandidateRead(
+            id=user.id,
+            username=user.username,
+            full_name=user.full_name,
+        )
+        for user in users
+    ]
+
+
+@router.get(
+    "/objects/{object_id}/assignments",
+    response_model=list[ObjectAssignmentRead],
+)
+def list_object_assignments(
+    object_id: UUID,
+    db: Session = Depends(get_db),
+    principal=Depends(require_permission("objects.assign")),
+) -> list[ObjectAssignmentRead]:
+    obj = get_object_or_404(db, object_id, principal, for_write=True)
+    assignments = db.scalars(
+        select(ObjectAssignment)
+        .options(selectinload(ObjectAssignment.user))
+        .where(ObjectAssignment.object_id == obj.id)
+        .order_by(ObjectAssignment.assigned_at, ObjectAssignment.user_id)
+    ).all()
+    return [
+        ObjectAssignmentRead(
+            user_id=assignment.user.id,
+            username=assignment.user.username,
+            full_name=assignment.user.full_name,
+            assigned_at=assignment.assigned_at,
+        )
+        for assignment in assignments
+    ]
+
+
+@router.put(
+    "/objects/{object_id}/assignments",
+    response_model=list[ObjectAssignmentRead],
+)
+def update_object_assignments(
+    request: Request,
+    object_id: UUID,
+    payload: ObjectAssignmentUpdate,
+    db: Session = Depends(get_db),
+    principal=Depends(require_permission("objects.assign")),
+) -> list[ObjectAssignmentRead]:
+    obj = get_object_or_404(db, object_id, principal, for_write=True)
+    selected_users = db.scalars(
+        select(User).where(
+            User.id.in_(payload.user_ids),
+            User.is_active.is_(True),
+            User.roles.any(Role.code.in_(("employee", "object_manager"))),
+        )
+    ).all()
+    if len(selected_users) != len(payload.user_ids):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Zugewiesene Mitarbeiter müssen vorhanden und aktiv sein",
+        )
+
+    existing_assignments = db.scalars(
+        select(ObjectAssignment).where(ObjectAssignment.object_id == obj.id)
+    ).all()
+    existing_by_user = {assignment.user_id: assignment for assignment in existing_assignments}
+    selected_by_id = {user.id: user for user in selected_users}
+    changed = False
+
+    for user_id in existing_by_user.keys() - selected_by_id.keys():
+        db.delete(existing_by_user[user_id])
+        changed = True
+    for user_id in selected_by_id.keys() - existing_by_user.keys():
+        db.add(
+            ObjectAssignment(
+                object_id=obj.id,
+                user_id=user_id,
+                assigned_by_id=principal.user.id,
+            )
+        )
+        changed = True
+
+    if changed:
+        record_object_event(
+            db,
+            obj=obj,
+            actor_id=principal.user.id,
+            action="assignments_updated",
+            changed_fields={"assignments"},
+            ip_address=request.client.host if request.client else None,
+        )
+        commit_object_transaction(db)
+    return list_object_assignments(object_id, db, principal)
+
+
 @router.get("/objects/{object_id}", response_model=ObjectRead)
 def get_object(
     object_id: UUID,
     db: Session = Depends(get_db),
     _principal=Depends(require_permission("objects.read")),
 ) -> ObjectRead:
-    return ObjectRead.model_validate(get_object_or_404(db, object_id))
+    return ObjectRead.model_validate(get_object_or_404(db, object_id, _principal))
+
+
+def object_security_read(
+    db: Session,
+    obj: SecurityObject,
+) -> ObjectSecurityRead:
+    details = db.get(ObjectSecurityDetails, obj.id)
+    return ObjectSecurityRead(
+        object_id=obj.id,
+        security_requirements=details.security_requirements if details else None,
+        access_information=details.access_information if details else None,
+        emergency_contact=details.emergency_contact if details else None,
+        updated_at=details.updated_at if details else None,
+    )
+
+
+@router.get(
+    "/objects/{object_id}/security",
+    response_model=ObjectSecurityRead,
+)
+def get_object_security_details(
+    object_id: UUID,
+    db: Session = Depends(get_db),
+    principal=Depends(require_permission("objects.sensitive.read")),
+) -> ObjectSecurityRead:
+    obj = get_object_or_404(db, object_id, principal)
+    return object_security_read(db, obj)
+
+
+@router.patch(
+    "/objects/{object_id}/security",
+    response_model=ObjectSecurityRead,
+)
+def update_object_security_details(
+    request: Request,
+    object_id: UUID,
+    payload: ObjectSecurityUpdate,
+    db: Session = Depends(get_db),
+    principal=Depends(require_permission("objects.sensitive.manage")),
+) -> ObjectSecurityRead:
+    obj = get_object_or_404(db, object_id, principal, for_write=True)
+    ensure_object_is_active(obj)
+    changes = payload.model_dump(exclude_unset=True)
+    details = db.get(ObjectSecurityDetails, obj.id)
+    changed_fields = {
+        field for field, value in changes.items() if details is None and value is not None
+    }
+
+    if details is None and changed_fields:
+        details = ObjectSecurityDetails(object_id=obj.id)
+        db.add(details)
+        flush_object_transaction(db)
+    if details is not None:
+        for field, value in changes.items():
+            if getattr(details, field) != value:
+                setattr(details, field, value)
+                changed_fields.add(field)
+
+    if changed_fields:
+        record_object_event(
+            db,
+            obj=obj,
+            actor_id=principal.user.id,
+            action="security_updated",
+            changed_fields=changed_fields,
+            ip_address=request.client.host if request.client else None,
+        )
+        commit_object_transaction(db)
+    return object_security_read(db, obj)
 
 
 @router.patch("/objects/{object_id}", response_model=ObjectRead)
@@ -811,7 +1020,7 @@ def update_object(
     db: Session = Depends(get_db),
     principal=Depends(require_permission("objects.manage")),
 ) -> ObjectRead:
-    obj = get_object_or_404(db, object_id)
+    obj = get_object_or_404(db, object_id, principal, for_write=True)
     ensure_object_is_active(obj)
 
     if payload.customer_id is not None:
@@ -825,8 +1034,10 @@ def update_object(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Objekte können keinem archivierten Kunden zugeordnet werden",
             )
+    if payload.code is not None:
+        ensure_object_code_available(db, payload.code.strip(), exclude_object_id=obj.id)
 
-    changes = payload.model_dump(exclude_unset=True, exclude={"address", "contact"})
+    changes = payload.model_dump(exclude_unset=True, exclude={"address"})
     changed_fields = set()
     for field, value in changes.items():
         if isinstance(value, str):
@@ -842,17 +1053,14 @@ def update_object(
                 "status",
                 "operating_hours",
                 "service_times",
-                "security_requirements",
                 "staffing_requirements",
-                "access_information",
-                "emergency_contact",
             }
             and getattr(obj, field) != value
         ):
             setattr(obj, field, value)
             changed_fields.add(field)
 
-    if payload.address is not None:
+    if "address" in payload.model_fields_set:
         previous = (
             {
                 "street": obj.address.street,
@@ -864,41 +1072,10 @@ def update_object(
             if obj.address is not None
             else None
         )
-        new_value = payload.address.model_dump()
+        new_value = payload.address.model_dump() if payload.address is not None else None
         if previous != new_value:
             set_object_address(db, obj, payload.address)
             changed_fields.add("address")
-    if payload.contact is not None:
-        previous = (
-            {
-                "first_name": obj.contacts[0].first_name,
-                "last_name": obj.contacts[0].last_name,
-                "role": obj.contacts[0].role,
-                "email": obj.contacts[0].email,
-                "phone": obj.contacts[0].phone,
-                "is_primary": obj.contacts[0].is_primary,
-            }
-            if obj.contacts
-            else None
-        )
-        new_value = payload.contact.model_dump()
-        if previous != new_value:
-            if obj.contacts:
-                for contact in list(obj.contacts):
-                    db.delete(contact)
-                    obj.contacts.remove(contact)
-            obj.contacts.append(
-                ObjectContact(
-                    first_name=payload.contact.first_name.strip(),
-                    last_name=payload.contact.last_name.strip(),
-                    role=payload.contact.role.strip() if payload.contact.role else None,
-                    email=str(payload.contact.email).lower() if payload.contact.email else None,
-                    phone=payload.contact.phone.strip() if payload.contact.phone else None,
-                    is_primary=payload.contact.is_primary,
-                )
-            )
-            changed_fields.add("contact")
-
     if changed_fields:
         record_object_event(
             db,
@@ -908,8 +1085,8 @@ def update_object(
             changed_fields=changed_fields,
             ip_address=request.client.host if request.client else None,
         )
-        db.commit()
-    return ObjectRead.model_validate(get_object_or_404(db, object_id))
+        commit_object_transaction(db)
+    return ObjectRead.model_validate(get_object_or_404(db, object_id, principal))
 
 
 def change_object_archive_state(
@@ -919,7 +1096,7 @@ def change_object_archive_state(
     ip_address: str | None,
     archived: bool,
 ) -> ObjectRead:
-    obj = get_object_or_404(db, object_id)
+    obj = get_object_or_404(db, object_id, principal, for_write=True)
     if archived and obj.archived_at is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -940,8 +1117,8 @@ def change_object_archive_state(
         changed_fields={"archived_at"},
         ip_address=ip_address,
     )
-    db.commit()
-    return ObjectRead.model_validate(get_object_or_404(db, object_id))
+    commit_object_transaction(db)
+    return ObjectRead.model_validate(get_object_or_404(db, object_id, principal))
 
 
 @router.post("/objects/{object_id}/archive", response_model=ObjectRead)
@@ -988,12 +1165,12 @@ def create_object_contact(
     db: Session = Depends(get_db),
     principal=Depends(require_permission("objects.manage")),
 ) -> ObjectContactRead:
-    obj = get_object_or_404(db, object_id)
+    obj = get_object_or_404(db, object_id, principal, for_write=True)
     ensure_object_is_active(obj)
     if payload.is_primary:
         for contact in obj.contacts:
             contact.is_primary = False
-        db.flush()
+        flush_object_transaction(db)
     contact = ObjectContact(
         object_id=obj.id,
         first_name=payload.first_name.strip(),
@@ -1004,7 +1181,7 @@ def create_object_contact(
         is_primary=payload.is_primary,
     )
     db.add(contact)
-    db.flush()
+    flush_object_transaction(db)
     record_object_event(
         db,
         obj=obj,
@@ -1013,7 +1190,7 @@ def create_object_contact(
         changed_fields={"contacts"},
         ip_address=request.client.host if request.client else None,
     )
-    db.commit()
+    commit_object_transaction(db)
     return ObjectContactRead.model_validate(contact)
 
 
@@ -1026,7 +1203,7 @@ def update_object_contact(
     db: Session = Depends(get_db),
     principal=Depends(require_permission("objects.manage")),
 ) -> ObjectContactRead:
-    obj = get_object_or_404(db, object_id)
+    obj = get_object_or_404(db, object_id, principal, for_write=True)
     ensure_object_is_active(obj)
     contact = next((item for item in obj.contacts if item.id == contact_id), None)
     if contact is None:
@@ -1039,7 +1216,7 @@ def update_object_contact(
     if changes.get("is_primary") is True:
         for existing in obj.contacts:
             existing.is_primary = False
-        db.flush()
+        flush_object_transaction(db)
 
     changed_fields = set()
     for field, value in changes.items():
@@ -1059,7 +1236,7 @@ def update_object_contact(
             changed_fields={"contacts"},
             ip_address=request.client.host if request.client else None,
         )
-        db.commit()
+        commit_object_transaction(db)
     return ObjectContactRead.model_validate(contact)
 
 
@@ -1074,7 +1251,7 @@ def delete_object_contact(
     db: Session = Depends(get_db),
     principal=Depends(require_permission("objects.manage")),
 ) -> None:
-    obj = get_object_or_404(db, object_id)
+    obj = get_object_or_404(db, object_id, principal, for_write=True)
     ensure_object_is_active(obj)
     contact = next((item for item in obj.contacts if item.id == contact_id), None)
     if contact is None:
@@ -1092,7 +1269,7 @@ def delete_object_contact(
         changed_fields={"contacts"},
         ip_address=request.client.host if request.client else None,
     )
-    db.commit()
+    commit_object_transaction(db)
 
 
 @router.get("/dashboard", response_model=DashboardRead)

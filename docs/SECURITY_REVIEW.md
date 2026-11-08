@@ -1,6 +1,6 @@
 # SecurityOps – Sicherheitsprüfung
 
-Stand: 2026-11-08. Diese Prüfung ist eine statische Bestandsaufnahme des versionierten Quellcodes und der Konfiguration, keine Penetrationstest- oder Produktionsfreigabe. Nicht implementierte Funktionen (z. B. Datei-Uploads) wurden nicht als vorhandene Angriffsfläche bewertet. Es wurden keine echten Betriebsdaten verwendet.
+Diese Prüfung fasst den bisherigen statischen Review und den Objekt-Sicherheitsreview für `feature/object-management-completion` zusammen. Sie ist kein Penetrationstest und keine Produktionsfreigabe. Nicht implementierte Funktionen (z. B. Datei-Uploads) wurden nicht als vorhandene Angriffsfläche bewertet. Es wurden keine echten Betriebsdaten verwendet.
 
 ## Zusammenfassung
 
@@ -12,8 +12,10 @@ Stand: 2026-11-08. Diese Prüfung ist eine statische Bestandsaufnahme des versio
 | SEC-04 | Mittel | Offen | Anmeldung ohne MFA und Passwortzurücksetzungsprozess; keine aktive Sitzungsübersicht oder gezielte Einzelwiderruf-UI. |
 | SEC-05 | Niedrig | Offen | Es gibt noch keine automatisierte Abhängigkeits- oder statische Sicherheitsanalyse in CI; als nächste Härtungsmaßnahme in [#9](https://github.com/Xonni-star/securityops-python/issues/9) nachzuverfolgen. |
 | SEC-06 | Niedrig | Offen | API setzt keine expliziten allgemeinen Browser-Sicherheitsheader; dies muss derzeit ein vorgeschalteter Webserver übernehmen. |
-| SEC-07 | Mittel | In diesem PR behoben | Ein implizites Datenbankpasswort in der Anwendungskonfiguration erlaubte einen Start ohne bewusst gesetztes Secret. Die Anwendung verlangt jetzt `POSTGRES_PASSWORD`; Tests setzen nur einen Testwert. |
-| SEC-08 | Hoch | In diesem PR behoben | Die Geschäftsführungsrolle konnte über `users.manage` Administratorrechte zuweisen. Die serverseitige Vergabe/Änderung ist jetzt zusätzlich an `users.manage_admin` gebunden und durch einen Regressionstest abgedeckt. |
+| SEC-07 | Mittel | In `main` behoben | Die Anwendung verlangt `POSTGRES_PASSWORD`; Tests setzen ausschließlich einen Testwert. |
+| SEC-08 | Hoch | In `main` behoben | Administratorrollenvergabe/-änderung ist serverseitig zusätzlich an `users.manage_admin` gebunden und durch Regressionstest abgedeckt. |
+| SEC-09 | Hoch | Im Feature-Branch behoben, CI ausstehend | Objektendpunkte erzwangen zuvor keine Zuweisung und erlaubten mit Modulrechten Zugriff auf fremde Objekte. Lesen, Ändern, Archivieren, Kontakte, Historie, Zuweisungen und sensible Details prüfen jetzt den Objekt-Scope serverseitig. |
+| SEC-10 | Hoch | Im Feature-Branch behoben, CI ausstehend | Allgemeine Objektantworten enthielten zuvor Sicherheits-/Zutrittsdaten. Diese Angaben liegen nun getrennt und benötigen eigene Les-/Schreibberechtigungen; Negativtests prüfen Antworttrennung und Scope. |
 
 ## Geprüfte Schutzmaßnahmen
 
@@ -22,6 +24,9 @@ Stand: 2026-11-08. Diese Prüfung ist eine statische Bestandsaufnahme des versio
 - Authentifizierte schreibende Requests prüfen CSRF-Cookie, Request-Header und gespeicherten Hash.
 - Cookies sind HttpOnly (Sitzung), SameSite=Strict und Secure per Konfiguration; Compose fällt auf Secure=true zurück. Lokale HTTP-Entwicklung setzt es in `.env.example` ausdrücklich auf false.
 - RBAC wird serverseitig an Kunden-, Benutzer-, Rollen-, Audit- und Dashboardrouten geprüft.
+- Objektzugriff wird zusätzlich zum Modulrecht global oder anhand einer Benutzerzuweisung autorisiert. Sensible Sicherheits- und Zutrittsdaten haben separate API-Routen und Berechtigungen.
+- Zuweisungsendpunkte akzeptieren ausschließlich aktive Mitarbeiter- oder Objektleitungskonten; die Zuordnung selbst wird mit eindeutiger Datenbankbedingung geschützt.
+- Objektänderungen werden transaktional mit Verlauf/Audit gespeichert. Historieneinträge listen geänderte Felder, nicht deren sensible Werte.
 - ORM-Abfragen verwenden gebundene Parameter; React escaped Textausgaben standardmäßig. Keine Upload- oder Datei-Auslieferungsfunktion ist aktuell implementiert.
 - CORS stammt aus einer expliziten Origin-Konfiguration und erlaubt keine beliebigen Origins.
 - Compose verlangt ein gesetztes Datenbankpasswort; Anwendungskonfiguration enthält keinen Produktions-Standardwert.
@@ -34,11 +39,11 @@ Stand: 2026-11-08. Diese Prüfung ist eine statische Bestandsaufnahme des versio
 4. MFA, sicheren Passwort-Reset und Sitzungsanzeige/-widerruf mit Abuse- und Berechtigungstests umsetzen.
 5. CI um verwaltete SCA-/SAST-Prüfungen ergänzen und deren Pflege/Alarmierungsweg festlegen.
 6. Security-Header, TLS, Datenschutz-/Aufbewahrung und Incident-Abläufe für die konkrete Serverumgebung festlegen und prüfen.
-7. Objektbezogene Autorisierung vor Einsatz-, Personal-, Dokument- und Kontrollfunktionen implementieren.
+7. Objekt-ACL- und Datentrennungsänderungen dieses Feature-Branches durch PostgreSQL-CI und Review bestätigen, bevor sie als abgeschlossen gelten.
 
 ## Grenzen und Prüfbelege
 
-- Lokale Backend-API-Tests verwenden SQLite. Ein gehosteter CI-Lauf hat nach Behebung eines Test-Fixture-Konflikts Migrationen und API-Tests gegen temporäres PostgreSQL sowie Frontend- und Docker-Builds erfolgreich ausgeführt.
-- Der lokale Arbeitslauf hat keine Docker-/PostgreSQL-Integration und keinen externen Penetrationstest ausgeführt.
+- Lokale Backend-API-Tests verwenden SQLite; aktuell bestehen 16 Tests. Ruff und Frontend-TypeScript-/Produktionsbuild sind lokal erfolgreich. Alembic-Upgrade bis 0007 und Downgrade 0007→0006 wurden offline in PostgreSQL-SQL gerendert.
+- Für den aktuellen Branch liegt noch kein echter PostgreSQL-Integrationslauf, Docker-Build oder externer Penetrationstest vor.
 - Die Prüfung bewertet keinen konkreten Server, Reverse Proxy, Firewall, Secret Store, Backup-Speicher oder administrativen Datenbankzugang.
 - Die Anwendung ist derzeit ein Entwicklungsstand. Vor öffentlichem oder produktivem Betrieb sind die offenen Punkte sowie Datenschutz-, Arbeitszeit- und Abrechnungsanforderungen fachlich und sicherheitstechnisch zu prüfen.

@@ -21,6 +21,7 @@ from app.models import (
     CustomerContact,
     CustomerHistory,
     ObjectAddress,
+    ObjectAssignment,
     ObjectContact,
     ObjectHistory,
     Permission,
@@ -68,6 +69,7 @@ def client() -> Generator[TestClient, None, None]:
         db.execute(delete(UserSession))
         db.execute(delete(AuditLog))
         db.execute(delete(ObjectHistory))
+        db.execute(delete(ObjectAssignment))
         db.execute(delete(ObjectContact))
         db.execute(delete(ObjectAddress))
         db.execute(delete(SecurityObject))
@@ -86,6 +88,11 @@ def client() -> Generator[TestClient, None, None]:
             "customers.archive",
             "objects.read",
             "objects.manage",
+            "objects.read_all",
+            "objects.manage_all",
+            "objects.assign",
+            "objects.sensitive.read",
+            "objects.sensitive.manage",
             "dashboard.read",
             "users.read",
             "users.manage",
@@ -129,13 +136,30 @@ def client() -> Generator[TestClient, None, None]:
             "management",
             "Geschäftsführung",
             "Testrolle ohne Administratorrechte",
-            ("users.read", "users.manage", "customers.read", "objects.read", "objects.manage"),
+            (
+                "users.read",
+                "users.manage",
+                "customers.read",
+                "objects.read",
+                "objects.manage",
+                "objects.read_all",
+                "objects.manage_all",
+                "objects.assign",
+                "objects.sensitive.read",
+                "objects.sensitive.manage",
+            ),
         )
         get_or_create_role(
             "employee",
             "Mitarbeiter",
             "Operative Testrolle",
-            ("owks.read",),
+            ("owks.read", "objects.read"),
+        )
+        get_or_create_role(
+            "object_manager",
+            "Objektleitung",
+            "Testrolle mit zugewiesener Objektverwaltung",
+            ("objects.read", "objects.manage", "objects.sensitive.read"),
         )
         db.add(
             User(

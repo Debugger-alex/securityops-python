@@ -8,6 +8,12 @@ Nach Migrationen legt `python -m app.bootstrap_admin` ein Administratorkonto aus
 
 Im aktuellen Webfrontend mit Benutzername und Passwort anmelden. Berechtigungen werden vom Backend geprüft. Benutzer mit passenden Kundenrechten können Kunden anlegen, suchen und den Kundenstatus ändern. Das Dashboard zeigt nur implementierte Kundenkennzahlen. „Abmelden“ widerruft die aktuelle Sitzung.
 
+## Objektverwaltung
+
+Benutzer mit Objektleserecht können die Objektliste suchen, nach Kunde und Status filtern, sortieren und Details zu erreichbaren Objekten öffnen. Objekte können mit einem vorhandenen Kunden angelegt, bearbeitet, archiviert und reaktiviert werden. Anschriften und mehrere Ansprechpartner lassen sich in der Detailansicht pflegen; Änderungen an einem Ansprechpartner löschen keine weiteren Kontakte. Die Historie zeigt Ereignisse und geänderte Feldnamen.
+
+Objektzugriff ist zusätzlich zum Modulrecht an eine Objektzuweisung gebunden, sofern das Konto kein globales Lese- oder Verwaltungsrecht besitzt. Objektzuweisungen werden durch berechtigte Benutzerkonten mit Mitarbeiter- oder Objektleitungsrolle vorgenommen. Sicherheits-, Zutritts- und Notfallinformationen erscheinen nicht in der Objektliste oder normalen Detailansicht und benötigen eigene Les-/Schreibberechtigungen.
+
 ## Noch nicht verfügbare Bereiche
 
-Objekte, Personal, Schichten, Arbeitszeiterfassung, Wachbuch, Kontrollgänge, Dokumente, Verträge und Rechnungen sind noch nicht implementiert. Die Anwendung nicht als Ersatz dieser Betriebsprozesse verwenden.
+Eine eigenständige Personalverwaltung, Qualifikationen, Schichten, Arbeitszeiterfassung, Wachbuch, Kontrollgänge, Dokumente, Verträge und Rechnungen sind noch nicht implementiert. Objektzuweisungen ersetzen keine Personalakte oder Dienstplanung. Die Anwendung nicht als Ersatz dieser Betriebsprozesse verwenden.

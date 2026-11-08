@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 CustomerStatus = Literal["active", "inactive", "lead"]
 ObjectStatus = Literal["active", "inactive"]
@@ -312,7 +312,54 @@ class ObjectContactRead(ObjectContactCreate):
     id: UUID
 
 
+class ObjectAssignmentCandidateRead(BaseModel):
+    id: UUID
+    username: str
+    full_name: str
+
+
+class ObjectAssignmentRead(BaseModel):
+    user_id: UUID
+    username: str
+    full_name: str
+    assigned_at: datetime
+
+
+class ObjectAssignmentUpdate(BaseModel):
+    user_ids: list[UUID] = Field(max_length=200)
+
+    @field_validator("user_ids")
+    @classmethod
+    def assignment_users_must_be_unique(cls, value: list[UUID]) -> list[UUID]:
+        if len(set(value)) != len(value):
+            raise ValueError("Benutzer dürfen einem Objekt nicht doppelt zugewiesen werden.")
+        return value
+
+
+class ObjectSecurityUpdate(BaseModel):
+    security_requirements: str | None = Field(default=None, max_length=10000)
+    access_information: str | None = Field(default=None, max_length=10000)
+    emergency_contact: str | None = Field(default=None, max_length=200)
+
+    @field_validator("security_requirements", "access_information", "emergency_contact")
+    @classmethod
+    def normalize_sensitive_values(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip() or None
+
+
+class ObjectSecurityRead(BaseModel):
+    object_id: UUID
+    security_requirements: str | None
+    access_information: str | None
+    emergency_contact: str | None
+    updated_at: datetime | None
+
+
 class ObjectCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     customer_id: UUID
     name: str = Field(min_length=1, max_length=200)
     code: str | None = Field(default=None, min_length=1, max_length=50)
@@ -321,12 +368,18 @@ class ObjectCreate(BaseModel):
     status: ObjectStatus = "active"
     operating_hours: str | None = Field(default=None, max_length=200)
     service_times: str | None = Field(default=None, max_length=200)
-    security_requirements: str | None = Field(default=None, max_length=10000)
     staffing_requirements: str | None = Field(default=None, max_length=10000)
-    access_information: str | None = Field(default=None, max_length=10000)
-    emergency_contact: str | None = Field(default=None, max_length=200)
     address: ObjectAddressInput | None = None
     contact: ObjectContactCreate | None = None
+    contacts: list[ObjectContactCreate] = Field(default_factory=list, max_length=100)
+
+    @model_validator(mode="after")
+    def at_most_one_primary_contact(self):
+        primary_count = sum(contact.is_primary for contact in self.contacts)
+        primary_count += int(self.contact.is_primary) if self.contact is not None else 0
+        if primary_count > 1:
+            raise ValueError("Für ein Objekt darf nur ein Primärkontakt gesetzt sein.")
+        return self
 
     @field_validator("name", "code")
     @classmethod
@@ -340,6 +393,8 @@ class ObjectCreate(BaseModel):
 
 
 class ObjectUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     customer_id: UUID | None = None
     name: str | None = Field(default=None, min_length=1, max_length=200)
     code: str | None = Field(default=None, min_length=1, max_length=50)
@@ -348,12 +403,8 @@ class ObjectUpdate(BaseModel):
     status: ObjectStatus | None = None
     operating_hours: str | None = Field(default=None, max_length=200)
     service_times: str | None = Field(default=None, max_length=200)
-    security_requirements: str | None = Field(default=None, max_length=10000)
     staffing_requirements: str | None = Field(default=None, max_length=10000)
-    access_information: str | None = Field(default=None, max_length=10000)
-    emergency_contact: str | None = Field(default=None, max_length=200)
     address: ObjectAddressInput | None = None
-    contact: ObjectContactCreate | None = None
 
     @field_validator("name", "code")
     @classmethod
@@ -381,6 +432,7 @@ class ObjectRead(BaseModel):
 
     id: UUID
     customer_id: UUID
+    customer_name: str
     code: str
     name: str
     object_type: str | None
@@ -388,10 +440,7 @@ class ObjectRead(BaseModel):
     status: ObjectStatus
     operating_hours: str | None
     service_times: str | None
-    security_requirements: str | None
     staffing_requirements: str | None
-    access_information: str | None
-    emergency_contact: str | None
     archived_at: datetime | None
     address: ObjectAddressRead | None
     contacts: list[ObjectContactRead] = Field(default_factory=list)

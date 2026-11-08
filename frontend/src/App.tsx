@@ -15,6 +15,7 @@ import {
   updateCustomer,
   updateCustomerContact,
 } from "./api";
+import ObjectManagement from "./ObjectManagement";
 import type {
   AuthUser,
   Customer,
@@ -102,12 +103,14 @@ export default function App() {
   const [offset, setOffset] = useState(0);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [history, setHistory] = useState<CustomerHistory[]>([]);
+  const [activeModule, setActiveModule] = useState<"customers" | "objects">("customers");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const canReadCustomers = user?.permissions.includes("customers.read") ?? false;
   const canCreateCustomers = user?.permissions.includes("customers.create") ?? false;
   const canUpdateCustomers = user?.permissions.includes("customers.update") ?? false;
   const canArchiveCustomers = user?.permissions.includes("customers.archive") ?? false;
+  const canReadObjects = user?.permissions.includes("objects.read") ?? false;
 
   useEffect(() => {
     getSession()
@@ -154,6 +157,10 @@ export default function App() {
   useEffect(() => {
     if (user) void loadData();
   }, [loadData, user]);
+
+  useEffect(() => {
+    if (user && !canReadCustomers && canReadObjects) setActiveModule("objects");
+  }, [canReadCustomers, canReadObjects, user]);
 
   async function submitLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -366,11 +373,21 @@ export default function App() {
       </header>
 
       <section className="intro">
-        <p className="eyebrow">KUNDENVERWALTUNG</p>
+        <p className="eyebrow">SECURITYOPS VERWALTUNG</p>
         <h1>Guten Tag.</h1>
-        <p>Ihre Kundenstammdaten an einem zentralen Ort.</p>
+        <p>Kunden- und Objektstammdaten zentral verwalten.</p>
       </section>
 
+      <nav className="module-tabs" aria-label="Verwaltungsmodule">
+        {(canReadCustomers || canCreateCustomers) && <button
+          className={activeModule === "customers" ? "module-tab active" : "module-tab"}
+          onClick={() => setActiveModule("customers")}>Kunden</button>}
+        {canReadObjects && <button
+          className={activeModule === "objects" ? "module-tab active" : "module-tab"}
+          onClick={() => setActiveModule("objects")}>Objekte</button>}
+      </nav>
+
+      {activeModule === "objects" && canReadObjects ? <ObjectManagement user={user} /> : <>
       {dashboard && <section className="stats" aria-label="Kundenübersicht">
         <article className="stat-card"><span>Kunden gesamt</span><strong>{dashboard.customers_total}</strong></article>
         <article className="stat-card"><span>Aktive Kunden</span><strong>{dashboard.customers_active}</strong></article>
@@ -607,7 +624,8 @@ export default function App() {
           )}
         </section>
       </section>}
-      <footer>SecurityOps <span>·</span> Kundenverwaltung</footer>
+      </>}
+      <footer>SecurityOps <span>·</span> Verwaltung</footer>
     </main>
   );
 }
