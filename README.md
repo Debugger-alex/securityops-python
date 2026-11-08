@@ -56,6 +56,14 @@ Das Passwort muss mindestens 12 Zeichen lang sein. Der Bootstrapping-Befehl erst
 - `POST /api/v1/customers` – Kunde anlegen
 - `GET /api/v1/customers/{id}` – Kundendetails abrufen
 - `PATCH /api/v1/customers/{id}` – Kundendaten ändern
+- `GET /api/v1/objects?q=...&status=...&customer_id=...` – Objekte suchen, filtern und paginieren
+- `POST /api/v1/objects` – Objekt mit Kundenbeziehung anlegen
+- `GET /api/v1/objects/{id}` / `PATCH /api/v1/objects/{id}` – Objekt abrufen oder ändern
+- `POST /api/v1/objects/{id}/archive` und `/reactivate` – Objekt archivieren oder reaktivieren
+- `GET /api/v1/objects/{id}/history` – Objektänderungen einsehen
+- `/api/v1/objects/{id}/contacts` – Ansprechpartner einzeln verwalten
+- `/api/v1/objects/{id}/assignments` – Objektmitarbeiter zuweisen (separate Berechtigung)
+- `/api/v1/objects/{id}/security` – sensible Sicherheits- und Zutrittsdaten (separate Berechtigungen)
 
 Statuswerte: `active`, `inactive`, `lead`. Kundennummern werden serverseitig eindeutig als `K-<UUID>` erzeugt. Kunden werden in dieser Ausbaustufe nicht physisch gelöscht.
 
@@ -79,6 +87,6 @@ Die API-Tests verwenden eine isolierte SQLite-Testdatenbank; der Produktivbetrie
 
 Die Bestandsaufnahme und offenen Module sind in [`docs/PROJECT_AUDIT.md`](docs/PROJECT_AUDIT.md), [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) und der [priorisierten Implementierungs-Roadmap](docs/IMPLEMENTATION_ROADMAP.md) dokumentiert. Weitere technische Informationen: [Architektur](docs/ARCHITECTURE.md), [Datenbank](docs/DATABASE.md), [API](docs/API.md), [Sicherheitsstatus](docs/SECURITY.md), [Sicherheitsprüfung](docs/SECURITY_REVIEW.md), [Installation](docs/INSTALLATION.md), [Deployment](docs/DEPLOYMENT.md), [Backup/Restore](docs/BACKUP_RESTORE.md), [Benutzeranleitung](docs/USER_GUIDE.md), [Changelog](docs/CHANGELOG.md) und [Roadmap](docs/ROADMAP.md).
 
-Noch nicht implementiert sind insbesondere MFA, E-Mail-gestützte Passwortzurücksetzung, objektspezifische Zuweisungen, Personal, Dienstplanung, Zeiterfassung, OWKS, Dokumente und Rechnungswesen. Das Audit-Protokoll ist über die Anwendung schreibgeschützt, aber noch nicht durch getrennte Datenbankrollen gegen privilegierte Datenbankänderungen abgesichert.
+Die Objektverwaltung umfasst Backend, API und eine Frontend-Oberfläche mit Suche, Filterung, Sortierung, Details, Anschriften, Ansprechpartnern, Archivierung, Historie, Zuweisungen und getrennt geschützten Sicherheitsdaten. Objektzugriff wird serverseitig anhand globaler Rechte oder einer Objektzuweisung geprüft. Zuweisungen referenzieren derzeit aktive Benutzerkonten mit Mitarbeiter- oder Objektleitungsrolle; eine eigenständige Personalverwaltung ist noch nicht vorhanden. MFA, Passwortzurücksetzung, Dienstplanung, Zeiterfassung, OWKS, Dokumente und Rechnungswesen sind noch nicht implementiert. Das Audit-Protokoll ist über die Anwendung schreibgeschützt, aber noch nicht durch getrennte Datenbankrollen gegen privilegierte Datenbankänderungen abgesichert.
 
-Die Anmeldung und Rechteprüfung sind ein Entwicklungsstand, keine abgeschlossene Produktionssicherheitszertifizierung. Die Rate-Limits werden derzeit pro Backend-Prozess im Speicher geführt und benötigen für mehrere Worker oder Instanzen einen gemeinsamen Speicher. Vor öffentlichem Betrieb müssen unter anderem HTTPS/Reverse-Proxy, `SESSION_COOKIE_SECURE=true`, zentralisiertes Rate-Limiting, Backup/Wiederherstellung, Sicherheitsprüfung und die Datenschutz-/Aufbewahrungsvorgaben für den konkreten Betrieb eingerichtet sein. Das System enthält noch nicht den vollständigen Funktionsumfang aus dem Master-Prompt.
+Die Anwendung ist ein Entwicklungsstand, keine Produktionsfreigabe. Lokal wurden Backendtests, Ruff und Frontendbuild ausgeführt; die PostgreSQL-Migrationen wurden offline für den PostgreSQL-Dialekt gerendert. Ein lokaler PostgreSQL-Integrationslauf und Docker-Builds waren in dieser Umgebung nicht verfügbar. Vor öffentlichem Betrieb müssen unter anderem HTTPS/Reverse-Proxy, `SESSION_COOKIE_SECURE=true`, zentralisiertes Rate-Limiting, Backup/Wiederherstellung, Sicherheitsprüfung und die Datenschutz-/Aufbewahrungsvorgaben für den konkreten Betrieb eingerichtet sein.

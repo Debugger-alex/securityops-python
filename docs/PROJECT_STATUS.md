@@ -1,11 +1,13 @@
 # SecurityOps – Projektstatus
 
-Stand: 2026-11-08. Die Phase-1-Grundlage ist der Feature-Branch `feature/phase1-security-audit` mit offenem [Pull Request #11](https://github.com/Xonni-star/securityops-python/pull/11). Die Kundenverwaltung liegt isoliert auf `feature/customer-management` mit gestapeltem [Pull Request #12](https://github.com/Xonni-star/securityops-python/pull/12); PR #11 wurde nicht verändert. Dieser Status beschreibt implementierten Quellcode, nicht eine Produktionsfreigabe.
+Arbeitsstand: Feature-Branch `feature/object-management-completion`, ausgehend vom aktuellen `main`. PRs #11, #12, #14 und #15 sind laut Aufgabenstand in `main` gemergt. Issue #2 bleibt offen; für diesen Branch wurde noch kein Pull Request erstellt. Dieser Status beschreibt den Quellcode und lokale Prüfungen, nicht eine Produktionsfreigabe.
 
 ## Implementierter Stand
 
 - Modularer FastAPI-Monolith mit SQLAlchemy, PostgreSQL, Alembic sowie React/TypeScript/Vite.
 - Kundenanlage, Filterung, Sortierung, Suche, Detailabruf/-änderung, Geschäfts- und Rechnungsanschriften, Ansprechpartner mit Primärkontakt, Archivierung/Reaktivierung und Historie.
+- Objektverwaltung mit Kunden-FK, Suche/Filter/Sortierung/Paginierung, Detailbearbeitung, Anschrift, mehreren einzeln bearbeitbaren Ansprechpartnern, Archivierung/Reaktivierung und Historie.
+- Objektmitarbeiter-Zuweisungen auf aktive Mitarbeiter-/Objektleitungskonten; serverseitiger Objektzugriff anhand globaler Rechte oder Zuweisung. Sensible Sicherheits-/Zutrittsdaten liegen in eigener Tabelle und eigenen API-Endpunkten mit separaten Berechtigungen.
 - Anmeldung mit Argon2id, serverseitig widerrufbaren opaque Sitzungen, Idle-/Absolute-Timeout, CSRF-Prüfung und Login-Rate-Limit.
 - Serverseitige RBAC-Prüfungen, Benutzeranlage/-deaktivierung und Schutz des letzten aktiven Administrators.
 - Audit-Ereignisse für An-/Abmeldung, fehlgeschlagene Anmeldungen, Passwortwechsel, Benutzer- und Kundenänderungen.
@@ -18,8 +20,8 @@ Stand: 2026-11-08. Die Phase-1-Grundlage ist der Feature-Branch `feature/phase1-
 
 | Bereich | Status |
 |---|---|
-| Kunden | Teilweise umgesetzt: Backend, Migration 0004, API, Filter-/Detail-/Kontakt-/Archivierungsoberflächen und Regressionstests vorhanden. Vertrags- und Dokumentenzuordnung sowie umfassende UX-Prüfung fehlen ([#6](https://github.com/Xonni-star/securityops-python/issues/6)). |
-| Objekte | Nicht implementiert; Kundenbeziehung und objektbezogene Rechte fehlen ([#2](https://github.com/Xonni-star/securityops-python/issues/2)). |
+| Kunden | Kernverwaltung vorhanden: Backend, Migration 0004, API, Filter-/Detail-/Kontakt-/Archivierungsoberflächen und Regressionstests. Vertrags- und Dokumentenzuordnung fehlen ([#6](https://github.com/Xonni-star/securityops-python/issues/6)). |
+| Objekte | Backend/API/UI und Migrationen 0005–0007 implementiert. Objektzuweisungen sind Benutzerkonten, keine Personalakten. Lokale Tests/Ruff/Frontendbuild bestanden; echter PostgreSQL-Lauf, Docker-Builds, CI und Review für diesen Branch stehen aus. Issue #2 daher noch nicht abschließen. |
 | Personal/Qualifikationen | Nicht implementiert ([#5](https://github.com/Xonni-star/securityops-python/issues/5)). |
 | Dienstplanung | Nicht implementiert ([#10](https://github.com/Xonni-star/securityops-python/issues/10)). |
 | Zeiterfassung | Nicht implementiert ([#4](https://github.com/Xonni-star/securityops-python/issues/4)). |
@@ -28,7 +30,7 @@ Stand: 2026-11-08. Die Phase-1-Grundlage ist der Feature-Branch `feature/phase1-
 | Rechnungswesen | Nicht implementiert ([#7](https://github.com/Xonni-star/securityops-python/issues/7)). |
 | Produktion | Nicht freigegeben: Vite-Devserver statt statischer Frontend-Auslieferung, kein TLS-Reverse-Proxy und kein gemeinsamer Rate-Limit-Speicher ([#9](https://github.com/Xonni-star/securityops-python/issues/9)). |
 | Benutzerverwaltung | MFA, Passwortzurücksetzung, aktive Sitzungsübersicht und Rechteeditor fehlen. |
-| Audit | App-seitig lesbar, aber nicht gegen direkte Änderungen privilegierter Datenbankrollen abgesichert. |
+| Audit | App-seitig lesbar; Objektänderungen protokollieren Aktion und geänderte Feldnamen ohne sensible Werte. Nicht gegen direkte Änderungen privilegierter Datenbankrollen abgesichert. |
 
 ## Dokumentation und Prüfstatus
 
@@ -36,17 +38,18 @@ Stand: 2026-11-08. Die Phase-1-Grundlage ist der Feature-Branch `feature/phase1-
 - Prioritäten und Abhängigkeiten: [`IMPLEMENTATION_ROADMAP.md`](IMPLEMENTATION_ROADMAP.md).
 - Sicherheitsbefunde und offene Maßnahmen: [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md).
 - Architektur, Betrieb und weitere Unterlagen sind im [`README.md`](../README.md) verlinkt.
-- Kundenverwaltungs-Branch: **11 Backend-Tests bestanden** lokal; Ruff-Lint/Format, Frontend-TypeScript-/Produktionsbuild sowie gehostete PostgreSQL-Migration/API-Tests einschließlich Migration 0004 und Docker-Builds erfolgreich.
-- Lokal war kein Docker- oder PostgreSQL-Dienst verfügbar; der gehostete Phase-2-Lauf prüfte PostgreSQL-Migration/API-Tests, Frontendbuild und Docker-Images erfolgreich.
+- Objektverwaltungs-Branch: **16 Backendtests bestanden**, Ruff-Lint und Formatprüfung bestanden, Frontend-TypeScript-Prüfung und Produktionsbuild bestanden. Alembic-Upgrade bis Revision 0007 sowie Downgrade 0007→0006 wurden als PostgreSQL-SQL offline gerendert.
+- Kein lokaler PostgreSQL- oder Docker-Dienst verfügbar; echte PostgreSQL-Integration und Docker-Builds für diesen Branch sind nicht belegt. Vorherige CI-Ergebnisse für andere Branches ersetzen diese Prüfung nicht.
 - Derzeit keine E2E-, Last-, Restore-, externe Penetrations- oder unabhängige Datenschutz-/Steuerprüfung.
 
 ## Nächste Schritte
 
-1. Kundenverwaltung [#6](https://github.com/Xonni-star/securityops-python/issues/6) fachlich prüfen und den gestapelten PR auf Phase 1 reviewen.
-2. Den Produktions- und Datenbank-Härtungsumfang aus [Issue #9](https://github.com/Xonni-star/securityops-python/issues/9) schließen und danach Objekte [#2](https://github.com/Xonni-star/securityops-python/issues/2), Personal [#5](https://github.com/Xonni-star/securityops-python/issues/5) und Einsatzmodule gemäß Roadmap angehen.
+1. Objektverwaltungs-Branch gegen PostgreSQL und Docker in CI prüfen, Review abschließen und danach die Akzeptanzkriterien von [Issue #2](https://github.com/Xonni-star/securityops-python/issues/2) bewerten.
+2. Erst nach vollständigem Abschluss Personal/Qualifikationen [#5](https://github.com/Xonni-star/securityops-python/issues/5), Dienstplanung [#10](https://github.com/Xonni-star/securityops-python/issues/10), Zeiterfassung [#4](https://github.com/Xonni-star/securityops-python/issues/4) und weitere Module gemäß Roadmap beginnen.
+3. Produktionshärtung, Monitoring und Backup/Restore aus [Issue #9](https://github.com/Xonni-star/securityops-python/issues/9) bleiben separat offen.
 
 ## Repository-Arbeitsstand
 
-- Aktuelle PRs: [#11 – Phase 1: Rechtehärtung und Projektdokumentation](https://github.com/Xonni-star/securityops-python/pull/11) sowie [#12 – Kundenverwaltung](https://github.com/Xonni-star/securityops-python/pull/12).
-- Die Kundenverwaltungsänderungen sind auf `feature/customer-management` gepusht. PR #12 baut auf PR #11 auf; beide bleiben offen.
-- Issues #2 bis #10 bestehen bereits; in diesem Update wurden keine neuen Issues angelegt.
+- Der aktuelle Arbeitsbranch ist `feature/object-management-completion`; Änderungen sind noch nicht gepusht und ein PR wurde noch nicht erstellt.
+- Issue #2 bleibt offen bis PostgreSQL-/CI-Prüfung, Review und Abnahme der Akzeptanzkriterien.
+- Keine abgeschlossene Fachfunktion wurde absichtlich entfernt; Anpassungen an Kontaktänderungen erhalten nicht übermittelte Kontakte.

@@ -2,17 +2,17 @@
 
 ## Ziel und aktueller Stand
 
-SecurityOps ist als modularer Monolith mit Python/FastAPI, SQLAlchemy, PostgreSQL, Alembic und React/TypeScript/Vite angelegt. Der aktuelle Code umfasst Identity/RBAC, Kunden-API und eine einzelne React-Oberfläche. Objekte, Personal, Planung, Zeiterfassung, OWKS, Dokumente, Verträge und Rechnungen sind noch nicht implementiert.
+SecurityOps ist als modularer Monolith mit Python/FastAPI, SQLAlchemy, PostgreSQL, Alembic und React/TypeScript/Vite angelegt. Der aktuelle Code umfasst Identity/RBAC, Kunden- und Objektverwaltung sowie eine React-Oberfläche mit getrennten Verwaltungsansichten. Eigenständige Personal-, Planungs-, Zeiterfassungs-, OWKS-, Dokumenten-, Vertrags- und Rechnungsfunktionen sind noch nicht implementiert.
 
 ## Laufzeitkomponenten
 
 - `backend/app/main.py`: FastAPI-Anwendung, Middleware und Router.
 - `backend/app/identity_api.py`: Anmeldung, Benutzer, Rollen und Audit-Lesezugriff.
-- `backend/app/api.py`: Kunden- und Dashboard-Endpunkte.
+- `backend/app/api.py`: Kunden-, Objekt- und Dashboard-Endpunkte einschließlich objektbezogener Zugriffskontrolle.
 - `backend/app/auth.py`: Sitzungen, CSRF und Rechteabhängigkeiten.
 - `backend/app/models.py`: SQLAlchemy-Modelle.
 - `backend/migrations`: Alembic-Schemaänderungen.
-- `frontend/src`: React-Anwendung und zentrale API-Aufrufe.
+- `frontend/src`: React-Anwendung mit Kunden- und Objektverwaltung sowie zentralen API-Aufrufen.
 - `docker-compose.yml`: lokale Entwicklungsdienste PostgreSQL, API und Vite.
 - `.github/workflows/ci.yml`: Backendtests, Migrationen auf einem temporären PostgreSQL-Dienst und Frontend-Build bei Pull Requests und Änderungen an `main`.
 
@@ -22,7 +22,7 @@ Der Browser authentifiziert sich mit einem zufälligen, HttpOnly-Session-Cookie.
 
 ## Fachmodule (Ziel)
 
-Kunden → Objekte → Verträge und Dienste → Personal und Qualifikationen → Dienstplanung → Zeiterfassung → OWKS/Nachweise → Abrechnung. Gemeinsame Identity-, Dokumenten- und Audit-Funktionen dienen diesen Modulen. Objektzuweisungen müssen vor operativen Datenmodulen als serverseitige Zugriffsbeschränkung eingeführt werden.
+Kunden → Objekte → Verträge und Dienste → Personal und Qualifikationen → Dienstplanung → Zeiterfassung → OWKS/Nachweise → Abrechnung. Gemeinsame Identity-, Dokumenten- und Audit-Funktionen dienen diesen Modulen. Die Objektverwaltung besitzt bereits serverseitige Zugriffsprüfungen und Zuweisungen auf Benutzerkonten; diese ersetzen noch keine Personalverwaltung.
 
 ## Betrieb
 
