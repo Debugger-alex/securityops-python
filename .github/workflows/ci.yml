@@ -167,7 +167,7 @@ jobs:
             | grep --ignore-case --quiet '^Content-Security-Policy:'
           docker compose exec -T \
             -e BOOTSTRAP_ADMIN_USERNAME=ci-admin \
-            -e BOOTSTRAP_ADMIN_EMAIL=ci-admin@example.invalid \
+            -e BOOTSTRAP_ADMIN_EMAIL=ci-admin@example.com \
             -e BOOTSTRAP_ADMIN_NAME="CI Test Administrator" \
             -e BOOTSTRAP_ADMIN_PASSWORD=ci-only-admin-password-2026 \
             api python -m app.bootstrap_admin
