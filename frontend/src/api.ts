@@ -70,6 +70,8 @@ import type {
   OWKSEvent,
   OWKSSyncResult,
   OWKSAttachment,
+  BillingRate,
+  BillingInvoice,
 } from "./types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -110,6 +112,74 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const getSession = () => request<Session>("/auth/me");
+
+export const getBillingRates = () => request<BillingRate[]>("/billing/rates");
+
+export const getBillingInvoices = () => request<BillingInvoice[]>("/billing/invoices");
+
+export const createBillingRate = (data: {
+  code: string;
+  name: string;
+  kind: "hourly" | "flat" | "surcharge";
+  unit: string;
+  unit_price: string;
+  tax_code: string;
+  tax_rate: string;
+  currency: string;
+}) => request<BillingRate>("/billing/rates", { method: "POST", body: JSON.stringify(data) });
+
+export const createBillingInvoice = (data: {
+  idempotency_key: string;
+  customer_id: string;
+  issued_on: string;
+  due_on: string;
+  lines: Array<{ rate_id: string; quantity: string }>;
+}) => request<BillingInvoice>("/billing/invoices", { method: "POST", body: JSON.stringify(data) });
+
+export const approveBillingInvoice = (id: string) =>
+  request<BillingInvoice>(`/billing/invoices/${id}/approve`, { method: "POST" });
+
+export const archiveBillingInvoice = (id: string, reason: string) =>
+  request<BillingInvoice>(`/billing/invoices/${id}/archive`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+
+export const createBillingCorrection = (id: string, reason: string, idempotency_key: string) =>
+  request<BillingInvoice>(`/billing/invoices/${id}/corrections`, {
+    method: "POST",
+    body: JSON.stringify({
+      idempotency_key,
+      reason,
+      issued_on: new Date().toISOString().slice(0, 10),
+      due_on: new Date().toISOString().slice(0, 10),
+    }),
+  });
+
+export const exportBillingInvoice = (id: string, idempotencyKey: string) =>
+  request<{ payload: object; payload_sha256: string }>(
+    `/billing/invoices/${id}/exports?idempotency_key=${encodeURIComponent(idempotencyKey)}`,
+    { method: "POST" },
+  );
+
+export const addBillingPayment = (id: string, amount: string) =>
+  request(`/billing/invoices/${id}/payments`, {
+    method: "POST",
+    body: JSON.stringify({
+      idempotency_key: crypto.randomUUID(),
+      amount,
+      paid_on: new Date().toISOString().slice(0, 10),
+    }),
+  });
+
+export const updateBillingDunning = (
+  id: string,
+  status: "none" | "reminder_1" | "reminder_2" | "final",
+  note: string,
+) => request<BillingInvoice>(`/billing/invoices/${id}/dunning`, {
+  method: "PATCH",
+  body: JSON.stringify({ status, note }),
+});
 
 export const login = (username: string, password: string) =>
   request<Session>("/auth/login", {

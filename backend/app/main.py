@@ -13,6 +13,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api import router
+from app.billing_api import router as billing_router
 from app.config import get_settings
 from app.database import engine
 from app.documents_contracts_api import router as documents_contracts_router
@@ -62,6 +63,7 @@ app.include_router(scheduling_router, prefix=settings.api_prefix)
 app.include_router(time_tracking_router, prefix=settings.api_prefix)
 app.include_router(time_tracking_surcharges_router, prefix=settings.api_prefix)
 app.include_router(documents_contracts_router, prefix=settings.api_prefix)
+app.include_router(billing_router, prefix=settings.api_prefix)
 app.include_router(identity_router, prefix=settings.api_prefix)
 app.include_router(owks_router, prefix=settings.api_prefix)
 
