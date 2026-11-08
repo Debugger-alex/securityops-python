@@ -5,7 +5,7 @@ os.environ.setdefault("POSTGRES_PASSWORD", "test-only-not-for-production")
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, delete, select
+from sqlalchemy import create_engine, delete, select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -41,6 +41,13 @@ from app.models import (
     ObjectContact,
     ObjectHistory,
     ObjectSecurityDetails,
+    OWKSAttachment,
+    OWKSChallenge,
+    OWKSControlPoint,
+    OWKSEvent,
+    OWKSEventStatus,
+    OWKSRoute,
+    OWKSRoutePoint,
     Permission,
     Role,
     ScheduleSettings,
@@ -97,6 +104,16 @@ def client() -> Generator[TestClient, None, None]:
     with TestingSessionLocal() as db:
         db.execute(delete(UserSession))
         db.execute(delete(AuditLog))
+        if test_engine.dialect.name == "postgresql":
+            for table in ("owks_events", "owks_event_statuses", "owks_attachments"):
+                db.execute(text(f"ALTER TABLE {table} DISABLE TRIGGER {table}_append_only"))
+        db.execute(delete(OWKSAttachment))
+        db.execute(delete(OWKSEventStatus))
+        db.execute(delete(OWKSEvent))
+        db.execute(delete(OWKSChallenge))
+        db.execute(delete(OWKSRoutePoint))
+        db.execute(delete(OWKSRoute))
+        db.execute(delete(OWKSControlPoint))
         db.execute(delete(TimeEntryCorrectionSegment))
         db.execute(delete(TimeEntryCorrection))
         db.execute(delete(TimeEntryHistory))
@@ -137,6 +154,9 @@ def client() -> Generator[TestClient, None, None]:
         db.execute(delete(Employee))
         db.execute(delete(user_roles))
         db.execute(delete(User))
+        if test_engine.dialect.name == "postgresql":
+            for table in ("owks_events", "owks_event_statuses", "owks_attachments"):
+                db.execute(text(f"ALTER TABLE {table} ENABLE TRIGGER {table}_append_only"))
         db.commit()
 
         permission_codes = (
@@ -157,6 +177,8 @@ def client() -> Generator[TestClient, None, None]:
             "roles.read",
             "audit.read",
             "owks.read",
+            "owks.manage",
+            "owks.write",
             "employees.read",
             "employees.manage",
             "employees.sensitive.read",
@@ -236,6 +258,9 @@ def client() -> Generator[TestClient, None, None]:
                 "objects.assign",
                 "objects.sensitive.read",
                 "objects.sensitive.manage",
+                "owks.read",
+                "owks.manage",
+                "owks.write",
                 "employees.read",
                 "employees.manage",
                 "time_tracking.read_all",
@@ -268,6 +293,7 @@ def client() -> Generator[TestClient, None, None]:
             "Operative Testrolle",
             (
                 "owks.read",
+                "owks.write",
                 "objects.read",
                 "scheduling.read",
                 "time_tracking.read_own",

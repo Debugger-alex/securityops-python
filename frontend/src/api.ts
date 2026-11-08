@@ -60,6 +60,12 @@ import type {
   ManagedDocument,
   ManagedReminder,
   ReminderSettings,
+  OWKSObject,
+  OWKSControlPoint,
+  OWKSRoute,
+  OWKSEvent,
+  OWKSSyncResult,
+  OWKSAttachment,
 } from "./types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -914,6 +920,79 @@ export const createContract = (data: ContractInput) =>
     body: JSON.stringify(data),
   });
 
+export const getOWKSObjects = () => request<OWKSObject[]>("/owks/objects");
+
+export const getOWKSEvents = (objectId: string) =>
+  request<OWKSEvent[]>(`/owks/objects/${objectId}/events`);
+
+export const getOWKSControlPoints = (objectId: string) =>
+  request<OWKSControlPoint[]>(`/owks/objects/${objectId}/control-points`);
+
+export const createOWKSControlPoint = (
+  objectId: string,
+  data: { name: string; identifier_type: "qr" | "nfc" },
+) =>
+  request<OWKSControlPoint>(`/owks/objects/${objectId}/control-points`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const getOWKSRoutes = (objectId: string) =>
+  request<OWKSRoute[]>(`/owks/objects/${objectId}/routes`);
+
+export const createOWKSRoute = (
+  objectId: string,
+  data: { name: string; interval_minutes: number; control_point_ids: string[] },
+) =>
+  request<OWKSRoute>(`/owks/objects/${objectId}/routes`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const createOWKSEvent = (data: {
+  object_id: string;
+  event_type: "entry" | "handover" | "deviation" | "notification" | "manipulation";
+  title: string;
+  description: string;
+  severity: "info" | "warning" | "critical";
+  client_event_id: string;
+}) =>
+  request<OWKSEvent>("/owks/events", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const syncOWKSEvents = (data: Array<{
+  object_id: string;
+  event_type: "entry" | "handover" | "deviation" | "notification" | "manipulation" | "control";
+  title: string;
+  description: string;
+  severity: "info" | "warning" | "critical";
+  occurred_at: string;
+  client_event_id: string;
+}>) =>
+  request<OWKSSyncResult[]>("/owks/events/sync", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const createOWKSChallenge = (objectId: string) =>
+  request<{ id: string; object_id: string; expires_at: string }>(
+    `/owks/objects/${objectId}/challenges`,
+    { method: "POST" },
+  );
+
+export const recordOWKSScan = (data: {
+  challenge_id: string;
+  credential: string;
+  client_event_id: string;
+  route_id?: string;
+}) =>
+  request<OWKSEvent>("/owks/scans", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
 export const updateContract = (id: string, data: Partial<ContractInput>) =>
   request<ManagedContract>(`/contracts/${id}`, {
     method: "PATCH",
@@ -945,3 +1024,29 @@ export const updateReminderSettings = (leadDays: number[]) =>
     method: "PUT",
     body: JSON.stringify({ lead_days: leadDays }),
   });
+
+export const updateOWKSEventStatus = (eventId: string, status: "open" | "in_progress" | "resolved") =>
+  request<OWKSEvent>(`/owks/events/${eventId}/status`, {
+    method: "POST",
+    body: JSON.stringify({ status }),
+  });
+
+export const monitorOWKSRoute = (routeId: string) =>
+  request<OWKSEvent[]>(`/owks/routes/${routeId}/monitor`, { method: "POST" });
+
+export const uploadOWKSAttachment = (eventId: string, file: File) => {
+  const form = new FormData();
+  form.append("document", file);
+  return request<OWKSAttachment>(
+    `/owks/events/${eventId}/attachments`,
+    { method: "POST", body: form },
+  );
+};
+
+export const getOWKSAttachments = (eventId: string) =>
+  request<OWKSAttachment[]>(`/owks/events/${eventId}/attachments`);
+
+export const owksAttachmentUrl = (eventId: string, attachmentId: string, download = false) => {
+  const params = download ? "?download=true" : "";
+  return `/api/v1/owks/events/${eventId}/attachments/${attachmentId}${params}`;
+};

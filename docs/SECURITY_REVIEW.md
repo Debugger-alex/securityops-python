@@ -33,7 +33,7 @@ Diese Prüfung fasst die bisherigen Reviews für `main` nach PR #16 und den aktu
 - Qualifikationsdateien werden nur über geschützte Dokument-Endpunkte bereitgestellt. Uploads sind auf PDF/PNG/JPEG und 10 MiB begrenzt; Dateiendung, Content-Type und Signatur werden geprüft. Die Dateiversionen sind unveränderlich und SHA-256-gekennzeichnet.
 - Anwendungsebene-Verschlüsselung für Qualifikationsdateien ist derzeit bewusst nicht ergänzt: Im Repository gibt es weder einen verwalteten Schlüssel-/KMS-Bezug noch einen Ablauf für Schlüsselrotation und Wiederherstellung verschlüsselter Backups. Eine lokale Schlüsseldatei oder ein Umgebungsgeheimnis ohne Rotation und Restore-Verfahren würde nur eine unvollständige Schutzmaßnahme schaffen. Vor produktiver Ablage ist ein überprüfbares Schlüsselmanagement samt Rotation, Backup und Wiederherstellung festzulegen; bis dahin sind Datenbank-, Volume- und Backupverschlüsselung sowie streng beschränkter Administrationszugriff Voraussetzung.
 - Qualifikationsmetadaten und Abwesenheiten sind über Fremdschlüssel mit `RESTRICT` an Personalakten gebunden; Archivierung erhält verbundene Datensätze, statt sie zu löschen.
-- ORM-Abfragen verwenden gebundene Parameter; React escaped Textausgaben standardmäßig. Keine Upload- oder Datei-Auslieferungsfunktion ist aktuell implementiert.
+- ORM-Abfragen verwenden gebundene Parameter; React escaped Textausgaben standardmäßig. Personal- und OWKS-Dateien werden ausschließlich über geschützte Backend-Endpunkte verarbeitet; externe private Dateiablage und Anwendungsebene-Verschlüsselung fehlen.
 - CORS stammt aus einer expliziten Origin-Konfiguration und erlaubt keine beliebigen Origins.
 - Compose verlangt ein gesetztes Datenbankpasswort; Anwendungskonfiguration enthält keinen Produktions-Standardwert.
 
@@ -49,7 +49,18 @@ Diese Prüfung fasst die bisherigen Reviews für `main` nach PR #16 und den aktu
 
 ## Grenzen und Prüfbelege
 
-- Lokale Backend-API-Tests verwenden SQLite; aktuell bestehen 20 Tests. Ruff-Lint und Frontend-TypeScript-/Produktionsbuild sind lokal erfolgreich. Migration 0009 ist für die aktuellen Änderungen noch nicht gegen PostgreSQL validiert.
+- Die oben genannten Belege beziehen sich auf die jeweiligen früheren PR-Stände, nicht auf den aktuellen OWKS-Head. Für aktuelle Ergebnisse und OWKS-spezifische offene Punkte siehe die Prüfung unten.
 - Frühere PostgreSQL-Migrationen/-Tests und Docker-Builds des Personal-Branches waren in CI erfolgreich, jedoch für einen älteren Commit. Ein externer Penetrationstest liegt nicht vor. Die CI für PR #16 war nach den Objektkorrekturen ebenfalls erfolgreich.
 - Die Prüfung bewertet keinen konkreten Server, Reverse Proxy, Firewall, Secret Store, Backup-Speicher oder administrativen Datenbankzugang.
 - Die Anwendung ist derzeit ein Entwicklungsstand. Vor öffentlichem oder produktivem Betrieb sind die offenen Punkte sowie Datenschutz-, Arbeitszeit- und Abrechnungsanforderungen fachlich und sicherheitstechnisch zu prüfen.
+
+## OWKS-Prüfung für PR #23
+
+Der Review hat die OWKS-Endpunkte, Objektzuweisung, Anhänge, Offline-Idempotenz, append-only Status-/Ereignisdaten, PostgreSQL-Monitor und Migration 0014 betrachtet. Diese Prüfung ist codebasiert und kein Penetrationstest.
+
+| Kennung | Schweregrad | Status | Befund |
+|---|---|---|---|
+| OWKS-01 | Mittel | Abgemildert; kryptografischer Präsenznachweis offen | Statische QR-/NFC-Kennungen lassen sich kopieren. Treffer werden deshalb als `presence_verified=false` und mit offenem Status protokolliert und zählen nicht als erledigter Besuch. Server-Challenge und Replay-Prüfung beweisen weiterhin keine physische Anwesenheit; dynamische kryptografische Tags oder verifizierte Geräte-/Standortbeweise sind nicht integriert. |
+| OWKS-02 | Mittel | Im aktuellen Branch abgesichert; PostgreSQL-CI erfolgreich | Migration 0014 verweigert Downgrade, sobald OWKS-Tabellen Daten enthalten. Der PostgreSQL-spezifische Regressionstest bestätigte im CI-Lauf 42520765482, dass der Downgrade fehlschlägt und der Kontrollpunkt erhalten bleibt. |
+
+Der lokale PostgreSQL-Dienst und Docker sind in der aktuellen Entwicklungsumgebung nicht verfügbar; SQLite überspringt fünf PostgreSQL-spezifische Tests. Im GitHub-Actions-Lauf 42520765482 (Commit `01d7c17a21aa5c6353156d15428184527336c2eb`) wurden Migrationen live auf PostgreSQL 17 angewendet und alle 41 Backendtests bestanden. Frontend-Typprüfung und Produktionsbuild, 17 Vitest-Tests sowie beide Docker-Image-Builds waren ebenfalls erfolgreich. Der frühere Backend-Joblauf endete einmal mit einem Deadlock in einem bestehenden parallelen Dienstplan-Test; der fehlgeschlagene Job wurde erneut ausgeführt und bestand. Ein erfolgreicher CI-Lauf ist kein Penetrationstest und keine Produktionsfreigabe.

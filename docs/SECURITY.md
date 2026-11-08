@@ -10,6 +10,10 @@
 - Keine Passworthashes in API-Antworten.
 - Audit-Einträge für implementierte Anmelde-, Benutzer-, Kunden- und Objektänderungen.
 - Objektzugriff serverseitig nach globalen Rechten oder Objektzuweisung; Sicherheits- und Zutrittsdaten sind getrennt und zusätzlich berechtigt.
+- OWKS-Endpunkte prüfen das OWKS-Recht und zusätzlich den Objekt-Scope; Anhangabruf ist nicht öffentlich und der Upload validiert Dateiendung, MIME-Typ, Signatur und 10-MiB-Grenze.
+- OWKS-Ereignisse, Statusverläufe und Anhänge sind in PostgreSQL append-only. Statusänderungen und Korrekturen werden als neue Datensätze protokolliert.
+- Kontrollscans benötigen eine kurzlebige, benutzer- und objektgebundene Einmal-Challenge; PostgreSQL koordiniert den Versäumnis-Monitor zwischen Instanzen und verhindert doppelte generierte Meldungen.
+- Statische QR-/NFC-Kennungstreffer werden als `presence_verified=false` protokolliert, bleiben offen und zählen nicht als erledigter Besuch. Sie belegen keine physische Anwesenheit.
 - `POSTGRES_PASSWORD` ist als Umgebungsvariable erforderlich; es gibt keinen impliziten Datenbankpasswort-Standardwert.
 
 ## Vor jedem produktiven Betrieb
@@ -21,6 +25,9 @@
 - Datenbankrollen mit minimalen Rechten definieren; Audit-Schreibschutz/externes unveränderliches Archiv bewerten.
 - Backups verschlüsseln, getrennt aufbewahren und Wiederherstellungen regelmäßig praktisch testen.
 - Sicherheits- und Datenschutzprüfung, Aufbewahrungs-/Löschregeln, Monitoring und Incident-Abläufe definieren.
+- OWKS-Downgrade nicht ausführen, solange Betriebsdaten vorliegen; Migration 0014 verweigert den Downgrade dann explizit. Für sichere Rollbacks müssen Datenaufbewahrung und Exportverfahren vorher festgelegt werden.
+- Dokumenten-/Vertrags-Downgrade 0015 verweigert den Rückbau, sobald Fachdaten oder angepasste Erinnerungseinstellungen bestehen. Die CI prüft die Ablehnung mit einem PostgreSQL-Testdatensatz und bestätigt, dass der Datensatz erhalten bleibt.
+- Statische OWKS-QR-Codes und NFC-Tags sind kopierbar. Web-NFC, Challenge und serverseitige Replay-Prüfungen beweisen keine physische Anwesenheit; dynamische kryptografische Tags oder verwaltete Standort-/Gerätenachweise sind nicht integriert.
 - Keine echten Kunden-/Personal-/Einsatzdaten verwenden, solange fachliche Berechtigungen und Produktionshärtung fehlen.
 
 ## Offene Sicherheitsfunktionen

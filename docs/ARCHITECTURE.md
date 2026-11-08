@@ -2,7 +2,7 @@
 
 ## Ziel und aktueller Stand
 
-SecurityOps ist als modularer Monolith mit Python/FastAPI, SQLAlchemy, PostgreSQL, Alembic und React/TypeScript/Vite angelegt. Der aktuelle Code umfasst Identity/RBAC, Kunden-, Objekt-, Personal-, Planungs- und Zeiterfassungsverwaltung sowie eine React-Oberfläche mit getrennten Verwaltungsansichten. Die Dokumenten- und Vertragsverwaltung ist auf diesem noch ungemergten Feature-Branch ergänzt; OWKS und Rechnungswesen sind nicht implementiert.
+SecurityOps ist als modularer Monolith mit Python/FastAPI, SQLAlchemy, PostgreSQL, Alembic und React/TypeScript/Vite angelegt. Der aktuelle Code umfasst Identity/RBAC, Kunden-, Objekt-, Personal-, Planungs- und Zeiterfassungsverwaltung, das OWKS-Wachbuch sowie Dokumenten- und Vertragsverwaltung mit getrennten Verwaltungsansichten. Rechnungswesen ist nicht implementiert.
 
 ## Laufzeitkomponenten
 
@@ -14,7 +14,7 @@ SecurityOps ist als modularer Monolith mit Python/FastAPI, SQLAlchemy, PostgreSQ
 - `backend/app/auth.py`: Sitzungen, CSRF und Rechteabhängigkeiten.
 - `backend/app/models.py`: SQLAlchemy-Modelle.
 - `backend/migrations`: Alembic-Schemaänderungen.
-- `frontend/src`: React-Anwendung mit Kunden-, Objekt-, Personal-, Planungs-, Zeiterfassungs- und Dokumenten-/Vertragsverwaltung.
+- `frontend/src`: React-Anwendung mit Kunden-, Objekt-, Personal-, Planungs-, Zeiterfassungs-, OWKS- und Dokumenten-/Vertragsverwaltung.
 - `docker-compose.yml`: lokale Entwicklungsdienste PostgreSQL, API, Vite und persistenter privater Dokumentenspeicher.
 - `.github/workflows/ci.yml`: Backendtests, Migrationen auf einem temporären PostgreSQL-Dienst und Frontend-Build bei Pull Requests und Änderungen an `main`.
 

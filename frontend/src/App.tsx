@@ -21,6 +21,7 @@ import DocumentContractManagement from "./DocumentContractManagement";
 import PersonnelManagement from "./PersonnelManagement";
 import SchedulingManagement from "./SchedulingManagement";
 import TimeTracking from "./TimeTracking";
+import OWKSManagement from "./OWKSManagement";
 import type {
   AuthUser,
   Customer,
@@ -126,7 +127,7 @@ export default function App() {
   const [history, setHistory] = useState<CustomerHistory[]>([]);
   const [customerObjects, setCustomerObjects] = useState<SecurityObject[]>([]);
   const [activeModule, setActiveModule] = useState<
-    "customers" | "objects" | "employees" | "scheduling" | "time_tracking" | "documents"
+    "customers" | "objects" | "employees" | "scheduling" | "time_tracking" | "documents" | "owks"
   >("customers");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -143,6 +144,7 @@ export default function App() {
   const canAccessDocuments = user?.permissions.some((permission) =>
     ["documents.read", "documents.create", "contracts.read", "contracts.create"].includes(permission),
   ) ?? false;
+  const canReadOWKS = user?.permissions.includes("owks.read") ?? false;
 
   useEffect(() => {
     getSession()
@@ -212,7 +214,13 @@ export default function App() {
     ) {
       setActiveModule("documents");
     }
-  }, [canAccessDocuments, canReadCustomers, canReadEmployees, canReadObjects, canReadScheduling, canReadTimeTracking, user]);
+    else if (
+      user && !canReadCustomers && !canReadObjects && !canReadEmployees
+      && !canReadScheduling && !canReadTimeTracking && !canAccessDocuments && canReadOWKS
+    ) {
+      setActiveModule("owks");
+    }
+  }, [canAccessDocuments, canReadCustomers, canReadEmployees, canReadObjects, canReadOWKS, canReadScheduling, canReadTimeTracking, user]);
 
   async function submitLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -454,10 +462,15 @@ export default function App() {
         {canAccessDocuments && <button
           className={activeModule === "documents" ? "module-tab active" : "module-tab"}
           onClick={() => setActiveModule("documents")}>Dokumente & Verträge</button>}
+        {canReadOWKS && <button
+          className={activeModule === "owks" ? "module-tab active" : "module-tab"}
+          onClick={() => setActiveModule("owks")}>Wachbuch</button>}
       </nav>
 
       {activeModule === "documents" && canAccessDocuments
         ? <DocumentContractManagement user={user} />
+        : activeModule === "owks" && canReadOWKS
+        ? <OWKSManagement user={user} />
         : activeModule === "time_tracking" && canReadTimeTracking
         ? <TimeTracking user={user} />
         : activeModule === "scheduling" && canReadScheduling

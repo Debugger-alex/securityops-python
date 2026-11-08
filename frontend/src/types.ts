@@ -19,6 +19,80 @@ export type TimeEntryStatus =
   | "rejected"
   | "correction_requested"
   | "locked";
+export type OWKSEventType =
+  | "entry"
+  | "handover"
+  | "control"
+  | "manipulation"
+  | "deviation"
+  | "missed"
+  | "notification"
+  | "correction";
+export type OWKSEventStatus = "open" | "in_progress" | "resolved";
+
+export interface OWKSObject {
+  id: string;
+  code: string;
+  name: string;
+}
+
+export interface OWKSControlPoint {
+  id: string;
+  object_id: string;
+  name: string;
+  identifier_type: "qr" | "nfc";
+  is_active: boolean;
+  created_at: string;
+  credential?: string | null;
+}
+
+export interface OWKSRoute {
+  id: string;
+  object_id: string;
+  name: string;
+  interval_minutes: number;
+  is_active: boolean;
+  control_point_ids: string[];
+  created_at: string;
+}
+
+export interface OWKSEvent {
+  id: string;
+  object_id: string;
+  route_id: string | null;
+  control_point_id: string | null;
+  corrects_event_id: string | null;
+  employee_id: string | null;
+  actor_id: string | null;
+  client_event_id: string | null;
+  event_type: OWKSEventType;
+  severity: "info" | "warning" | "critical";
+  title: string;
+  description: string;
+  occurred_at: string;
+  sync_status: "synced" | "conflict";
+  presence_verified: boolean;
+  status: OWKSEventStatus;
+  created_at: string;
+}
+
+export interface OWKSAttachment {
+  id: string;
+  event_id: string;
+  file_name: string;
+  media_type: "application/pdf" | "image/jpeg" | "image/png";
+  size_bytes: number;
+  sha256: string;
+  uploaded_by_id: string | null;
+  created_at: string;
+}
+
+export interface OWKSSyncResult {
+  client_event_id: string;
+  status: "synced" | "conflict" | "duplicate";
+  event: OWKSEvent | null;
+  detail: string | null;
+}
 
 export interface CustomerAddress {
   id: string;

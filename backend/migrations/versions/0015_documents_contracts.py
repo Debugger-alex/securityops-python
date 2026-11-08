@@ -8,8 +8,8 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-revision: str = "0014_documents_contracts"
-down_revision: str | None = "0013_time_tracking_surcharges"
+revision: str = "0015_documents_contracts"
+down_revision: str | None = "0014_owks_wachbuch"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -348,6 +348,31 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.execute(
+        """
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM documents)
+                OR EXISTS (SELECT 1 FROM document_versions)
+                OR EXISTS (SELECT 1 FROM document_approvals)
+                OR EXISTS (SELECT 1 FROM document_read_receipts)
+                OR EXISTS (SELECT 1 FROM document_history)
+                OR EXISTS (SELECT 1 FROM contracts)
+                OR EXISTS (SELECT 1 FROM contract_history)
+                OR EXISTS (SELECT 1 FROM document_contract_reminders)
+                OR EXISTS (
+                    SELECT 1 FROM document_contract_reminder_settings
+                    WHERE id <> 1
+                        OR lead_days <> '[90, 60, 30, 14, 7]'::json
+                        OR updated_by_id IS NOT NULL
+                ) THEN
+                RAISE EXCEPTION
+                    'Dokumenten-/Vertrags-Downgrade abgelehnt: Fachdaten oder angepasste Erinnerungseinstellungen zuerst sichern';
+            END IF;
+        END
+        $$
+        """
+    )
     permission_ids = [
         stable_id("permission", code) for code in PERMISSIONS if code != "documents.read"
     ]
