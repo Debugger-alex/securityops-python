@@ -2,12 +2,20 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
   archiveEmployee,
   archiveEmployeeQualification,
+  assignEmployeeToObject,
   createEmployee,
   createEmployeeAbsence,
   createEmployeeQualification,
+  employeeQualificationDocumentUrl,
+  endEmployeeObjectAssignment,
   getEmployee,
+  getEmployeeLinkedUserCandidates,
+  getEmployeeObjectAssignmentCandidates,
+  getEmployeeObjectAssignmentHistory,
+  getEmployeeObjectAssignments,
   getEmployeeAbsences,
   getEmployeeHistory,
+  getEmployeeQualificationDocuments,
   getEmployeeQualifications,
   getEmployees,
   getEmployeeSensitiveDetails,
@@ -16,15 +24,21 @@ import {
   updateEmployee,
   updateEmployeeAbsence,
   updateEmployeeSensitiveDetails,
+  uploadEmployeeQualificationDocument,
 } from "./api";
 import type {
   AuthUser,
   Employee,
+  EmployeeAccountCandidate,
   EmployeeAbsence,
   EmployeeAbsenceStatus,
   EmployeeAbsenceType,
   EmployeeHistory,
+  EmployeeObjectAssignment,
+  EmployeeObjectAssignmentHistory,
+  EmployeeObjectCandidate,
   EmployeeQualification,
+  EmployeeQualificationDocument,
   EmployeeSensitiveDetails,
   EmployeeStatus,
 } from "./types";
@@ -61,6 +75,9 @@ const historyActions: Record<string, string> = {
   qualification_archived: "Qualifikationsnachweis archiviert",
   absence_created: "Abwesenheit erfasst",
   absence_updated: "Abwesenheit geändert",
+  qualification_document_uploaded: "Qualifikationsdatei hinzugefügt",
+  object_assignment_assigned: "Objektzuweisung begonnen",
+  object_assignment_ended: "Objektzuweisung beendet",
 };
 
 function messageFrom(reason: unknown, fallback: string) {
@@ -78,6 +95,9 @@ export default function PersonnelManagement({ user }: { user: AuthUser }) {
   const canManageSensitive = user.permissions.includes("employees.sensitive.manage");
   const canReadAbsences = user.permissions.includes("employees.absences.read");
   const canManageAbsences = user.permissions.includes("employees.absences.manage");
+  const canReadDocuments = user.permissions.includes("employees.documents.read");
+  const canManageDocuments = user.permissions.includes("employees.documents.manage");
+  const canManageObjectAssignments = canManage && user.permissions.includes("objects.assign");
 
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [total, setTotal] = useState(0);
@@ -91,6 +111,14 @@ export default function PersonnelManagement({ user }: { user: AuthUser }) {
   const [offset, setOffset] = useState(0);
   const [selected, setSelected] = useState<Employee | null>(null);
   const [qualifications, setQualifications] = useState<EmployeeQualification[]>([]);
+  const [qualificationDocuments, setQualificationDocuments] =
+    useState<EmployeeQualificationDocument[]>([]);
+  const [accountCandidates, setAccountCandidates] = useState<EmployeeAccountCandidate[]>([]);
+  const [objectAssignments, setObjectAssignments] = useState<EmployeeObjectAssignment[]>([]);
+  const [objectAssignmentHistory, setObjectAssignmentHistory] =
+    useState<EmployeeObjectAssignmentHistory[]>([]);
+  const [objectCandidates, setObjectCandidates] = useState<EmployeeObjectCandidate[]>([]);
+  const [objectSelection, setObjectSelection] = useState("");
   const [absences, setAbsences] = useState<EmployeeAbsence[]>([]);
   const [history, setHistory] = useState<EmployeeHistory[]>([]);
   const [expiring, setExpiring] = useState<Array<EmployeeQualification & {
@@ -138,25 +166,62 @@ export default function PersonnelManagement({ user }: { user: AuthUser }) {
       .catch((reason) => setError(messageFrom(reason, "Ablaufübersicht konnte nicht geladen werden.")));
   }, [canRead]);
 
+  useEffect(() => {
+    if (!canManage) return;
+    getEmployeeLinkedUserCandidates()
+      .then(setAccountCandidates)
+      .catch((reason) => setError(messageFrom(reason, "Benutzerkonten konnten nicht geladen werden.")));
+  }, [canManage]);
+
   const refreshSelected = useCallback(async (employeeId: string) => {
-    const [employee, qualificationRows, absenceRows, historyRows, sensitiveDetails] = await Promise.all([
+    const [
+      employee,
+      qualificationRows,
+      absenceRows,
+      historyRows,
+      sensitiveDetails,
+      objectRows,
+      objectHistoryRows,
+      documentRows,
+      linkedAccounts,
+      availableObjects,
+    ] = await Promise.all([
       getEmployee(employeeId),
       getEmployeeQualifications(employeeId, true),
       canReadAbsences ? getEmployeeAbsences(employeeId) : Promise.resolve([]),
       getEmployeeHistory(employeeId),
       canReadSensitive ? getEmployeeSensitiveDetails(employeeId) : Promise.resolve(null),
+      getEmployeeObjectAssignments(employeeId),
+      getEmployeeObjectAssignmentHistory(employeeId),
+      canReadDocuments ? getEmployeeQualificationDocuments(employeeId) : Promise.resolve([]),
+      canManage ? getEmployeeLinkedUserCandidates(employeeId) : Promise.resolve([]),
+      canManageObjectAssignments
+        ? getEmployeeObjectAssignmentCandidates()
+        : Promise.resolve([]),
     ]);
     setSelected(employee);
     setQualifications(qualificationRows);
+    setQualificationDocuments(documentRows);
+    setAccountCandidates(linkedAccounts);
     setAbsences(absenceRows);
     setHistory(historyRows);
+    setObjectAssignments(objectRows);
+    setObjectAssignmentHistory(objectHistoryRows);
+    setObjectCandidates(availableObjects);
+    setObjectSelection("");
     setSensitive(sensitiveDetails);
     setSensitiveForm({
       address: sensitiveDetails?.address ?? "",
       emergency_contact: sensitiveDetails?.emergency_contact ?? "",
       internal_notes: sensitiveDetails?.internal_notes ?? "",
     });
-  }, [canReadAbsences, canReadSensitive]);
+  }, [
+    canManage,
+    canManageObjectAssignments,
+    canReadAbsences,
+    canReadDocuments,
+    canReadSensitive,
+  ]);
 
   async function openEmployee(employee: Employee) {
     setError("");
@@ -175,6 +240,7 @@ export default function PersonnelManagement({ user }: { user: AuthUser }) {
     try {
       const employee = await createEmployee({
         employee_number: String(data.get("employee_number")).trim(),
+        user_id: optionalValue(data, "user_id"),
         full_name: String(data.get("full_name")).trim(),
         email: optionalValue(data, "email"),
         phone: optionalValue(data, "phone"),
@@ -206,6 +272,7 @@ export default function PersonnelManagement({ user }: { user: AuthUser }) {
     try {
       await updateEmployee(selected.id, {
         employee_number: String(data.get("employee_number")).trim(),
+        user_id: optionalValue(data, "user_id"),
         full_name: String(data.get("full_name")).trim(),
         email: optionalValue(data, "email"),
         phone: optionalValue(data, "phone"),
@@ -333,6 +400,58 @@ export default function PersonnelManagement({ user }: { user: AuthUser }) {
     }
   }
 
+  async function addObjectAssignment() {
+    if (!selected || !objectSelection) return;
+    setBusy(true);
+    try {
+      await assignEmployeeToObject(selected.id, objectSelection);
+      await refreshSelected(selected.id);
+    } catch (reason) {
+      setError(messageFrom(reason, "Objektzuweisung konnte nicht angelegt werden."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function endObjectAssignment(assignment: EmployeeObjectAssignment) {
+    if (!selected || !window.confirm(`Zuweisung zu „${assignment.object_name}“ beenden?`)) return;
+    setBusy(true);
+    try {
+      await endEmployeeObjectAssignment(selected.id, assignment.object_id);
+      await refreshSelected(selected.id);
+    } catch (reason) {
+      setError(messageFrom(reason, "Objektzuweisung konnte nicht beendet werden."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function uploadQualificationDocument(
+    event: FormEvent<HTMLFormElement>,
+    qualification: EmployeeQualification,
+  ) {
+    event.preventDefault();
+    if (!selected) return;
+    const form = event.currentTarget;
+    const file = new FormData(form).get("document");
+    if (!(file instanceof File) || file.size === 0) {
+      setError("Bitte eine PDF-, PNG- oder JPEG-Datei auswählen.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await uploadEmployeeQualificationDocument(selected.id, qualification.id, file);
+      form.reset();
+      const documents = await getEmployeeQualificationDocuments(selected.id);
+      setQualificationDocuments(documents);
+      await getEmployeeHistory(selected.id).then(setHistory);
+    } catch (reason) {
+      setError(messageFrom(reason, "Qualifikationsdatei konnte nicht gespeichert werden."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!canRead) {
     return <section className="panel"><h2>Kein Personalzugriff</h2>
       <p className="muted">Deinem Konto fehlt die Leseberechtigung für Personalakten.</p></section>;
@@ -405,17 +524,20 @@ export default function PersonnelManagement({ user }: { user: AuthUser }) {
             </label>}
           </div>
           <div className="table-scroll"><table>
-            <thead><tr><th>Mitarbeiter</th><th>Funktion</th><th>Status</th><th>Eintritt</th><th>Personalakte</th></tr></thead>
+            <thead><tr><th>Mitarbeiter</th><th>Funktion</th><th>Objekte</th><th>Status</th><th>Eintritt</th><th>Personalakte</th></tr></thead>
             <tbody>
               {employees.map((employee) => <tr key={employee.id}
                 className={employee.archived_at ? "archived-row" : ""}>
                 <td><strong>{employee.full_name}</strong><small>{employee.employee_number}</small></td>
                 <td>{employee.job_title || "—"}</td>
+                <td>{employee.assigned_objects.length
+                  ? employee.assigned_objects.join(", ")
+                  : "—"}</td>
                 <td>{employee.archived_at ? "Archiviert" : employeeStatuses[employee.employment_status]}</td>
                 <td>{employee.hired_on}</td>
                 <td><button className="text-button" onClick={() => void openEmployee(employee)}>Öffnen</button></td>
               </tr>)}
-              {employees.length === 0 && <tr><td className="empty" colSpan={5}>Keine passenden Mitarbeiter vorhanden.</td></tr>}
+              {employees.length === 0 && <tr><td className="empty" colSpan={6}>Keine passenden Mitarbeiter vorhanden.</td></tr>}
             </tbody>
           </table></div>
           <div className="pagination">
@@ -434,6 +556,14 @@ export default function PersonnelManagement({ user }: { user: AuthUser }) {
           <form onSubmit={submitCreate}>
             <label>Personalnummer <span aria-hidden="true">*</span>
               <input name="employee_number" required maxLength={40} /></label>
+            <label>Benutzerkonto
+              <select name="user_id" defaultValue="">
+                <option value="">Kein Konto verknüpfen</option>
+                {accountCandidates.map((account) => <option key={account.id} value={account.id}>
+                  {account.full_name} ({account.username})
+                </option>)}
+              </select>
+            </label>
             <label>Vollständiger Name <span aria-hidden="true">*</span>
               <input name="full_name" required maxLength={160} /></label>
             <div className="form-row">
@@ -467,6 +597,14 @@ export default function PersonnelManagement({ user }: { user: AuthUser }) {
             onSubmit={submitUpdate}>
             <label>Personalnummer<input name="employee_number" required maxLength={40}
               defaultValue={selected.employee_number} /></label>
+            <label>Benutzerkonto
+              <select name="user_id" defaultValue={selected.user_id ?? ""}>
+                <option value="">Kein Konto verknüpfen</option>
+                {accountCandidates.map((account) => <option key={account.id} value={account.id}>
+                  {account.full_name} ({account.username})
+                </option>)}
+              </select>
+            </label>
             <label>Vollständiger Name<input name="full_name" required maxLength={160}
               defaultValue={selected.full_name} /></label>
             <div className="form-row">
@@ -551,6 +689,37 @@ export default function PersonnelManagement({ user }: { user: AuthUser }) {
               {canManage && !selected.archived_at && !qualification.archived_at
                 && <button className="text-button danger-text" disabled={busy}
                   onClick={() => void archiveQualification(qualification)}>Archivieren</button>}
+              {canReadDocuments && qualificationDocuments
+                .filter((document) => document.qualification_id === qualification.id)
+                .map((document) => <div className="document-version" key={document.id}>
+                  <small>Version {document.version}: {document.file_name} ·
+                    {" "}{Math.ceil(document.size_bytes / 1024)} KiB</small>
+                  <a
+                    href={employeeQualificationDocumentUrl(
+                      selected.id,
+                      qualification.id,
+                      document.id,
+                    )}
+                    target="_blank"
+                    rel="noreferrer"
+                  >Ansehen</a>
+                  {" · "}
+                  <a href={employeeQualificationDocumentUrl(
+                    selected.id,
+                    qualification.id,
+                    document.id,
+                    true,
+                  )}>Herunterladen</a>
+                </div>)}
+              {canManageDocuments && !selected.archived_at && !qualification.archived_at
+                && <form className="document-upload" onSubmit={(event) =>
+                  void uploadQualificationDocument(event, qualification)}>
+                  <label>Nachweisdatei (PDF, PNG oder JPEG, max. 10 MiB)
+                    <input name="document" type="file" accept=".pdf,.png,.jpg,.jpeg"
+                      required disabled={busy} />
+                  </label>
+                  <button className="secondary-button" disabled={busy}>Neue Version hochladen</button>
+                </form>}
             </article>)}
             {canManage && !selected.archived_at && <form className="contact-form" onSubmit={submitQualification}>
               <h4>Nachweis hinzufügen</h4>
@@ -563,6 +732,51 @@ export default function PersonnelManagement({ user }: { user: AuthUser }) {
               </div>
               <button className="secondary-button" disabled={busy}>Nachweis speichern</button>
             </form>}
+          </section>
+
+          <section className="assignment-section">
+            <h3>Objektzuweisungen</h3>
+            {!selected.user_id && <p className="muted">
+              Für Objektzuweisungen muss ein passendes Benutzerkonto verknüpft sein.
+            </p>}
+            {objectAssignments.length === 0 && selected.user_id
+              && <p className="muted">Keine aktiven Objektzuweisungen vorhanden.</p>}
+            {objectAssignments.map((assignment) => <article className="contact-card"
+              key={assignment.object_id}>
+              <div><strong>{assignment.object_name}</strong><small>{assignment.object_code}</small>
+                <small>Zugewiesen am {new Date(assignment.assigned_at).toLocaleString("de-DE")}</small>
+              </div>
+              {canManageObjectAssignments && !selected.archived_at
+                && <button className="text-button danger-text" disabled={busy}
+                  onClick={() => void endObjectAssignment(assignment)}>Zuweisung beenden</button>}
+            </article>)}
+            {canManageObjectAssignments && selected.user_id && !selected.archived_at && (
+              <div className="contact-form">
+                <label>Weiteres Objekt auswählen
+                  <select value={objectSelection}
+                    onChange={(event) => setObjectSelection(event.target.value)}>
+                    <option value="">Objekt auswählen</option>
+                    {objectCandidates
+                      .filter((candidate) => !objectAssignments.some(
+                        (assignment) => assignment.object_id === candidate.object_id,
+                      ))
+                      .map((candidate) => <option key={candidate.object_id} value={candidate.object_id}>
+                        {candidate.object_name} ({candidate.object_code})
+                      </option>)}
+                  </select>
+                </label>
+                <button className="secondary-button" disabled={busy || !objectSelection}
+                  onClick={() => void addObjectAssignment()}>Objekt zuweisen</button>
+              </div>
+            )}
+            {objectAssignmentHistory.length > 0 && <details className="history-section">
+              <summary>Zuweisungsverlauf</summary>
+              <ol className="history-list">{objectAssignmentHistory.map((entry) => <li key={entry.id}>
+                <strong>{entry.action === "assigned" ? "Zugewiesen" : "Zuweisung beendet"}:{" "}
+                  {entry.object_name} ({entry.object_code})</strong>
+                <time dateTime={entry.created_at}>{new Date(entry.created_at).toLocaleString("de-DE")}</time>
+              </li>)}</ol>
+            </details>}
           </section>
 
           {canReadAbsences && <section className="assignment-section">

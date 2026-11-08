@@ -276,3 +276,176 @@ def test_sensitive_employee_details_are_separately_authorized(client: TestClient
     create_test_user("normaler-mitarbeiter", "employee")
     sign_in_as(client, "normaler-mitarbeiter", "personal-test-passwort-2026")
     assert client.get("/api/v1/employees").status_code == 403
+
+
+def test_employee_object_assignments_update_object_access_and_keep_history(
+    client: TestClient,
+) -> None:
+    admin_headers = {"X-CSRF-Token": sign_in_as(client, "admin", ADMIN_PASSWORD)}
+    employee_user_id = create_test_user("zugewiesenes-konto", "employee")
+    employee = client.post(
+        "/api/v1/employees",
+        headers=admin_headers,
+        json={
+            "employee_number": "P-3001",
+            "user_id": str(employee_user_id),
+            "full_name": "Zugewiesene Testperson",
+            "hired_on": str(date.today()),
+        },
+    ).json()
+    customer = client.post(
+        "/api/v1/customers",
+        headers=admin_headers,
+        json={"company_name": "Testkunde Zuweisung GmbH"},
+    ).json()
+    obj = client.post(
+        "/api/v1/objects",
+        headers=admin_headers,
+        json={
+            "customer_id": customer["id"],
+            "name": "Testobjekt Zuweisung",
+            "code": "OBJ-PERSONAL-1",
+        },
+    ).json()
+
+    candidates = client.get("/api/v1/employees/object-assignment-candidates")
+    assert candidates.status_code == 200
+    assert any(item["object_id"] == obj["id"] for item in candidates.json())
+    assigned = client.post(
+        f"/api/v1/employees/{employee['id']}/objects/{obj['id']}", headers=admin_headers
+    )
+    assert assigned.status_code == 201
+    assert assigned.json()[0]["object_id"] == obj["id"]
+    assert client.get(f"/api/v1/employees/{employee['id']}").json()["assigned_objects"] == [
+        "Testobjekt Zuweisung (OBJ-PERSONAL-1)"
+    ]
+
+    sign_in_as(client, "zugewiesenes-konto", "personal-test-passwort-2026")
+    assert client.get(f"/api/v1/objects/{obj['id']}").status_code == 200
+
+    admin_headers = {"X-CSRF-Token": sign_in_as(client, "admin", ADMIN_PASSWORD)}
+    ended = client.delete(
+        f"/api/v1/employees/{employee['id']}/objects/{obj['id']}",
+        headers=admin_headers,
+    )
+    assert ended.status_code == 200
+    assert ended.json() == []
+    assert client.get(f"/api/v1/employees/{employee['id']}").json()["assigned_objects"] == []
+    history = client.get(f"/api/v1/employees/{employee['id']}/object-assignment-history")
+    assert history.status_code == 200
+    assert [entry["action"] for entry in history.json()] == ["ended", "assigned"]
+
+    sign_in_as(client, "zugewiesenes-konto", "personal-test-passwort-2026")
+    assert client.get(f"/api/v1/objects/{obj['id']}").status_code == 404
+
+    admin_headers = {"X-CSRF-Token": sign_in_as(client, "admin", ADMIN_PASSWORD)}
+    legacy_update = client.put(
+        f"/api/v1/objects/{obj['id']}/assignments",
+        headers=admin_headers,
+        json={"user_ids": [str(employee_user_id)]},
+    )
+    assert legacy_update.status_code == 200
+    history = client.get(f"/api/v1/employees/{employee['id']}/object-assignment-history").json()
+    assert [entry["action"] for entry in history] == ["assigned", "ended", "assigned"]
+
+    client.post(f"/api/v1/employees/{employee['id']}/archive", headers=admin_headers)
+    history = client.get(f"/api/v1/employees/{employee['id']}/object-assignment-history").json()
+    assert [entry["action"] for entry in history] == ["ended", "assigned", "ended", "assigned"]
+    assert client.get(f"/api/v1/employees/{employee['id']}/objects").json() == []
+
+
+def test_qualification_documents_are_versioned_and_permission_protected(
+    client: TestClient,
+) -> None:
+    admin_headers = {"X-CSRF-Token": sign_in_as(client, "admin", ADMIN_PASSWORD)}
+    employee = client.post(
+        "/api/v1/employees",
+        headers=admin_headers,
+        json={
+            "employee_number": "P-4001",
+            "full_name": "Dokument Testperson",
+            "hired_on": str(date.today()),
+        },
+    ).json()
+    qualification = client.post(
+        f"/api/v1/employees/{employee['id']}/qualifications",
+        headers=admin_headers,
+        json={"category": "Zertifikat", "name": "Erste Hilfe"},
+    ).json()
+    route = f"/api/v1/employees/{employee['id']}/qualifications/{qualification['id']}/documents"
+    first_content = b"%PDF-1.4\nfirst version"
+    first = client.post(
+        route,
+        headers=admin_headers,
+        files={"document": ("nachweis.pdf", first_content, "application/pdf")},
+    )
+    assert first.status_code == 201
+    assert first.json()["version"] == 1
+    second = client.post(
+        route,
+        headers=admin_headers,
+        files={"document": ("nachweis.pdf", b"%PDF-1.4\nsecond version", "application/pdf")},
+    )
+    assert second.status_code == 201
+    assert second.json()["version"] == 2
+
+    document_route = (
+        f"/api/v1/employees/{employee['id']}/qualifications/{qualification['id']}/"
+        f"documents/{first.json()['id']}"
+    )
+    preview = client.get(document_route)
+    assert preview.status_code == 200
+    assert preview.content == first_content
+    assert preview.headers["content-disposition"].startswith("inline;")
+    download = client.get(document_route, params={"download": True})
+    assert download.status_code == 200
+    assert download.headers["content-disposition"].startswith("attachment;")
+    assert download.headers["cache-control"] == "private, no-store"
+    assert (
+        client.get(
+            f"/api/v1/employees/{UUID(int=0)}/qualifications/{qualification['id']}/"
+            f"documents/{first.json()['id']}"
+        ).status_code
+        == 404
+    )
+
+    mismatched = client.post(
+        route,
+        headers=admin_headers,
+        files={"document": ("fake.pdf", b"\x89PNG\r\n\x1a\nnot a pdf", "application/pdf")},
+    )
+    assert mismatched.status_code == 415
+    wrong_mime = client.post(
+        route,
+        headers=admin_headers,
+        files={"document": ("falscher-typ.pdf", b"%PDF-1.4\nvalid signature", "image/png")},
+    )
+    assert wrong_mime.status_code == 415
+    oversized = client.post(
+        route,
+        headers=admin_headers,
+        files={
+            "document": (
+                "zu-gross.pdf",
+                b"%PDF-1.4\n" + b"x" * (10 * 1024 * 1024),
+                "application/pdf",
+            )
+        },
+    )
+    assert oversized.status_code == 413
+
+    create_test_user("personal-dokument-leser", "management")
+    sign_in_as(client, "personal-dokument-leser", "personal-test-passwort-2026")
+    assert (
+        client.get(f"/api/v1/employees/{employee['id']}/qualification-documents").status_code == 403
+    )
+    assert client.get(document_route).status_code == 403
+
+    admin_headers = {"X-CSRF-Token": sign_in_as(client, "admin", ADMIN_PASSWORD)}
+    client.post(f"/api/v1/employees/{employee['id']}/archive", headers=admin_headers)
+    rejected = client.post(
+        route,
+        headers=admin_headers,
+        files={"document": ("archiviert.pdf", b"%PDF-1.4\narchived", "application/pdf")},
+    )
+    assert rejected.status_code == 409

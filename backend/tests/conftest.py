@@ -23,7 +23,9 @@ from app.models import (
     Employee,
     EmployeeAbsence,
     EmployeeHistory,
+    EmployeeObjectAssignmentHistory,
     EmployeeQualification,
+    EmployeeQualificationDocument,
     EmployeeSensitiveDetails,
     ObjectAddress,
     ObjectAssignment,
@@ -79,6 +81,7 @@ def client() -> Generator[TestClient, None, None]:
         db.execute(delete(ObjectContact))
         db.execute(delete(ObjectAddress))
         db.execute(delete(ObjectSecurityDetails))
+        db.execute(delete(EmployeeObjectAssignmentHistory))
         db.execute(delete(SecurityObject))
         db.execute(delete(CustomerHistory))
         db.execute(delete(CustomerContact))
@@ -86,6 +89,7 @@ def client() -> Generator[TestClient, None, None]:
         db.execute(delete(Customer))
         db.execute(delete(EmployeeHistory))
         db.execute(delete(EmployeeAbsence))
+        db.execute(delete(EmployeeQualificationDocument))
         db.execute(delete(EmployeeQualification))
         db.execute(delete(EmployeeSensitiveDetails))
         db.execute(delete(Employee))
@@ -117,6 +121,8 @@ def client() -> Generator[TestClient, None, None]:
             "employees.sensitive.manage",
             "employees.absences.read",
             "employees.absences.manage",
+            "employees.documents.read",
+            "employees.documents.manage",
         )
         permissions = {}
         for code in permission_codes:
@@ -192,6 +198,8 @@ def client() -> Generator[TestClient, None, None]:
                 "employees.sensitive.manage",
                 "employees.absences.read",
                 "employees.absences.manage",
+                "employees.documents.read",
+                "employees.documents.manage",
             ),
         )
         db.add(

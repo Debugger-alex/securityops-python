@@ -555,6 +555,7 @@ class EmployeeRead(BaseModel):
     ended_on: date | None
     contract_type: str | None
     weekly_hours: Decimal | None
+    assigned_objects: list[str] = Field(default_factory=list)
     archived_at: datetime | None
     created_at: datetime
     updated_at: datetime
@@ -670,6 +671,49 @@ class EmployeeHistoryRead(BaseModel):
     actor_id: UUID | None
     action: str
     changed_fields: list[str]
+    created_at: datetime
+
+
+class EmployeeAccountCandidateRead(BaseModel):
+    id: UUID
+    username: str
+    full_name: str
+
+
+class EmployeeObjectAssignmentRead(BaseModel):
+    object_id: UUID
+    object_code: str
+    object_name: str
+    assigned_at: datetime
+
+
+class EmployeeObjectCandidateRead(BaseModel):
+    object_id: UUID
+    object_code: str
+    object_name: str
+
+
+class EmployeeObjectAssignmentHistoryRead(BaseModel):
+    id: UUID
+    object_id: UUID
+    object_code: str
+    object_name: str
+    action: Literal["assigned", "ended"]
+    actor_id: UUID | None
+    created_at: datetime
+
+
+class EmployeeQualificationDocumentRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    qualification_id: UUID
+    version: int
+    file_name: str
+    media_type: Literal["application/pdf", "image/jpeg", "image/png"]
+    size_bytes: int
+    sha256: str
+    uploaded_by_id: UUID | None
     created_at: datetime
 
 

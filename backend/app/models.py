@@ -9,6 +9,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    LargeBinary,
     Numeric,
     String,
     Table,
@@ -491,6 +492,21 @@ class Employee(Base):
     sensitive_details: Mapped["EmployeeSensitiveDetails | None"] = relationship(
         back_populates="employee", uselist=False
     )
+    object_assignment_history: Mapped[list["EmployeeObjectAssignmentHistory"]] = relationship(
+        back_populates="employee"
+    )
+
+    @property
+    def assigned_objects(self) -> list[str]:
+        if self.user is None:
+            return []
+        return [
+            f"{assignment.object.name} ({assignment.object.code})"
+            for assignment in sorted(
+                self.user.object_assignments,
+                key=lambda item: (item.object.name, item.object.code),
+            )
+        ]
 
 
 class EmployeeQualification(Base):
@@ -525,6 +541,94 @@ class EmployeeQualification(Base):
         nullable=False,
     )
     employee: Mapped[Employee] = relationship(back_populates="qualifications")
+    documents: Mapped[list["EmployeeQualificationDocument"]] = relationship(
+        back_populates="qualification"
+    )
+
+
+class EmployeeQualificationDocument(Base):
+    __tablename__ = "employee_qualification_documents"
+    __table_args__ = (
+        UniqueConstraint(
+            "qualification_id", "version", name="uq_employee_qualification_documents_version"
+        ),
+        CheckConstraint("version > 0", name="ck_employee_qualification_documents_version"),
+        CheckConstraint(
+            "size_bytes > 0 AND size_bytes <= 10485760",
+            name="ck_employee_qualification_documents_size",
+        ),
+        CheckConstraint(
+            "media_type IN ('application/pdf', 'image/jpeg', 'image/png')",
+            name="ck_employee_qualification_documents_media_type",
+        ),
+        CheckConstraint(
+            "length(trim(file_name)) > 0",
+            name="ck_employee_qualification_documents_name",
+        ),
+        Index(
+            "ix_employee_qualification_documents_qualification_created",
+            "qualification_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    qualification_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("employee_qualifications.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    version: Mapped[int] = mapped_column(nullable=False)
+    file_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    media_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    content: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    uploaded_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    qualification: Mapped[EmployeeQualification] = relationship(back_populates="documents")
+
+
+class EmployeeObjectAssignmentHistory(Base):
+    __tablename__ = "employee_object_assignment_history"
+    __table_args__ = (
+        Index(
+            "ix_employee_object_assignment_history_employee_created",
+            "employee_id",
+            "created_at",
+        ),
+        Index(
+            "ix_employee_object_assignment_history_object_created",
+            "object_id",
+            "created_at",
+        ),
+        CheckConstraint(
+            "action IN ('assigned', 'ended')", name="ck_employee_object_assignment_action"
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    employee_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("employees.id", ondelete="RESTRICT"), nullable=False
+    )
+    object_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("objects.id", ondelete="RESTRICT"), nullable=False
+    )
+    user_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    actor_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    action: Mapped[str] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    employee: Mapped[Employee] = relationship(back_populates="object_assignment_history")
 
 
 class EmployeeAbsence(Base):

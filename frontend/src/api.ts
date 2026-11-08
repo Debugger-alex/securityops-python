@@ -10,12 +10,17 @@ import type {
   CustomerStatus,
   Dashboard,
   Employee,
+  EmployeeAccountCandidate,
   EmployeeAbsence,
   EmployeeAbsenceStatus,
   EmployeeAbsenceType,
   EmployeeHistory,
+  EmployeeObjectAssignment,
+  EmployeeObjectAssignmentHistory,
+  EmployeeObjectCandidate,
   EmployeePage,
   EmployeeQualification,
+  EmployeeQualificationDocument,
   EmployeeSensitiveDetails,
   EmployeeStatus,
   ObjectAddressInput,
@@ -34,6 +39,7 @@ import type {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const method = init?.method?.toUpperCase() ?? "GET";
+  const isFormData = init?.body instanceof FormData;
   const csrf = method === "GET" || method === "HEAD"
     ? undefined
     : document.cookie.split("; ").find((cookie) => cookie.startsWith("securityops_csrf="))?.split("=")[1];
@@ -41,7 +47,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     credentials: "same-origin",
     headers: {
-      "Content-Type": "application/json",
+      ...(!isFormData ? { "Content-Type": "application/json" } : {}),
       ...(csrf ? { "X-CSRF-Token": decodeURIComponent(csrf) } : {}),
       ...init?.headers,
     },
@@ -206,6 +212,32 @@ export const createEmployee = (data: EmployeeInput) =>
 
 export const getEmployee = (id: string) => request<Employee>(`/employees/${id}`);
 
+export const getEmployeeLinkedUserCandidates = (employeeId?: string) =>
+  request<EmployeeAccountCandidate[]>(
+    `/employees/linked-user-candidates${employeeId ? `?employee_id=${employeeId}` : ""}`,
+  );
+
+export const getEmployeeObjectAssignments = (id: string) =>
+  request<EmployeeObjectAssignment[]>(`/employees/${id}/objects`);
+
+export const getEmployeeObjectAssignmentHistory = (id: string) =>
+  request<EmployeeObjectAssignmentHistory[]>(
+    `/employees/${id}/object-assignment-history?limit=100`,
+  );
+
+export const getEmployeeObjectAssignmentCandidates = () =>
+  request<EmployeeObjectCandidate[]>("/employees/object-assignment-candidates");
+
+export const assignEmployeeToObject = (employeeId: string, objectId: string) =>
+  request<EmployeeObjectAssignment[]>(`/employees/${employeeId}/objects/${objectId}`, {
+    method: "POST",
+  });
+
+export const endEmployeeObjectAssignment = (employeeId: string, objectId: string) =>
+  request<EmployeeObjectAssignment[]>(`/employees/${employeeId}/objects/${objectId}`, {
+    method: "DELETE",
+  });
+
 export const updateEmployee = (id: string, data: EmployeeUpdateInput) =>
   request<Employee>(`/employees/${id}`, {
     method: "PATCH",
@@ -222,6 +254,32 @@ export const getEmployeeQualifications = (id: string, includeArchived = false) =
   request<EmployeeQualification[]>(
     `/employees/${id}/qualifications${includeArchived ? "?include_archived=true" : ""}`,
   );
+
+export const getEmployeeQualificationDocuments = (employeeId: string) =>
+  request<EmployeeQualificationDocument[]>(`/employees/${employeeId}/qualification-documents`);
+
+export const uploadEmployeeQualificationDocument = (
+  employeeId: string,
+  qualificationId: string,
+  file: File,
+) => {
+  const data = new FormData();
+  data.append("document", file);
+  return request<EmployeeQualificationDocument>(
+    `/employees/${employeeId}/qualifications/${qualificationId}/documents`,
+    { method: "POST", body: data },
+  );
+};
+
+export const employeeQualificationDocumentUrl = (
+  employeeId: string,
+  qualificationId: string,
+  documentId: string,
+  download = false,
+) =>
+  `/api/v1/employees/${employeeId}/qualifications/${qualificationId}/documents/${documentId}${
+    download ? "?download=true" : ""
+  }`;
 
 export const createEmployeeQualification = (
   id: string,

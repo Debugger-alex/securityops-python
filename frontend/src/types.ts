@@ -89,6 +89,7 @@ export interface Employee {
   ended_on: string | null;
   contract_type: string | null;
   weekly_hours: string | null;
+  assigned_objects: string[];
   archived_at: string | null;
   created_at: string;
   updated_at: string;
@@ -112,6 +113,47 @@ export interface EmployeeQualification {
   archived_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface EmployeeAccountCandidate {
+  id: string;
+  username: string;
+  full_name: string;
+}
+
+export interface EmployeeObjectAssignment {
+  object_id: string;
+  object_code: string;
+  object_name: string;
+  assigned_at: string;
+}
+
+export interface EmployeeObjectCandidate {
+  object_id: string;
+  object_code: string;
+  object_name: string;
+}
+
+export interface EmployeeObjectAssignmentHistory {
+  id: string;
+  object_id: string;
+  object_code: string;
+  object_name: string;
+  action: "assigned" | "ended";
+  actor_id: string | null;
+  created_at: string;
+}
+
+export interface EmployeeQualificationDocument {
+  id: string;
+  qualification_id: string;
+  version: number;
+  file_name: string;
+  media_type: "application/pdf" | "image/jpeg" | "image/png";
+  size_bytes: number;
+  sha256: string;
+  uploaded_by_id: string | null;
+  created_at: string;
 }
 
 export interface EmployeeAbsence {
