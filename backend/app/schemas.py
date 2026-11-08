@@ -16,6 +16,11 @@ from pydantic import (
 CustomerStatus = Literal["active", "inactive", "lead"]
 CustomerContractStatus = Literal["none", "draft", "active", "expired", "terminated"]
 ObjectStatus = Literal["active", "inactive"]
+OWKSEventType = Literal[
+    "entry", "handover", "control", "manipulation", "deviation", "missed", "notification"
+]
+OWKSEventSeverity = Literal["info", "warning", "critical"]
+OWKSEventState = Literal["open", "in_progress", "resolved"]
 
 
 class LoginRequest(BaseModel):
@@ -1281,6 +1286,198 @@ class TimeTrackingPeriodRead(BaseModel):
     federal_state: FederalState | None
     locked_by_id: UUID | None
     locked_at: datetime
+
+
+class OWKSControlPointCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=160)
+    identifier_type: Literal["qr", "nfc"]
+
+    @field_validator("name")
+    @classmethod
+    def name_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Der Kontrollpunktname darf nicht leer sein.")
+        return value
+
+
+class OWKSControlPointRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    object_id: UUID
+    name: str
+    identifier_type: Literal["qr", "nfc"]
+    is_active: bool
+    created_at: datetime
+    credential: str | None = None
+
+
+class OWKSRouteCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=160)
+    interval_minutes: int = Field(ge=1, le=1440)
+    control_point_ids: list[UUID] = Field(min_length=1, max_length=100)
+
+    @field_validator("control_point_ids")
+    @classmethod
+    def points_must_be_unique(cls, value: list[UUID]) -> list[UUID]:
+        if len(set(value)) != len(value):
+            raise ValueError("Kontrollpunkte dürfen einer Route nicht doppelt zugeordnet werden.")
+        return value
+
+
+class OWKSRouteRead(BaseModel):
+    id: UUID
+    object_id: UUID
+    name: str
+    interval_minutes: int
+    is_active: bool
+    control_point_ids: list[UUID]
+    created_at: datetime
+
+
+class OWKSEventCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    object_id: UUID
+    event_type: Literal["entry", "handover", "deviation", "notification", "manipulation"]
+    title: str = Field(min_length=1, max_length=200)
+    description: str = Field(default="", max_length=10000)
+    severity: OWKSEventSeverity = "info"
+    occurred_at: datetime | None = None
+    client_event_id: UUID
+
+    @field_validator("title")
+    @classmethod
+    def title_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Der Ereignistitel darf nicht leer sein.")
+        return value
+
+    @field_validator("occurred_at")
+    @classmethod
+    def timestamp_must_have_timezone(cls, value: datetime | None) -> datetime | None:
+        if value is not None and value.utcoffset() is None:
+            raise ValueError("Der Ereigniszeitpunkt muss eine Zeitzone enthalten.")
+        return value
+
+
+class OWKSSyncEventCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    object_id: UUID
+    event_type: Literal["entry", "handover", "deviation", "notification", "manipulation", "control"]
+    title: str = Field(min_length=1, max_length=200)
+    description: str = Field(default="", max_length=10000)
+    severity: OWKSEventSeverity = "info"
+    occurred_at: datetime
+    client_event_id: UUID
+
+    @field_validator("title")
+    @classmethod
+    def title_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Der Ereignistitel darf nicht leer sein.")
+        return value
+
+    @field_validator("occurred_at")
+    @classmethod
+    def timestamp_must_have_timezone(cls, value: datetime) -> datetime:
+        if value.utcoffset() is None:
+            raise ValueError("Der Ereigniszeitpunkt muss eine Zeitzone enthalten.")
+        return value
+
+
+class OWKSChallengeRead(BaseModel):
+    id: UUID
+    object_id: UUID
+    expires_at: datetime
+
+
+class OWKSScanCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    challenge_id: UUID
+    credential: str = Field(min_length=20, max_length=200)
+    client_event_id: UUID
+    occurred_at: datetime | None = None
+    route_id: UUID | None = None
+
+    @field_validator("occurred_at")
+    @classmethod
+    def timestamp_must_have_timezone(cls, value: datetime | None) -> datetime | None:
+        if value is not None and value.utcoffset() is None:
+            raise ValueError("Der Kontrollzeitpunkt muss eine Zeitzone enthalten.")
+        return value
+
+
+class OWKSEventStateUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: OWKSEventState
+    note: str = Field(default="", max_length=1000)
+
+
+class OWKSEventCorrectionCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str = Field(min_length=1, max_length=2000)
+    client_event_id: UUID
+
+    @field_validator("reason")
+    @classmethod
+    def reason_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Eine Korrekturbegründung ist erforderlich.")
+        return value
+
+
+class OWKSEventRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    object_id: UUID
+    route_id: UUID | None
+    control_point_id: UUID | None
+    corrects_event_id: UUID | None
+    employee_id: UUID | None
+    actor_id: UUID | None
+    client_event_id: UUID | None
+    event_type: str
+    severity: str
+    title: str
+    description: str
+    occurred_at: datetime
+    sync_status: str
+    status: OWKSEventState
+    created_at: datetime
+
+
+class OWKSAttachmentRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    event_id: UUID
+    file_name: str
+    media_type: Literal["application/pdf", "image/jpeg", "image/png"]
+    size_bytes: int
+    sha256: str
+    uploaded_by_id: UUID | None
+    created_at: datetime
+
+
+class OWKSSyncResult(BaseModel):
+    client_event_id: UUID
+    status: Literal["synced", "conflict", "duplicate"]
+    event: OWKSEventRead | None = None
+    detail: str | None = None
 
 
 CustomerCreate.model_rebuild()

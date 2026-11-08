@@ -34,7 +34,7 @@ Eine freigegebene Buchung kann nicht direkt überschrieben werden. Über „Korr
 
 Vorgesetzte sehen abhängig von ihrer Berechtigung und Objektzuweisung Arbeitszeiten, offene Korrekturen und veröffentlichte Dienste ohne Buchung. Zeitraum, Mitarbeiter, Objekt, Kunde und Status sind filterbar. Die Übersicht gruppiert nach Mitarbeiter, Objekt, Kunde, Tag, ISO-Kalenderwoche oder Monat und zeigt Soll-/Ist-Zeit, Pausen, Abweichungen sowie offene Freigaben. „Mehrzeit gegenüber Dienstplan“ ist die positive Differenz zur geplanten Arbeitszeit; tarifliche Überstunden, Zuschläge und Rundungen werden nicht berechnet. Der CSV-Export ist auf freigegebene oder gesperrte Buchungen beschränkt und maskiert Tabellenformeln.
 
-Korrekturanträge nach der Freigabe ändern nur die effektive, separat versionierte Ansicht. Gesperrte Einträge sind endgültig und können nicht mehr korrigiert werden. Arbeitszeitberechnung, Zeitzonen und Dienstplanabgleich ersetzen keine fachliche oder arbeitsrechtliche Prüfung. Wachbuch, Kontrollgänge, Dokumente, Verträge und Rechnungen sind weiterhin nicht implementiert; die Anwendung nicht als Ersatz dieser Betriebsprozesse verwenden.
+Korrekturanträge nach der Freigabe ändern nur die effektive, separat versionierte Ansicht. Gesperrte Einträge sind endgültig und können nicht mehr korrigiert werden. Arbeitszeitberechnung, Zeitzonen und Dienstplanabgleich ersetzen keine fachliche oder arbeitsrechtliche Prüfung. Dokumente, Verträge und Rechnungen sind weiterhin nicht implementiert; die Anwendung nicht als Ersatz dieser Betriebsprozesse verwenden.
 
 ### Zuschläge und Abrechnungsperioden
 
@@ -45,3 +45,15 @@ Für freigegebene Buchungen kann die Verwaltung einen versionierten Zuschlagsnac
 **Wichtig:** Das Modul berechnet derzeit keine Geldbeträge. Es gibt keine bestätigte Mitarbeiter-Lohnbasis und keine fachliche Festlegung zur Prozentbasis, Einheit eines Festzuschlags oder Rundung. Der Nachweis weist den Geldbetrag daher ausdrücklich als nicht berechnet aus. Er ist kein abrechnungsfertiger Lohn- oder Payroll-Export.
 
 Eine Periode kann nach vollständigem Ablauf endgültig gesperrt werden, wenn jede Buchung freigegeben ist, keine Buchung die Periodengrenze schneidet und jeder veröffentlichte Dienst eine freigegebene Zeiterfassung besitzt. Beim Sperren werden Berechnungssnapshots gesichert. Nach der Sperre sind Korrektur und Neuberechnung ausgeschlossen; es gibt keine Entsperr-Funktion.
+
+## Online-Wachbuch und Kontrollgänge
+
+Im Modul „Wachbuch“ erscheinen nur aktive Objekte, die dem angemeldeten Konto zugewiesen sind oder für die ein globales Leserecht besteht. Wachkräfte können Ereignisse, Abweichungen, kritische Vorkommnisse, Schichtübergaben und Meldungen an die Einsatzleitung erfassen. Der Server ordnet Einträge dem angemeldeten Konto und der damit verknüpften aktiven Personalakte zu. Anhänge akzeptieren PDF, PNG und JPEG bis 10 MiB und werden ausschließlich über geschützte Wachbuch-Endpunkte bereitgestellt.
+
+Benutzer mit `owks.manage` legen Kontrollpunkte als QR- oder NFC-Kennung und daraus objektspezifische Routen mit Prüfintervall an. Die gezeigte Kennung wird nur bei Anlage einmal ausgegeben; sie sicher auf dem jeweiligen Träger hinterlegen. Ein Online-Rundgang beginnt mit einer frischen Serveranforderung, die fünf Minuten gültig und an Benutzer sowie Objekt gebunden ist. Der Kontrollscan wird mit Mitarbeiter und Zeitstempel gespeichert. Abgelaufene oder wiederverwendete Anforderungen, fremde Objektkennungen und auffällige Zeitstempel werden als kritische Manipulationsereignisse protokolliert. Verspätete Kontrollen werden markiert.
+
+Versäumte Kontrollen werden durch „Kontrollen auf Versäumnisse prüfen“ je Route festgestellt. Der Prozess protokolliert fällige Kontrollen idempotent; für einen laufenden Betrieb muss der Endpunkt `/api/v1/owks/routes/{route_id}/monitor` regelmäßig von einem geplanten Prozess aufgerufen werden. Einen eingebauten Zeitplaner gibt es nicht.
+
+Bei fehlender Verbindung werden Wachbucheinträge lokal in einer Offline-Warteschlange gespeichert. Nach Wiederverbindung synchronisiert die App sie mit einem Idempotenzschlüssel. Abweichende Wiederholungen oder nicht verifizierbare Offline-Kontrollscans bleiben als Konflikte sichtbar und erfordern Prüfung; offline eingetragene Kontrollen werden nicht als erfolgreiche physische Prüfung gewertet. Ein statischer QR-Code oder NFC-Tag kann kopiert werden; gegen das Klonen des Trägers selbst sind dynamische kryptografische Tags oder eine Geräte-/Standortprüfung nötig, die hier nicht integriert sind.
+
+Ereignisse und Anhänge können nicht still überschrieben oder gelöscht werden. Statuswechsel erscheinen als zusätzliche Statushistorie; Korrekturen werden begründet als neue Einträge mit Verweis auf das unveränderte Original protokolliert. PostgreSQL-Trigger verhindern Änderungen und Löschungen an OWKS-Ereignissen, Statushistorien und Anhängen.

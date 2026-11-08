@@ -178,6 +178,50 @@ footer span { padding: 0 5px; }
 .time-status-submitted, .time-status-correction_requested { color: #8a6413; background: #fff5d9; }
 .time-status-approved, .time-status-locked { color: #2d6484; background: #eaf3f8; }
 .time-status-rejected { color: #a63d3d; background: #fff0ef; }
+.owks-module { padding-bottom: 12px; }
+.owks-object-picker { margin: 0 0 16px; }
+.owks-object-picker label { display: grid; max-width: 430px; gap: 7px; color: #43515c; font-size: .84rem; font-weight: 600; }
+.owks-object-picker select, .owks-event-form input, .owks-event-form select, .owks-event-form textarea {
+  min-width: 0; min-height: 40px; border: 1px solid #dfe6ea; border-radius: 7px; background: white; padding: 8px 10px; color: #172635;
+}
+.owks-panel { margin-top: 16px; }
+.owks-event-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; align-items: end; }
+.owks-event-form label { display: grid; gap: 6px; color: #43515c; font-size: .82rem; font-weight: 600; }
+.owks-event-form textarea { min-height: 76px; resize: vertical; }
+.owks-event-form button { justify-self: start; }
+.owks-lower { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, .75fr); gap: 16px; margin-top: 16px; align-items: start; }
+.owks-lower > .panel { min-width: 0; }
+.owks-point-list { display: grid; gap: 8px; margin: 14px 0; padding: 0; list-style: none; }
+.owks-point-list li, .owks-route-card { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border-radius: 7px; background: #f7f9fa; color: #43515c; font-size: .82rem; }
+.owks-point-list span, .owks-route-card span { color: #74818d; }
+.owks-route-form { margin-top: 18px; padding-top: 18px; border-top: 1px solid #e5eaed; }
+.owks-route-form h3 { grid-column: 1 / -1; margin: 0; font-size: 1rem; }
+.owks-route-form select[multiple] { min-height: 88px; }
+.owks-route-card { margin-top: 8px; }
+.owks-route-card button { flex-basis: 100%; text-align: left; }
+.owks-event-list { display: grid; }
+.owks-event { padding: 15px 0; border-top: 1px solid #eef1f3; }
+.owks-event-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+.owks-event-heading time { color: #74818d; font-size: .78rem; }
+.owks-event > p { margin: 8px 0; color: #43515c; white-space: pre-wrap; }
+.owks-event-meta { display: flex; flex-wrap: wrap; gap: 7px; color: #74818d; font-size: .76rem; }
+.owks-event-meta span { padding: 4px 7px; border-radius: 12px; background: #f0f3f5; }
+.owks-event-attachments { margin-top: 6px; font-size: .82rem; }
+.owks-event-attachments ul { display: grid; gap: 5px; margin: 6px 0 0; padding-left: 20px; color: #74818d; }
+.owks-severity-warning { border-left: 3px solid #dba63b; padding-left: 12px; }
+.owks-severity-critical { border-left: 3px solid #c24d42; padding-left: 12px; }
+.owks-conflict-label, .owks-conflict strong { color: #a43b33 !important; }
+.owks-offline { display: grid; gap: 9px; margin-top: 16px; padding-top: 14px; border-top: 1px solid #e5eaed; }
+.owks-offline > div:first-child { display: flex; justify-content: space-between; gap: 10px; color: #43515c; font-size: .84rem; }
+.owks-offline > div:first-child span { color: #74818d; }
+.owks-conflict { padding: 10px 12px; border: 1px solid #f0c8c4; border-radius: 7px; background: #fff7f6; }
+.owks-conflict p { margin: 5px 0; color: #43515c; font-size: .82rem; }
+.owks-secret { display: grid; gap: 8px; margin-top: 14px; padding: 12px; border-radius: 8px; background: #fff8e9; color: #43515c; font-size: .82rem; overflow-wrap: anywhere; }
+.owks-secret code { padding: 8px; border-radius: 5px; background: white; font-size: .8rem; }
+.owks-notice { margin: 14px 0; padding: 10px 12px; border-radius: 7px; background: #e8f5f2; color: #176f6c; font-size: .86rem; }
+@media (max-width: 760px) {
+  .owks-lower { grid-template-columns: 1fr; }
+}
 .time-correction-list { display: grid; gap: 10px; }
 .time-correction-card { padding: 14px; border: 1px solid #e5eaed; border-radius: 8px; background: #fbfcfd; }
 .time-correction-card p { margin: 0 0 7px; }

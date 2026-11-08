@@ -12,6 +12,7 @@ from app.api import router
 from app.config import get_settings
 from app.database import engine
 from app.identity_api import router as identity_router
+from app.owks_api import router as owks_router
 from app.personnel_api import router as personnel_router
 from app.rate_limit import limiter
 from app.scheduling_api import router as scheduling_router
@@ -37,6 +38,7 @@ app.include_router(scheduling_router, prefix=settings.api_prefix)
 app.include_router(time_tracking_router, prefix=settings.api_prefix)
 app.include_router(time_tracking_surcharges_router, prefix=settings.api_prefix)
 app.include_router(identity_router, prefix=settings.api_prefix)
+app.include_router(owks_router, prefix=settings.api_prefix)
 
 
 @app.get("/health/live", tags=["System"])
