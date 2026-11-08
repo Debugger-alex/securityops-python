@@ -572,36 +572,65 @@ def test_schedule_permissions_are_checked_server_side(client: TestClient) -> Non
 
 
 @pytest.mark.skipif(test_engine.dialect.name != "postgresql", reason="PostgreSQL-Constraint-Test")
-def test_parallel_overlapping_inserts_are_rejected_by_postgresql(client: TestClient) -> None:
+def test_exclusion_constraint_rejects_overlapping_inserts(client: TestClient) -> None:
     employee, obj, _ = setup_schedule(client)
     employee_id = UUID(employee["id"])
     object_id = UUID(obj["id"])
     starts_at = datetime.now(UTC) + timedelta(days=60)
+    with TestingSessionLocal() as db:
+        db.add(
+            ScheduleShift(
+                employee_id=employee_id,
+                object_id=object_id,
+                starts_at=starts_at,
+                ends_at=starts_at + timedelta(hours=4),
+                break_minutes=0,
+                status="draft",
+            )
+        )
+        db.commit()
+        db.add(
+            ScheduleShift(
+                employee_id=employee_id,
+                object_id=object_id,
+                starts_at=starts_at,
+                ends_at=starts_at + timedelta(hours=4),
+                break_minutes=0,
+                status="draft",
+            )
+        )
+        with pytest.raises(IntegrityError) as error:
+            db.commit()
+        assert error.value.orig.sqlstate == "23P01"
+        assert error.value.orig.diag.constraint_name == "ex_schedule_shifts_employee_time"
+        db.rollback()
+
+
+@pytest.mark.skipif(
+    test_engine.dialect.name != "postgresql", reason="PostgreSQL-Advisory-Lock-Test"
+)
+def test_parallel_api_overlapping_shifts_are_serialized(client: TestClient) -> None:
+    employee, obj, _ = setup_schedule(client)
+    starts_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(days=60)
+    starts_at = starts_at.replace(second=0, microsecond=0)
     barrier = Barrier(2)
 
-    def insert_shift() -> str:
-        with TestingSessionLocal() as db:
-            db.add(
-                ScheduleShift(
-                    employee_id=employee_id,
-                    object_id=object_id,
-                    starts_at=starts_at,
-                    ends_at=starts_at + timedelta(hours=4),
-                    break_minutes=0,
-                    status="draft",
-                )
-            )
+    def create_shift() -> tuple[int, dict]:
+        with TestClient(app, base_url="https://testserver") as local_client:
+            csrf = sign_in(local_client)
             barrier.wait(timeout=10)
-            try:
-                db.commit()
-            except IntegrityError:
-                db.rollback()
-                return "conflict"
-            return "created"
+            response = local_client.post(
+                "/api/v1/scheduling/shifts",
+                headers={"X-CSRF-Token": csrf},
+                json=shift_payload(employee, obj, starts_at, starts_at + timedelta(hours=4)),
+            )
+            return response.status_code, response.json()
 
     with ThreadPoolExecutor(max_workers=2) as pool:
-        results = list(pool.map(lambda _: insert_shift(), range(2)))
-    assert sorted(results) == ["conflict", "created"]
+        results = list(pool.map(lambda _: create_shift(), range(2)))
+    assert sorted(status_code for status_code, _ in results) == [201, 409]
+    conflict = next(body for status_code, body in results if status_code == 409)
+    assert any(item["code"] == "time_overlap" for item in conflict["detail"]["conflicts"])
 
 
 @pytest.mark.skipif(
@@ -614,7 +643,7 @@ def test_parallel_block_request_and_shift_creation_are_serialized(client: TestCl
     barrier = Barrier(2)
 
     def create_shift() -> int:
-        with TestClient(app) as local_client:
+        with TestClient(app, base_url="https://testserver") as local_client:
             csrf = sign_in(local_client)
             barrier.wait(timeout=10)
             response = local_client.post(
@@ -625,7 +654,7 @@ def test_parallel_block_request_and_shift_creation_are_serialized(client: TestCl
             return response.status_code
 
     def create_block_request() -> tuple[int, list[str]]:
-        with TestClient(app) as local_client:
+        with TestClient(app, base_url="https://testserver") as local_client:
             csrf = sign_in(local_client)
             barrier.wait(timeout=10)
             response = local_client.post(
