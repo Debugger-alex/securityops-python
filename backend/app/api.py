@@ -31,7 +31,6 @@ from app.schemas import (
     CustomerUpdate,
     DashboardRead,
     ObjectAddressInput,
-    ObjectAddressRead,
     ObjectContactCreate,
     ObjectContactRead,
     ObjectContactUpdate,
@@ -691,7 +690,9 @@ def list_objects(
         "created_at": SecurityObject.created_at,
         "status": SecurityObject.status,
     }
-    sort_expression = sort_columns[sort_by].asc() if sort_order == "asc" else sort_columns[sort_by].desc()
+    sort_expression = (
+        sort_columns[sort_by].asc() if sort_order == "asc" else sort_columns[sort_by].desc()
+    )
     items = db.scalars(
         query.order_by(sort_expression, SecurityObject.name).limit(limit).offset(offset)
     ).all()
@@ -735,7 +736,9 @@ def create_object(
         staffing_requirements=payload.staffing_requirements.strip()
         if payload.staffing_requirements
         else None,
-        access_information=payload.access_information.strip() if payload.access_information else None,
+        access_information=payload.access_information.strip()
+        if payload.access_information
+        else None,
         emergency_contact=payload.emergency_contact.strip() if payload.emergency_contact else None,
     )
     db.add(obj)
@@ -814,7 +817,9 @@ def update_object(
     if payload.customer_id is not None:
         customer = db.get(Customer, payload.customer_id)
         if customer is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Kunde nicht gefunden")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Kunde nicht gefunden"
+            )
         if customer.archived_at is not None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -826,10 +831,26 @@ def update_object(
     for field, value in changes.items():
         if isinstance(value, str):
             value = value.strip()
-        if field in {"customer_id", "code", "name", "object_type", "description", "status", "operating_hours", "service_times", "security_requirements", "staffing_requirements", "access_information", "emergency_contact"}:
-            if getattr(obj, field) != value:
-                setattr(obj, field, value)
-                changed_fields.add(field)
+        if (
+            field
+            in {
+                "customer_id",
+                "code",
+                "name",
+                "object_type",
+                "description",
+                "status",
+                "operating_hours",
+                "service_times",
+                "security_requirements",
+                "staffing_requirements",
+                "access_information",
+                "emergency_contact",
+            }
+            and getattr(obj, field) != value
+        ):
+            setattr(obj, field, value)
+            changed_fields.add(field)
 
     if payload.address is not None:
         previous = (

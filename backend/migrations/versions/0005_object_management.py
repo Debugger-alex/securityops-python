@@ -50,7 +50,9 @@ def upgrade() -> None:
         sa.CheckConstraint("length(trim(name)) > 0", name="ck_objects_name"),
         sa.CheckConstraint("length(trim(code)) > 0", name="ck_objects_code"),
     )
-    op.create_index("ix_objects_customer_status", "objects", ["customer_id", "status", "archived_at"])
+    op.create_index(
+        "ix_objects_customer_status", "objects", ["customer_id", "status", "archived_at"]
+    )
     op.create_index("ix_objects_code", "objects", ["code"], unique=True)
 
     op.create_table(
@@ -131,7 +133,9 @@ def upgrade() -> None:
             server_default=sa.func.now(),
         ),
     )
-    op.create_index("ix_object_history_object_created", "object_history", ["object_id", "created_at"])
+    op.create_index(
+        "ix_object_history_object_created", "object_history", ["object_id", "created_at"]
+    )
 
 
 def downgrade() -> None:
