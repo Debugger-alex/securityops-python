@@ -25,7 +25,7 @@ Grundlage ist `main` nach dem Merge von PR #16 sowie der Feature-Branch `feature
 | Dokumente/Verträge/Rechnungen | FEHLT | Kein Dateiablage-, Vertrags- oder Rechnungsmodell. |
 | Dashboard | TEILWEISE | Kundenanzahl, aktive Kunden und Interessenten werden aus der Datenbank gezählt; operative Kennzahlen fehlen. |
 | Docker/Deployment | TEILWEISE | Compose startet PostgreSQL, API und Vite-Entwicklungsserver. Es gibt keinen produktionsfähigen React-Static-Build, Reverse Proxy, TLS- oder Backup-Aufbau. Docker wurde in der Umgebung nicht ausgeführt. |
-| Tests | TEILWEISE | 20 Backendtests bestanden lokal auf SQLite; Ruff-Lint/Format sowie Frontend-TypeScript/Produktionsbuild bestanden. Frühere CI bestätigt PostgreSQL-Migrationen/-Tests und Docker-Builds für den älteren PR-Commit; die aktuellen Änderungen benötigen einen neuen CI-Lauf. Keine E2E-, Last-, Backup-/Restore- oder Frontend-Komponententests. |
+| Tests | TEILWEISE | 21 Backendtests bestanden lokal auf SQLite; Ruff-Lint/Format sowie Frontend-TypeScript/Produktionsbuild bestanden. Frühere CI bestätigt PostgreSQL-Migrationen/-Tests und Docker-Builds für den vorherigen PR-Commit; neueste Negativtests benötigen einen erneuten CI-Lauf. Keine E2E-, Last-, Backup-/Restore- oder Frontend-Komponententests. |
 
 ## Fehler und Risiken
 
