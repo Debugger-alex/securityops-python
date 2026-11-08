@@ -432,6 +432,7 @@ class ObjectRead(BaseModel):
 
     id: UUID
     customer_id: UUID
+    customer_name: str
     code: str
     name: str
     object_type: str | None

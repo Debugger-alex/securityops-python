@@ -307,6 +307,10 @@ class SecurityObject(Base):
         back_populates="object", cascade="all, delete-orphan", uselist=False
     )
 
+    @property
+    def customer_name(self) -> str:
+        return self.customer.company_name
+
 
 class ObjectAddress(Base):
     __tablename__ = "object_addresses"

@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.auth import add_audit_entry, require_permission
@@ -18,6 +19,7 @@ from app.models import (
     ObjectContact,
     ObjectHistory,
     ObjectSecurityDetails,
+    Role,
     SecurityObject,
     User,
 )
@@ -46,10 +48,49 @@ from app.schemas import (
     ObjectRead,
     ObjectSecurityRead,
     ObjectSecurityUpdate,
+    ObjectStatus,
     ObjectUpdate,
 )
 
 router = APIRouter()
+
+
+def commit_object_transaction(db: Session) -> None:
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Die Objektänderung verletzt eine Datenbankbedingung",
+        ) from exc
+
+
+def flush_object_transaction(db: Session) -> None:
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Die Objektänderung verletzt eine Datenbankbedingung",
+        ) from exc
+
+
+def ensure_object_code_available(
+    db: Session,
+    code: str,
+    *,
+    exclude_object_id: UUID | None = None,
+) -> None:
+    query = select(SecurityObject.id).where(SecurityObject.code == code)
+    if exclude_object_id is not None:
+        query = query.where(SecurityObject.id != exclude_object_id)
+    if db.scalar(query) is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Die Objektnummer ist bereits vergeben",
+        )
 
 
 def customer_query():
@@ -608,6 +649,7 @@ def delete_customer_contact(
 def list_objects(
     q: str | None = Query(default=None, max_length=200),
     customer_id: UUID | None = Query(default=None),
+    object_status: ObjectStatus | None = Query(default=None, alias="status"),
     include_archived: bool = False,
     sort_by: Literal["name", "code", "created_at", "status"] = "name",
     sort_order: Literal["asc", "desc"] = "asc",
@@ -623,6 +665,8 @@ def list_objects(
         filters.append(SecurityObject.archived_at.is_(None))
     if customer_id is not None:
         filters.append(SecurityObject.customer_id == customer_id)
+    if object_status is not None:
+        filters.append(SecurityObject.status == object_status)
     if "objects.read_all" not in _principal.permission_codes:
         filters.append(
             SecurityObject.assignments.any(ObjectAssignment.user_id == _principal.user.id)
@@ -709,8 +753,8 @@ def create_object(
             status_code=status.HTTP_409_CONFLICT,
             detail="Objekte können keinem archivierten Kunden zugeordnet werden",
         )
-
     code = payload.code.strip() if payload.code else f"OBJ-{uuid4().hex.upper()[:12]}"
+    ensure_object_code_available(db, code)
     obj = SecurityObject(
         customer_id=customer.id,
         code=code,
@@ -725,7 +769,7 @@ def create_object(
         else None,
     )
     db.add(obj)
-    db.flush()
+    flush_object_transaction(db)
     if payload.address is not None:
         set_object_address(db, obj, payload.address)
     initial_contacts = [*payload.contacts]
@@ -756,7 +800,7 @@ def create_object(
         changed_fields=changed_fields,
         ip_address=request.client.host if request.client else None,
     )
-    db.commit()
+    commit_object_transaction(db)
     return ObjectRead.model_validate(get_object_or_404(db, obj.id, principal))
 
 
@@ -788,7 +832,12 @@ def list_object_assignment_candidates(
     _principal=Depends(require_permission("objects.assign")),
 ) -> list[ObjectAssignmentCandidateRead]:
     users = db.scalars(
-        select(User).where(User.is_active.is_(True)).order_by(User.full_name, User.username)
+        select(User)
+        .where(
+            User.is_active.is_(True),
+            User.roles.any(Role.code.in_(("employee", "object_manager"))),
+        )
+        .order_by(User.full_name, User.username)
     ).all()
     return [
         ObjectAssignmentCandidateRead(
@@ -840,12 +889,16 @@ def update_object_assignments(
 ) -> list[ObjectAssignmentRead]:
     obj = get_object_or_404(db, object_id, principal, for_write=True)
     selected_users = db.scalars(
-        select(User).where(User.id.in_(payload.user_ids), User.is_active.is_(True))
+        select(User).where(
+            User.id.in_(payload.user_ids),
+            User.is_active.is_(True),
+            User.roles.any(Role.code.in_(("employee", "object_manager"))),
+        )
     ).all()
     if len(selected_users) != len(payload.user_ids):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Alle zugewiesenen Benutzer müssen vorhanden und aktiv sein",
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Zugewiesene Mitarbeiter müssen vorhanden und aktiv sein",
         )
 
     existing_assignments = db.scalars(
@@ -877,7 +930,7 @@ def update_object_assignments(
             changed_fields={"assignments"},
             ip_address=request.client.host if request.client else None,
         )
-        db.commit()
+        commit_object_transaction(db)
     return list_object_assignments(object_id, db, principal)
 
 
@@ -939,7 +992,7 @@ def update_object_security_details(
     if details is None and changed_fields:
         details = ObjectSecurityDetails(object_id=obj.id)
         db.add(details)
-        db.flush()
+        flush_object_transaction(db)
     if details is not None:
         for field, value in changes.items():
             if getattr(details, field) != value:
@@ -955,7 +1008,7 @@ def update_object_security_details(
             changed_fields=changed_fields,
             ip_address=request.client.host if request.client else None,
         )
-        db.commit()
+        commit_object_transaction(db)
     return object_security_read(db, obj)
 
 
@@ -981,6 +1034,8 @@ def update_object(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Objekte können keinem archivierten Kunden zugeordnet werden",
             )
+    if payload.code is not None:
+        ensure_object_code_available(db, payload.code.strip(), exclude_object_id=obj.id)
 
     changes = payload.model_dump(exclude_unset=True, exclude={"address"})
     changed_fields = set()
@@ -1005,7 +1060,7 @@ def update_object(
             setattr(obj, field, value)
             changed_fields.add(field)
 
-    if payload.address is not None:
+    if "address" in payload.model_fields_set:
         previous = (
             {
                 "street": obj.address.street,
@@ -1017,7 +1072,7 @@ def update_object(
             if obj.address is not None
             else None
         )
-        new_value = payload.address.model_dump()
+        new_value = payload.address.model_dump() if payload.address is not None else None
         if previous != new_value:
             set_object_address(db, obj, payload.address)
             changed_fields.add("address")
@@ -1030,7 +1085,7 @@ def update_object(
             changed_fields=changed_fields,
             ip_address=request.client.host if request.client else None,
         )
-        db.commit()
+        commit_object_transaction(db)
     return ObjectRead.model_validate(get_object_or_404(db, object_id, principal))
 
 
@@ -1062,7 +1117,7 @@ def change_object_archive_state(
         changed_fields={"archived_at"},
         ip_address=ip_address,
     )
-    db.commit()
+    commit_object_transaction(db)
     return ObjectRead.model_validate(get_object_or_404(db, object_id, principal))
 
 
@@ -1115,7 +1170,7 @@ def create_object_contact(
     if payload.is_primary:
         for contact in obj.contacts:
             contact.is_primary = False
-        db.flush()
+        flush_object_transaction(db)
     contact = ObjectContact(
         object_id=obj.id,
         first_name=payload.first_name.strip(),
@@ -1126,7 +1181,7 @@ def create_object_contact(
         is_primary=payload.is_primary,
     )
     db.add(contact)
-    db.flush()
+    flush_object_transaction(db)
     record_object_event(
         db,
         obj=obj,
@@ -1135,7 +1190,7 @@ def create_object_contact(
         changed_fields={"contacts"},
         ip_address=request.client.host if request.client else None,
     )
-    db.commit()
+    commit_object_transaction(db)
     return ObjectContactRead.model_validate(contact)
 
 
@@ -1161,7 +1216,7 @@ def update_object_contact(
     if changes.get("is_primary") is True:
         for existing in obj.contacts:
             existing.is_primary = False
-        db.flush()
+        flush_object_transaction(db)
 
     changed_fields = set()
     for field, value in changes.items():
@@ -1181,7 +1236,7 @@ def update_object_contact(
             changed_fields={"contacts"},
             ip_address=request.client.host if request.client else None,
         )
-        db.commit()
+        commit_object_transaction(db)
     return ObjectContactRead.model_validate(contact)
 
 
@@ -1214,7 +1269,7 @@ def delete_object_contact(
         changed_fields={"contacts"},
         ip_address=request.client.host if request.client else None,
     )
-    db.commit()
+    commit_object_transaction(db)
 
 
 @router.get("/dashboard", response_model=DashboardRead)

@@ -110,6 +110,29 @@ def test_object_lifecycle_and_history(client: TestClient) -> None:
     assert updated.json()["address"]["street"] == "Bergstraße"
     assert len(updated.json()["contacts"]) == 2
 
+    contact_id = next(
+        contact["id"] for contact in updated.json()["contacts"] if contact["last_name"] == "Leiter"
+    )
+    contact_update = client.patch(
+        f"/api/v1/objects/{obj['id']}/contacts/{contact_id}",
+        headers=headers,
+        json={"first_name": "Petra geändert", "email": "petra-neu@example.de"},
+    )
+    assert contact_update.status_code == 200
+    assert contact_update.json()["first_name"] == "Petra geändert"
+    refreshed = client.get(f"/api/v1/objects/{obj['id']}").json()
+    assert len(refreshed["contacts"]) == 2
+    assert {contact["last_name"] for contact in refreshed["contacts"]} == {"Leiter", "Wache"}
+
+    cleared_address = client.patch(
+        f"/api/v1/objects/{obj['id']}",
+        headers=headers,
+        json={"address": None},
+    )
+    assert cleared_address.status_code == 200
+    assert cleared_address.json()["address"] is None
+    assert len(cleared_address.json()["contacts"]) == 2
+
     archived = client.post(f"/api/v1/objects/{obj['id']}/archive", headers=headers)
     assert archived.status_code == 200
     assert archived.json()["archived_at"] is not None
@@ -144,6 +167,13 @@ def test_object_validation_and_customer_requirement(client: TestClient) -> None:
         json={"customer_id": customer["id"], "name": "Prüfobjekt", "code": "OBJ-003"},
     )
     assert created.status_code == 201
+    duplicate_code = client.post(
+        "/api/v1/objects",
+        headers=headers,
+        json={"customer_id": customer["id"], "name": "Doppeltes Objekt", "code": "OBJ-003"},
+    )
+    assert duplicate_code.status_code == 409
+    assert client.get("/api/v1/objects").json()["total"] == 1
     assert (
         client.post(
             f"/api/v1/objects/{created.json()['id']}/reactivate",
@@ -151,6 +181,51 @@ def test_object_validation_and_customer_requirement(client: TestClient) -> None:
         ).status_code
         == 409
     )
+
+
+def test_object_list_filters_sorting_and_pagination(client: TestClient) -> None:
+    headers = {"X-CSRF-Token": sign_in(client)}
+    customer = client.post(
+        "/api/v1/customers",
+        headers=headers,
+        json={"company_name": "Kunde für Objektfilter GmbH"},
+    ).json()
+    customer_id = customer["id"]
+    for name, status_value in (
+        ("Alpha", "active"),
+        ("Zephyr", "active"),
+        ("Mitte", "inactive"),
+    ):
+        created = client.post(
+            "/api/v1/objects",
+            headers=headers,
+            json={
+                "customer_id": customer_id,
+                "name": name,
+                "code": f"OBJ-FILTER-{name.upper()}",
+                "status": status_value,
+            },
+        )
+        assert created.status_code == 201
+
+    page = client.get(
+        "/api/v1/objects",
+        params={
+            "customer_id": customer_id,
+            "status": "active",
+            "sort_by": "name",
+            "sort_order": "desc",
+            "limit": 1,
+            "offset": 0,
+        },
+    )
+    assert page.status_code == 200
+    assert page.json()["total"] == 2
+    assert [item["name"] for item in page.json()["items"]] == ["Zephyr"]
+
+    matching = client.get("/api/v1/objects", params={"q": "OBJ-FILTER-MITTE"})
+    assert matching.status_code == 200
+    assert [item["name"] for item in matching.json()["items"]] == ["Mitte"]
 
 
 def test_object_access_is_limited_to_assignments(client: TestClient) -> None:
@@ -195,6 +270,19 @@ def test_object_access_is_limited_to_assignments(client: TestClient) -> None:
     )
 
     admin_headers = {"X-CSRF-Token": sign_in_as(client, "admin", ADMIN_PASSWORD)}
+    candidates = client.get("/api/v1/objects/assignment-candidates")
+    assert candidates.status_code == 200
+    assert {candidate["username"] for candidate in candidates.json()} == {
+        "objektleitung",
+        "objektmitarbeiter",
+    }
+    ineligible_assignment = client.put(
+        f"/api/v1/objects/{object_id}/assignments",
+        headers=admin_headers,
+        json={"user_ids": [str(get_user_id("admin"))]},
+    )
+    assert ineligible_assignment.status_code == 422
+
     assigned = client.put(
         f"/api/v1/objects/{object_id}/assignments",
         headers=admin_headers,
@@ -268,6 +356,10 @@ def test_object_security_data_requires_separate_permission(client: TestClient) -
     assert saved.json()["access_information"] == "Schlüssel im gesicherten Schlüsseldepot"
     assert "access_information" not in client.get("/api/v1/objects").json()["items"][0]
     assert "access_information" not in client.get(f"/api/v1/objects/{object_id}").json()
+    history = client.get(f"/api/v1/objects/{object_id}/history").json()
+    security_history = next(row for row in history if row["action"] == "security_updated")
+    assert "access_information" in security_history["changed_fields"]
+    assert "Schlüssel im gesicherten Schlüsseldepot" not in str(security_history)
 
     create_test_user("sicherheitsleitung", "object_manager")
     create_test_user("sicherheitsmitarbeiter", "employee")
