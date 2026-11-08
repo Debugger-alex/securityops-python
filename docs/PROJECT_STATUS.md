@@ -25,7 +25,7 @@ Arbeitsstand: Feature-Branch `satan1800de-eng-dienstplanung-besetzung-konfliktpr
 | Kunden | PR #18 mit Migration 0010, Website, Vertragsstatus, Suche/Filter/Sortierung und geschützten Objektzuordnungen ist gemergt; CI Backend/PostgreSQL, Frontend/Vitest und Docker war grün. Issue #6 ist geschlossen. Vertrags- und Dokumentenmodule fehlen weiterhin ([#6](https://github.com/Xonni-star/securityops-python/issues/6)). |
 | Objekte | Backend/API/UI und Migrationen 0005–0007 in `main` implementiert; PR #16 und dessen CI sind abgeschlossen. Issue #2 bleibt offen, da die formale Abnahme der Akzeptanzkriterien noch aussteht. |
 | Personal/Qualifikationen | Migrationen 0008–0009, Personalakten, Abwesenheiten, sensible Daten, Historie, Zuweisungen und versionierte Qualifikationsdateien sind in `main`. PR #17 wurde gemergt; PostgreSQL-/Backend-, Frontend- und Docker-CI war grün und Issue #5 ist geschlossen ([#5](https://github.com/Xonni-star/securityops-python/issues/5)). |
-| Dienstplanung | Scheduling-Kern in diesem Branch in Bearbeitung: Migration 0011, API/UI und Tests; PostgreSQL-Integrationsprüfung, CI und Review ausstehend ([#10](https://github.com/Xonni-star/securityops-python/issues/10)). |
+| Dienstplanung | Scheduling-Kern in PR [#19](https://github.com/Xonni-star/securityops-python/pull/19); GitHub-CI für Backend/Migration/PostgreSQL, Frontend und Docker erfolgreich. Review und formale Akzeptanz stehen aus; Issue #10 bleibt offen ([#10](https://github.com/Xonni-star/securityops-python/issues/10)). |
 | Zeiterfassung | Nicht implementiert ([#4](https://github.com/Xonni-star/securityops-python/issues/4)). |
 | OWKS/Kontrollgänge | Nicht implementiert ([#3](https://github.com/Xonni-star/securityops-python/issues/3)). |
 | Dokumente/Verträge | Nicht implementiert ([#8](https://github.com/Xonni-star/securityops-python/issues/8)). |
@@ -41,12 +41,14 @@ Arbeitsstand: Feature-Branch `satan1800de-eng-dienstplanung-besetzung-konfliktpr
 - Sicherheitsbefunde und offene Maßnahmen: [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md).
 - Architektur, Betrieb und weitere Unterlagen sind im [`README.md`](../README.md) verlinkt.
 - PR #18 (Merge-Commit `c8d4fbe203d179b7c4b620d604409c7217478033`): GitHub-CI für Backend/PostgreSQL, Frontend einschließlich Vitest und Docker erfolgreich; Issue #6 geschlossen.
-- Dienstplanung lokal: 27 Backendtests bestanden, ein PostgreSQL-spezifischer Parallelitätstest wegen fehlendem lokalen PostgreSQL übersprungen; Ruff-Lint/Format, Frontend-TypeScript-/Produktionsbuild und drei Vitest-Tests erfolgreich. Alembic-Upgrade bis 0011 und Downgrade 0011→0010 wurden für PostgreSQL offline gerendert. Ein Offline-SQL-Render ist kein Live-Migrationstest. PostgreSQL-Migration, Paralleltest und Docker-Image-Builds müssen in CI bestätigt werden, bevor die Akzeptanzkriterien als erfüllt gelten.
+- PR #19: GitHub-CI für Backend/Migration/PostgreSQL, Frontend einschließlich Vitest und Docker erfolgreich. Der PostgreSQL-Job deckt Live-Migration und den parallelen Schreibzugriffstest ab.
+- Dienstplanung lokal: 27 Backendtests bestanden, ein PostgreSQL-spezifischer Parallelitätstest wegen fehlendem lokalen PostgreSQL übersprungen; Ruff-Lint/Format, Frontend-TypeScript-/Produktionsbuild und drei Vitest-Tests erfolgreich. Alembic-Upgrade bis 0011 und Downgrade 0011→0010 wurden zusätzlich für PostgreSQL offline gerendert; ein Offline-SQL-Render allein wäre kein Live-Migrationstest.
+- PR-Review und formale Akzeptanz der Dienstplanung stehen noch aus; die CI-Ergebnisse stellen keine Produktions- oder Rechtsfreigabe dar. Issue #10 bleibt offen.
 - Derzeit keine E2E-, Last-, Restore-, externe Penetrations- oder unabhängige Datenschutz-/Steuerprüfung.
 
 ## Nächste Schritte
 
-1. Dienstplan-Branch gegen PostgreSQL-CI, Berechtigungs-/Konflikttests, Frontend und Docker prüfen; PR reviewen und Issue #10 erst nach erfüllten Akzeptanzkriterien schließen.
+1. PR #19 reviewen und die Akzeptanzkriterien fachlich abnehmen; Issue #10 erst danach schließen.
 2. Issue #2 bleibt bis zur formalen Abnahme offen; keine geschlossenen Issues erneut öffnen.
 3. Zeiterfassung [#4](https://github.com/Xonni-star/securityops-python/issues/4) und weitere Module gemäß Roadmap angehen.
 4. Produktionshärtung, Monitoring, unabhängige Rechtsprüfung und Backup/Restore aus [Issue #9](https://github.com/Xonni-star/securityops-python/issues/9) bleiben separat offen.
@@ -54,5 +56,5 @@ Arbeitsstand: Feature-Branch `satan1800de-eng-dienstplanung-besetzung-konfliktpr
 ## Repository-Arbeitsstand
 
 - Der aktuelle Arbeitsbranch ist `satan1800de-eng-dienstplanung-besetzung-konfliktpruefung`, ausgehend von `main` nach Merge von PR #18.
-- PR #18 ist gemergt; Issue #6 ist geschlossen. Issue #2 bleibt bis zur formalen Akzeptanz offen; Issue #10 wird bearbeitet.
+- PR #18 ist gemergt; Issue #6 ist geschlossen. PR #19 ist offen und CI-grün; Issue #10 bleibt bis Review und Akzeptanz offen. Issue #2 bleibt bis zur formalen Akzeptanz offen.
 - Die bereits in `main` gemergte Objektverwaltung wurde nicht neu entwickelt; Personalakten greifen über ihr verknüpftes Benutzerkonto auf die bestehende Zuweisungstabelle zu.
