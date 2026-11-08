@@ -378,6 +378,7 @@ def downgrade() -> None:
     ]
     role_permissions = sa.table(
         "role_permissions",
+        sa.column("role_id", postgresql.UUID(as_uuid=True)),
         sa.column("permission_id", postgresql.UUID(as_uuid=True)),
     )
     permissions = sa.table(
