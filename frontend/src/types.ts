@@ -8,6 +8,8 @@ export type CustomerSort =
   | "contract_status";
 export type ObjectStatus = "active" | "inactive";
 export type ObjectSort = "name" | "code" | "created_at" | "status";
+export type PhysicalKeyStatus = "available" | "issued" | "lost" | "defective" | "archived";
+export type KeyMovementType = "issued" | "returned" | "lost" | "defective" | "inventory";
 export type TaskPriority = "low" | "normal" | "high" | "urgent";
 export type TaskStatus = "open" | "in_progress" | "blocked" | "completed" | "cancelled";
 export type EmployeeStatus = "active" | "inactive" | "leave" | "terminated";
@@ -515,6 +517,64 @@ export interface ObjectPage {
   total: number;
   limit: number;
   offset: number;
+}
+
+export interface PhysicalKey {
+  id: string;
+  key_number: string;
+  description: string;
+  object_id: string;
+  object_code: string;
+  object_name: string;
+  status: PhysicalKeyStatus;
+  current_employee_id: string | null;
+  current_employee_name: string | null;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PhysicalKeyPage {
+  items: PhysicalKey[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface KeyMovement {
+  id: string;
+  key_id: string;
+  key_number: string;
+  object_id: string;
+  employee_id: string | null;
+  employee_name: string | null;
+  actor_id: string;
+  actor_name: string;
+  movement_type: KeyMovementType;
+  key_status_after: Exclude<PhysicalKeyStatus, "archived">;
+  acknowledged_at: string | null;
+  acknowledgement_note: string | null;
+  note: string | null;
+  created_at: string;
+}
+
+export interface KeyMovementPage {
+  items: KeyMovement[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface KeyEmployeeCandidate {
+  id: string;
+  employee_number: string;
+  full_name: string;
+}
+
+export interface KeyObjectCandidate {
+  id: string;
+  code: string;
+  name: string;
 }
 
 export interface ObjectHistory {

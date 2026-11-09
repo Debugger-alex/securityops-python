@@ -18,6 +18,7 @@ from app.config import get_settings
 from app.database import engine
 from app.documents_contracts_api import router as documents_contracts_router
 from app.identity_api import router as identity_router
+from app.key_management_api import router as key_management_router
 from app.notifications_api import router as notifications_router
 from app.owks_api import router as owks_router
 from app.owks_scheduler import run_monitoring_scheduler
@@ -75,6 +76,7 @@ app.include_router(time_tracking_router, prefix=settings.api_prefix)
 app.include_router(time_tracking_surcharges_router, prefix=settings.api_prefix)
 app.include_router(tasks_router, prefix=settings.api_prefix)
 app.include_router(notifications_router, prefix=settings.api_prefix)
+app.include_router(key_management_router, prefix=settings.api_prefix)
 app.include_router(documents_contracts_router, prefix=settings.api_prefix)
 app.include_router(billing_router, prefix=settings.api_prefix)
 app.include_router(identity_router, prefix=settings.api_prefix)
