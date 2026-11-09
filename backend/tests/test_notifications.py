@@ -17,6 +17,7 @@ from app.models import (
     Task,
     User,
 )
+from app.notification_worker import NotificationOutboxWorker
 
 
 def sign_in(client: TestClient, username: str = "admin", password: str = ADMIN_PASSWORD):
@@ -64,6 +65,7 @@ def test_assignment_status_notifications_are_scoped_and_idempotent(client: TestC
     assert created.status_code == 201, created.text
     task_id = created.json()["id"]
 
+    NotificationOutboxWorker(TestingSessionLocal).run_once()
     recipient_headers = sign_in(client, "notification_recipient", "notification-test-password")
     received = client.get("/api/v1/notifications", headers=recipient_headers)
     assert received.status_code == 200
@@ -89,6 +91,7 @@ def test_assignment_status_notifications_are_scoped_and_idempotent(client: TestC
         json={"assigned_to_id": created.json()["created_by_id"]},
     )
     assert reassigned.status_code == 200, reassigned.text
+    NotificationOutboxWorker(TestingSessionLocal).run_once()
     assert client.get("/api/v1/notifications", headers=recipient_headers).json()["items"] == []
 
     admin_page = client.get("/api/v1/notifications", headers=admin_headers)
@@ -103,6 +106,7 @@ def test_assignment_status_notifications_are_scoped_and_idempotent(client: TestC
         json={"status": "completed", "completion_evidence": "Prüfung abgeschlossen."},
     )
     assert completed.status_code == 200, completed.text
+    NotificationOutboxWorker(TestingSessionLocal).run_once()
     admin_page = client.get("/api/v1/notifications", headers=admin_headers)
     assert admin_page.json()["total"] == 2
     assert admin_page.json()["unread_count"] == 2
