@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     malware_scanner_port: int = Field(default=3310, ge=1, le=65535)
     malware_scanner_timeout_seconds: float = Field(default=30, gt=0, le=300)
     malware_scan_max_bytes: int = Field(default=100 * 1024 * 1024, gt=0, le=100 * 1024 * 1024)
+    notification_worker_poll_seconds: float = Field(default=2, gt=0, le=60)
+    notification_worker_batch_size: int = Field(default=25, ge=1, le=100)
+    notification_worker_lease_seconds: int = Field(default=300, ge=30, le=3600)
+    notification_worker_max_attempts: int = Field(default=8, ge=1, le=20)
 
     @model_validator(mode="after")
     def validate_production_security(self) -> "Settings":

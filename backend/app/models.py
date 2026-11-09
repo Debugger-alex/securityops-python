@@ -291,7 +291,7 @@ class NotificationOutbox(Base):
     __tablename__ = "notification_outbox"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('pending', 'processing', 'completed', 'failed')",
+            "status IN ('pending', 'processing', 'completed', 'failed', 'dead_letter')",
             name="ck_notification_outbox_status",
         ),
         CheckConstraint("attempt_count >= 0", name="ck_notification_outbox_attempt_count"),
@@ -314,7 +314,37 @@ class NotificationOutbox(Base):
     )
     last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    lock_token: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class NotificationOutboxAttempt(Base):
+    __tablename__ = "notification_outbox_attempts"
+    __table_args__ = (
+        CheckConstraint(
+            "event IN ('claimed', 'succeeded', 'retry_scheduled', 'dead_lettered')",
+            name="ck_notification_outbox_attempt_event",
+        ),
+        CheckConstraint("attempt_number > 0", name="ck_notification_outbox_attempt_number"),
+        UniqueConstraint(
+            "outbox_id", "attempt_number", "event", name="uq_notification_outbox_attempt_event"
+        ),
+        Index("ix_notification_outbox_attempts_outbox_created", "outbox_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    outbox_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("notification_outbox.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    attempt_number: Mapped[int] = mapped_column(nullable=False)
+    event: Mapped[str] = mapped_column(String(30), nullable=False)
+    error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )

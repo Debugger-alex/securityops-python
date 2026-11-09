@@ -1,6 +1,4 @@
-import asyncio
 import logging
-from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, status
 from fastapi.exception_handlers import request_validation_exception_handler
@@ -25,7 +23,6 @@ from app.incidents_api import router as incidents_router
 from app.key_management_api import router as key_management_router
 from app.notifications_api import router as notifications_router
 from app.owks_api import router as owks_router
-from app.owks_scheduler import run_monitoring_scheduler
 from app.personnel_api import router as personnel_router
 from app.rate_limit import limiter
 from app.scheduling_api import router as scheduling_router
@@ -42,18 +39,7 @@ rate_limit_store = (
 )
 
 
-@asynccontextmanager
-async def lifespan(_app: FastAPI):
-    stop_monitor = asyncio.Event()
-    monitor_task = asyncio.create_task(run_monitoring_scheduler(stop_monitor))
-    try:
-        yield
-    finally:
-        stop_monitor.set()
-        await monitor_task
-
-
-app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
+app = FastAPI(title=settings.app_name, version="0.1.0")
 app.state.limiter = limiter
 
 

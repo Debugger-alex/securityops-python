@@ -142,7 +142,19 @@ jobs:
           docker compose --profile release run --rm migrate
       - name: API und statisches Frontend als Produktionscontainer prüfen
         run: |
-          docker compose up --detach api frontend
+          docker compose up --detach api frontend notification-worker
+          worker_id="$(docker compose ps --quiet notification-worker)"
+          for attempt in $(seq 1 30); do
+            worker_health="$(docker inspect --format='{{.State.Health.Status}}' "$worker_id")"
+            if [ "$worker_health" = "healthy" ]; then
+              break
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              docker compose logs notification-worker
+              exit 1
+            fi
+            sleep 2
+          done
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:8000/health/ready >/dev/null; then
               break

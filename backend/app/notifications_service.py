@@ -2,7 +2,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy.orm import Session
 
-from app.models import Notification, NotificationOutbox, Task, TaskHistory
+from app.models import NotificationOutbox, Task, TaskHistory
 
 STATUS_NAMES = {
     "open": "Offen",
@@ -32,27 +32,19 @@ def enqueue_task_event(
             "task_id": str(task.id),
             "recipient_ids": sorted(str(recipient_id) for recipient_id in recipient_ids),
             "status": task.status,
+            "title": (
+                "Neue Aufgabe zugewiesen"
+                if event_type == "task.assigned"
+                else "Aufgabenstatus geändert"
+            ),
+            "body": (
+                task.title
+                if event_type == "task.assigned"
+                else f"{task.title}: {STATUS_NAMES[task.status]}"
+            ),
             "previous_assignee_id": (
                 str(previous_assignee_id) if previous_assignee_id is not None else None
             ),
         },
     )
     db.add(outbox_event)
-    for recipient_id in sorted(recipient_ids):
-        if event_type == "task.assigned":
-            title = "Neue Aufgabe zugewiesen"
-            body = task.title
-        else:
-            title = "Aufgabenstatus geändert"
-            body = f"{task.title}: {STATUS_NAMES[task.status]}"
-        db.add(
-            Notification(
-                id=uuid4(),
-                outbox_id=outbox_event.id,
-                recipient_id=recipient_id,
-                task_id=task.id,
-                event_type=event_type,
-                title=title,
-                body=body,
-            )
-        )
