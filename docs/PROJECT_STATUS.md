@@ -1,12 +1,12 @@
 # SecurityOps – Projektstatus
 
-**Geprüft:** 09.11.2026 · **`main`:** `d47efae7b58e4f78f60bede783bc3655ab03297c`
+**Geprüft:** 09.11.2026 · **`main`:** `881ba0873f616f8b6ab9b5a13ba5fd8e6f81f704`
 
 Diese Momentaufnahme trennt gemergten Quellcode, offene PRs, CI und fachliche Abnahme. PR-Inhalt ist kein Bestandteil von `main`; grüne CI beweist weder fachliche Abnahme noch Datenschutz-, Rechts- oder Produktionsreife.
 
 ## Tatsächlich in `main`
 
-`main` enthält die lineare Alembic-Kette `0001_customers` bis `0019_tasks` (Revision-Head `0019_tasks`), 63 SQLAlchemy-Tabellen und 167 API-Operationen unter `/api/v1`:
+`main` enthält die lineare Alembic-Kette `0001_customers` bis `0020_notifications` (Revision-Head `0020_notifications`), 65 SQLAlchemy-Tabellen und 169 API-Operationen unter `/api/v1`:
 
 - FastAPI-Monolith mit SQLAlchemy/PostgreSQL, Alembic, React/TypeScript/Vite, getrenntem Produktions-/Entwicklungs-Compose und GitHub Actions.
 - Anmeldung mit Argon2id, serverseitig widerrufbaren opaque Sitzungen, Idle-/Absolute-Timeout, CSRF-Schutz, Login-Limit und rollenbasierter serverseitiger Autorisierung. Benutzer, Rollen, Rechte und Anwendungs-Audit-Lesezugriff sind vorhanden.
@@ -19,7 +19,8 @@ Diese Momentaufnahme trennt gemergten Quellcode, offene PRs, CI und fachliche Ab
 - OWKS mit objektspezifischen Kontrollpunkten und Routen, Wachbuchereignissen, Offline-Synchronisation, Challenges für Scans, Statushistorie, Korrekturverweisen, Anhängen und Minutentakt-Monitoring. Statische QR-/NFC-Kennungen belegen keine physische Anwesenheit. Neue Anhänge werden vor Speicherung fail-closed mit ClamAV geprüft.
 - Geschützte Dokumenten- und Vertragsverwaltung mit Versionen, Freigaben, Lesebestätigungen, Historien und manuell generierbaren Erinnerungen. Dokumentdateien liegen in einem konfigurierten privaten Dateispeicher und werden über autorisierte API-Endpunkte ausgeliefert; neue Dokumente und Versionen werden vor Speicherung fail-closed mit ClamAV geprüft. E-Mail-/Push-Zustellung, automatische tägliche Erinnerungsplanung und rückwirkender Scan vorhandener Dateien sind nicht enthalten.
 - Rechnungswesen mit konfigurierbaren Preisen/Steuerwerten, Rechnungssnapshots und -positionen, Freigabe/Archivierung, Folge-Korrekturbelegen, Zahlungen/Mahnstatus, PDFs und versioniertem idempotentem JSON-Export. Beträge werden mit `Decimal`/`NUMERIC` berechnet; Steuer-/Buchhaltungsregeln sind nicht fachlich oder rechtlich abgenommen.
-- Generischer Aufgaben-Kern mit Verantwortlichem, Ersteller, optionalem Kunden-/Objektbezug, Fälligkeit, Priorität, Status, Erledigungsnachweis, Kommentaren, Verlauf und Audit. `0019_tasks` ergänzt drei Tabellen und sieben API-Operationen. Sichtbarkeit/Bearbeitung berücksichtigen Benutzer- und Objektbereich; automatische Modulereignis-Kopplung, Anhänge, Zustellung, Hintergrundjobs und Eskalationen sind nicht enthalten.
+- Generischer Aufgaben-Kern mit Verantwortlichem, Ersteller, optionalem Kunden-/Objektbezug, Fälligkeit, Priorität, Status, Erledigungsnachweis, Kommentaren, Verlauf und Audit. `0019_tasks` ergänzt drei Tabellen und sieben API-Operationen. Sichtbarkeit/Bearbeitung berücksichtigen Benutzer- und Objektbereich; automatische Aufgabenanlage aus Fachmodulen, Anhänge, Hintergrundjobs und Eskalationen sind nicht enthalten.
+- In-App-Aufgabenbenachrichtigungen aus `0020_notifications`: transaktionale Benachrichtigungen bei tatsächlicher Neuzuweisung und Statusänderung, paginierte Inbox und eigener Lesestatus. Die Outbox und Inbox-Einträge werden gespeichert, es gibt aber keinen Worker, Scheduler, Retry-Verarbeitung, E-Mail-/Push-Versand oder Ereignisse aus anderen Modulen. Zugriff auf Einträge bleibt an Empfänger- und Aufgabenbereichsrechte gebunden.
 - Neue Dokument-/Vertragsdateien, neue Dokumentversionen, OWKS-Anhänge und Personal-Qualifikationsdateien werden vor Speicherung synchron durch ClamAV geprüft. Malware-Erkennung, Größenlimit, Timeout, Protokollfehler oder Nichterreichbarkeit führen zur Ablehnung ohne Fallback. Bereits gespeicherte Dateien werden nicht rückwirkend geprüft; die Integration ist keine Produktionsgarantie und Tests verwenden Scanner-Mocks.
 - Produktions-Compose enthält statische Nginx-Auslieferung, nicht privilegierten API-Prozess, Redis-Rate-Limit-Speicher und separaten Release-Migrationsdienst. Verschlüsselte Backup-/Restore-Skripte, PostgreSQL-Restore-CI und Security-Analyse sind vorhanden; keine davon weist einen produktiven Rollout oder eine betriebliche Abnahme nach.
 - Es gibt keine eigenständige Frontend-Router-/Feature-Paketarchitektur; die React-Oberfläche ist eine Vite-Anwendung. Das Dashboard liefert derzeit Kundenkennzahlen, keine vollständigen operativen Kennzahlen.
@@ -28,13 +29,14 @@ Diese Momentaufnahme trennt gemergten Quellcode, offene PRs, CI und fachliche Ab
 
 | PR | Status / CI (frisch geprüft) | Basis | Inhalt, Abhängigkeit und Abgrenzung |
 |---|---|---|---|
-| [#25](https://github.com/Xonni-star/securityops-python/pull/25) | Offen; der vor dieser Aktualisierung geprüfte Head `63c644a` war CLEAN und CI-grün; neue Commits benötigen neue Checks | `main` | Diese Dokumentationssynchronisierung. Ausschließlich Markdown und `AGENTS.md`; kein Merge, keine Issue-Änderung. |
-PR #23, #24, #26, #27, #28, #29, #31, #33 und #34 sind gemergt und in `main` enthalten. Die Main-Migrationskette endet bei `0019_tasks`; es gibt keine weitere offene PR neben #25.
+| [#25](https://github.com/Xonni-star/securityops-python/pull/25) | Offen; der vor dieser Aktualisierung geprüfte Head `c6ec6e4` war CLEAN und CI-grün; neue Commits benötigen neue Checks | `main` | Diese Dokumentationssynchronisierung. Ausschließlich Markdown und `AGENTS.md`; kein Merge, keine Issue-Änderung. |
+PR #35 wurde in `main` gemergt und ergänzt `0020_notifications`; die Revision und zwei Notification-Tabellen sind Teil des Main-Inventars. PR #25 ist die einzige offene PR. Weitere PR-Änderungen werden erst nach Merge als Main-Funktionen gezählt.
 
 ## Vollständiger PR- und Issue-Index
 
 | PR | Status am Prüftag | Titel |
 |---|---|---|
+| [#35](https://github.com/Xonni-star/securityops-python/pull/35) | Gemergt am 09.11.2026 (`881ba08`) | Implementiere In-App-Benachrichtigungen für Aufgaben |
 | [#25](https://github.com/Xonni-star/securityops-python/pull/25) | Offen | Dokumentation mit aktuellem main- und PR-Stand synchronisieren |
 | [#34](https://github.com/Xonni-star/securityops-python/pull/34) | Gemergt | Zentrales Aufgabenmanagement: generischer Aufgaben-Kern |
 | [#33](https://github.com/Xonni-star/securityops-python/pull/33) | Gemergt | Add fail-closed malware scanning for uploads |
@@ -76,13 +78,14 @@ PR #23, #24, #26, #27, #28, #29, #31, #33 und #34 sind gemergt und in `main` ent
 
 ## PR- und Issue-Verlauf
 
-- PRs #26, #27, #28, #29, #31, #33 und #34 wurden gemergt. Offen ist nur PR #25 (Dokumentation); dessen CI ist für jeden Head separat zu prüfen.
+- PRs #26, #27, #28, #29, #31, #33, #34 und #35 wurden gemergt. Offen ist nur PR #25 (Dokumentation); CI-Status gilt nur für den jeweils geprüften Head.
 - PR #21 ist geschlossen, nicht gemergt; die enthaltenen Änderungen sind laut Verlauf in #22/`main` enthalten.
 - Issues #2, #3, #4, #5 und #6 sind geschlossen; #7, #8, #9 und #10 sind laut frischer GitHub-Abfrage offen. Issue #8 wird trotz des gemergten PR #24 als OPEN geführt und bleibt bis zur Bestätigung offen. Keine Issue wurde durch diese Dokumentationsänderung verändert.
 - Issue #9 bleibt trotz des gemergten PR #28 offen. Der Merge enthält Betriebswerkzeuge und CI-Prüfungen, aber keinen Nachweis eines realen produktiven Rollouts, Restore-Drills, Monitorings oder Incident-Prozesses.
 - Issue #10 bleibt trotz des gemergten PR #26 offen; eine fachliche Abnahme der Dienstplanergänzungen ist nicht belegt. Issue #8 bleibt nach aktueller Abfrage offen und wird nicht durch diese Dokumentationsänderung geschlossen.
 - PR #27 wurde am 08.11.2026 gemergt; seine Migration `0017_billing` ist Teil von `main`. PR #31 wurde anschließend gemergt und ergänzt `0018_identity_security`. CI-Resultate der Merge-PRs sind kein fachlicher, steuerlicher, rechtlicher oder produktiver Nachweis.
 - PR #33 ergänzt fail-closed Scans neuer Uploads mit ClamAV, aber keinen rückwirkenden Bestandsscan; dies ist keine Produktionsabnahme. PR #34 ergänzt Aufgabenmanagement mit Migration `0019_tasks`; Tasks sind noch nicht automatisch mit Fachmodulen verknüpft.
+- PR #35 wurde in `main` gemergt: `0020_notifications` folgt auf `0019_tasks` und ergänzt In-App-Ereignisse für tatsächliche Aufgaben-Neuzuweisungen und Statuswechsel. Der Outbox-Eintrag wird gespeichert, aber nicht von einem Worker verarbeitet; Retry-Verarbeitung, E-Mail/Push und Ereignisse aus anderen Modulen sind nicht enthalten.
 - Die frische GitHub-Abfrage am 09.11.2026 zeigt PR #25 als einzige offene PR sowie Issues #7–#10 offen und #2–#6 geschlossen.
 
 ## Tests, Betrieb und Abnahme

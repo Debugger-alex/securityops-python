@@ -2,7 +2,7 @@
 
 ## Quelle und Stand
 
-Diese Referenz beschreibt den Quellcode auf `main` (`d47efae7b58e4f78f60bede783bc3655ab03297c`), insbesondere `backend/app/models.py` und `backend/migrations/versions/`. Die Tabellen-/Spaltenlisten sind aus den SQLAlchemy-Metadaten abgeleitet, die Migrationshistorie aus den Alembic-Dateien. Das Metadateninventar umfasst 63 Tabellen; der Alembic-Head ist `0019_tasks`. PRs #23, #24, #26, #27, #31, #33 und #34 sind gemergt; die Revisionen `0014_owks_wachbuch` bis `0019_tasks` gehören zum aktuellen Schema.
+Diese Referenz beschreibt den Quellcode auf `main` (`881ba0873f616f8b6ab9b5a13ba5fd8e6f81f704`), insbesondere `backend/app/models.py` und `backend/migrations/versions/`. Die Tabellen-/Spaltenlisten sind aus den SQLAlchemy-Metadaten abgeleitet, die Migrationshistorie aus den Alembic-Dateien. Das Metadateninventar umfasst 65 Tabellen; der Alembic-Head ist `0020_notifications`. PRs #23, #24, #26, #27, #31, #33, #34 und #35 sind gemergt; die Revisionen `0014_owks_wachbuch` bis `0020_notifications` gehören zum aktuellen Schema.
 
 UUID-Primärschlüssel werden in PostgreSQL als UUID geführt. Datums-/Zeitpunktfelder mit `DateTime(timezone=True)` werden als zeitzonenbewusste Zeitpunkte (`TIMESTAMPTZ`) abgebildet; APIs normalisieren Zeitpunkte für operative Zeitdaten nach UTC. JSON-Spalten und Binärdaten verwenden PostgreSQL-JSON bzw. `BYTEA`. Nicht aufgeführte `CHECK`-Regeln können zusätzlich in Schemas/Service-Code validiert werden; hier werden Datenbankconstraints und -indizes dokumentiert.
 
@@ -75,6 +75,8 @@ UUID-Primärschlüssel werden in PostgreSQL als UUID geführt. Datums-/Zeitpunkt
 | `tasks` | PK `id`; `title`, `description`, `assigned_to_id`, `created_by_id`, `customer_id`, `object_id`, `due_at`, `priority`, `status`, `completion_evidence`, `created_at`, `updated_at` |
 | `task_comments` | PK `id`; `task_id`, `author_id`, `body`, `created_at` |
 | `task_history` | PK `id`; `task_id`, `actor_id`, `action`, `changes`, `created_at` |
+| `notification_outbox` | PK `id`; `dedupe_key`, `event_type`, `aggregate_type`, `aggregate_id`, `payload`, `status`, `attempt_count`, `available_at`, `last_attempt_at`, `processed_at`, `last_error`, `created_at` |
+| `notifications` | PK `id`; `outbox_id`, `recipient_id`, `task_id`, `event_type`, `title`, `body`, `created_at`, `read_at` |
 
 ### Nullable Spalten
 
@@ -135,6 +137,8 @@ Alle nicht in dieser Liste enthaltenen Spalten sind in den Modellen `nullable=Fa
 | `tasks` | `description`, `created_by_id`, `customer_id`, `object_id`, `due_at`, `completion_evidence` |
 | `task_comments` | `author_id` |
 | `task_history` | `actor_id` |
+| `notification_outbox` | `last_attempt_at`, `processed_at`, `last_error` |
+| `notifications` | `read_at` |
 
 ## Fremdschlüssel und Löschverhalten
 
@@ -188,6 +192,9 @@ Alle nicht in dieser Liste enthaltenen Spalten sind in den Modellen `nullable=Fa
 | `tasks.object_id` | `objects.id` | `RESTRICT` |
 | `task_comments.task_id`, `task_history.task_id` | `tasks.id` | jeweils `CASCADE` |
 | `task_comments.author_id`, `task_history.actor_id` | `users.id` | jeweils `SET NULL` |
+| `notifications.outbox_id` | `notification_outbox.id` | `RESTRICT` |
+| `notifications.recipient_id` | `users.id` | `CASCADE` |
+| `notifications.task_id` | `tasks.id` | `RESTRICT` |
 
 ## Constraints und Indizes
 
@@ -255,6 +262,8 @@ Primärschlüssel sind in der Tabellenübersicht aufgeführt. Die folgenden bena
 | `tasks` | Checks `ck_tasks_priority`, `ck_tasks_status`, `ck_tasks_title`; Indizes `ix_tasks_assignee_status_due`, `ix_tasks_object_status_due`, `ix_tasks_customer_status_due` |
 | `task_comments` | Check `ck_task_comments_body`; Index `ix_task_comments_task_created` |
 | `task_history` | Index `ix_task_history_task_created` |
+| `notification_outbox` | Unique `uq_notification_outbox_dedupe_key`; Checks `ck_notification_outbox_status`, `ck_notification_outbox_attempt_count`; Index `ix_notification_outbox_status_available` |
+| `notifications` | Unique `uq_notifications_event_recipient`; Index `ix_notifications_recipient_created` |
 
 Die `user_roles`- und `role_permissions`-Join-Tabellen haben zusammengesetzte Primärschlüssel; ihre beiden Fremdschlüssel sind jeweils `ON DELETE CASCADE`. Einige modelldeklarierte, nicht benannte Einzelspalten-Unique-Constraints (zum Beispiel `roles.code`) sind oben als Feld-Unique erwähnt. Migrationsspezifische PostgreSQL- und partielle Indizes sind zusätzlich aufgeführt, auch wenn sie nicht vollständig in `Base.metadata` als Modell-Index gespiegelt sind.
 
@@ -344,6 +353,9 @@ erDiagram
     TASKS ||--o{ TASK_HISTORY : history
     USERS o|--o{ TASK_COMMENTS : author
     USERS o|--o{ TASK_HISTORY : actor
+    NOTIFICATION_OUTBOX ||--o{ NOTIFICATIONS : entries
+    USERS ||--o{ NOTIFICATIONS : recipient
+    TASKS ||--o{ NOTIFICATIONS : task_context
 ```
 
 `schedule_settings`, `time_tracking_settings` und `document_contract_reminder_settings` sind Singleton-Konfigurationen. Beziehungen zu `users` als Ersteller/Prüfer/Sperrer sowie einzelne optionale Beziehungen sind aus Gründen der Lesbarkeit nicht sämtlich im Diagramm gezeichnet; die Fremdschlüsselliste oben ist vollständig.
@@ -371,10 +383,11 @@ erDiagram
 | `0017_billing` | `0016_scheduling_availability` | Preisstammdaten, Rechnungen/-positionen, Zahlungen und idempotente Export-Snapshots; ergänzt `billing.*`-Rechte |
 | `0018_identity_security` | `0017_billing` | TOTP-MFA, verschlüsselte MFA-Secrets, einmalige gehashte Recovery-Codes, Sitzungs-IP/User-Agent, Passwortwechselpflicht und administrative Passwortzurücksetzung; ergänzt Session-/Reset-Rechte |
 | `0019_tasks` | `0018_identity_security` | Generische Aufgaben, Kommentare, Verlauf, Kunden-/Objekt- und Benutzer-FKs, Status-/Prioritätsprüfungen, Indizes sowie `tasks.*`-Rollenrechte |
+| `0020_notifications` | `0019_tasks` | In-App-Aufgabenbenachrichtigungen, dauerhafte Outbox, Empfänger-/Aufgaben-FKs, Deduplizierung, Lesestatus und Recht `notifications.read_own` |
 
 Neue Schemaänderungen benötigen eine neue Alembic-Migration. Ein `Base.metadata.create_all` ist nur in Tests zulässig. Migrationen sollten vor Rollout in PostgreSQL geprüft werden; Daten-destruktive Downgrades sind keine sichere Rollbackstrategie. Release-Migrationen und verschlüsselte Backup-/Restore-Skripte sind vorhanden; produktive Rollouts und Wiederherstellungen sind nicht unabhängig nachgewiesen.
 
-PR #27, #31, #33 und #34 sind gemergt; die Migrationsfolge endet auf `0019_tasks`, nach `0017_billing` und `0018_identity_security`. Issue #7 bleibt trotz des Billing-Merges offen zur fachlichen Abnahme. PR #25 ist die einzige offene PR und ändert ausschließlich Dokumentation.
+PR #27, #31, #33, #34 und #35 sind gemergt; die Migrationsfolge auf `main` endet auf `0020_notifications`, nach `0017_billing`, `0018_identity_security` und `0019_tasks`. Issue #7 bleibt trotz des Billing-Merges offen zur fachlichen Abnahme. PR #25 ist die einzige offene PR und ändert ausschließlich Dokumentation.
 
 ## Datenhaltungsgrenzen
 
@@ -384,6 +397,7 @@ PR #27, #31, #33 und #34 sind gemergt; die Migrationsfolge endet auf `0019_tasks
 - OWKS-Anhänge werden in `owks_attachments.content` als `BYTEA` abgelegt. Neue Uploads werden vor Speicherung durch ClamAV geprüft. OWKS-Ereignisse, Statushistorien und Anhänge haben Append-only-Trigger in PostgreSQL; privilegierte Datenbankadministratoren bleiben außerhalb dieser Anwendungsschutzgrenze.
 - Dokumentversionen speichern einen privaten `storage_key`, Metadaten und SHA-256; der Dateiinhalt liegt im konfigurierten privaten Dateispeicher und nicht in `document_versions`. Neue Dokumente und Versionen werden vor Speicherung durch ClamAV geprüft. Ein Hash ist keine Verschlüsselung oder Garantie vollständiger Malware-Erkennung. Das Dateisystem muss zusätzlich konsistent gesichert werden.
 - `tasks` referenziert den verantwortlichen Benutzer verpflichtend sowie Ersteller, Kunden und Objekt optional. Kommentare und Verlauf hängen mit `CASCADE` an Aufgaben; personenbezogene Autoren-/Akteur-FKs werden bei Benutzerlöschung `SET NULL`. Historie und App-Audit werden mit Aufgabenänderungen transaktional erzeugt; Beziehungen zu fachlichen Aufgabenereignissen oder automatische Folgeaufgaben bestehen nicht.
+- `notification_outbox` persistiert Ereignisse für spätere Verarbeitung, während `notifications` die empfängergebundenen In-App-Einträge samt Lesestatus speichert. Aufgaben-Neuzuweisung und tatsächliche Statusänderung erzeugen Ereignis, Outbox und Inbox-Einträge transaktional; Outbox-Ereignisse werden derzeit nicht durch Worker verarbeitet. Es gibt keine Retry-Verarbeitung, E-Mail-/Push-Zustellung oder Modulereignisse außerhalb der Aufgaben. `notifications` verweist auf Outbox, Empfänger und Aufgabe; Empfängerzeilen werden bei Benutzerlöschung mit `CASCADE` gelöscht, Aufgabe und Outbox dürfen wegen `RESTRICT` nicht gelöscht werden, solange Benachrichtigungen referenzieren.
 - `time_surcharge_calculations` speichert unveränderliche Zeit-/Regelsnapshots; es gibt keine Geldbetrags-Spalte. Geldberechnung ist nicht implementiert.
 - Abwesenheitsdaten und sensible Personal-/Objektdaten sind personenbezogen/sensibel; Verschlüsselung at rest, Aufbewahrung und Löschung müssen für die konkrete Betriebsumgebung entschieden werden.
 - Lokale API-Tests laufen standardmäßig gegen SQLite. PostgreSQL-Constraints, Migrationen und konkurrierende Schreibvorgänge benötigen PostgreSQL-Prüfungen. Backup-/Restore-Skripte und ein synthetischer Restoretest in CI sind vorhanden; das belegt keine Wiederherstellung produktiver Sicherungen.

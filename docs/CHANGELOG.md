@@ -1,6 +1,15 @@
 # Änderungsprotokoll
 
+## 2026-11-09 – Dokumentation auf Main mit Benachrichtigungen aktualisiert
+
+- Maßgeblicher `main`-Stand: `881ba0873f616f8b6ab9b5a13ba5fd8e6f81f704`, Alembic-Head `0020_notifications`, 65 SQLAlchemy-Tabellen, 169 `/api/v1`-Operationen und zwei Health-Operationen.
+- PR #35 ist gemergt. `0020_notifications` folgt auf `0019_tasks` und ergänzt eine Inbox sowie dauerhafte Outbox für Aufgaben-Neuzuweisungen und Statuswechsel. Einträge werden transaktional erzeugt; Outbox-Ereignisse werden nicht verarbeitet. Worker, Retry-Verarbeitung, E-Mail/Push und Ereignisse aus anderen Modulen fehlen.
+- Frisch geprüft: PR #25 ist die einzige offene PR; Issues #7–#10 sind offen, #2–#6 geschlossen.
+- API-, Datenbank-/ER-, Architektur-, Audit-, Roadmap-, Status-, Task-, Sicherheits- und README-Dokumentation auf den integrierten Stand abgeglichen. Der Dokumentations-PR bleibt offen und wurde nicht gemergt.
+
 ## 2026-11-09 – Dokumentation auf Main mit Uploadscan und Aufgaben aktualisiert
+
+Diese Momentaufnahme dokumentiert den Stand vor Merge PR #35; der anschließende Eintrag beschreibt den aktuellen Main-Stand.
 
 - Maßgeblicher `main`-Stand: `d47efae7b58e4f78f60bede783bc3655ab03297c`, Alembic-Head `0019_tasks`, 63 SQLAlchemy-Tabellen, 167 `/api/v1`-Operationen und zwei Health-Operationen.
 - PR #33 ist gemergt: neue Dokument-/Vertragsdateien, neue Dokumentversionen, OWKS-Anhänge und Personal-Qualifikationsdateien werden vor Speicherung fail-closed mit ClamAV geprüft. Es gibt keinen rückwirkenden Bestandsscan; Scanner-Mocks sind kein Produktionsnachweis.

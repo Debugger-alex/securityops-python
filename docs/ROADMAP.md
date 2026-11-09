@@ -15,4 +15,6 @@ PR #26 ist gemergt und hat wöchentliche Verfügbarkeiten, Dienstwünsche/Sperrz
 
 PR #28 ist gemergt und hat Produktions-Compose, Redis-Rate-Limiting, separate Release-Migrationen, verschlüsselte Backup-/Restorewerkzeuge und Security-Scanning ergänzt. PR #31 ist ebenfalls gemergt und ergänzt optionales TOTP-MFA, Recovery-Codes, Sitzungsliste/-widerruf und administrativen Passwortreset. PR #33 ergänzt fail-closed ClamAV-Scans für neue Dokument-/Vertragsdateien, Versionen, OWKS-Anhänge und Personal-Qualifikationsdateien; bestehende Dateien werden nicht rückwirkend geprüft. PR #34 ergänzt Aufgaben mit Revision `0019_tasks`; der Kern ist nicht automatisch mit Fachmodulen verknüpft. Issue #9 bleibt offen. CI- und synthetische Restoreprüfungen sind keine produktive Betriebsabnahme oder regelmäßige Restoreübung; MFA und Uploadscan sind keine unabhängige Sicherheitsabnahme.
 
+PR #35 ist in `main` gemergt und `0020_notifications` ergänzt In-App-Benachrichtigungen bei Aufgaben-Neuzuweisung und Statuswechsel. Inbox und Outbox werden transaktional gespeichert, aber es gibt keinen Worker, Retry-Verarbeitung, E-Mail-/Push-Versand oder Modulereignisse außerhalb der Aufgaben. PR #25 ist die einzige offene PR.
+
 Reihenfolge stellt keinen Implementierungs- oder Rechtsstatus dar. Keine Produktions-, Rechts- oder Steuerfreigabe wird behauptet.

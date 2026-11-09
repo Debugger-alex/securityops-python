@@ -16,6 +16,8 @@ PR #28 ist gemergt und enthält Nginx-Auslieferung, einen nicht privilegierten A
 
 PR #33 hat die Malwareprüfung neuer Dokument-/Vertragsdateien, Dokumentversionen, OWKS-Anhänge und Personal-Qualifikationsdateien integriert. Bereits gespeicherte Dateien werden nicht rückwirkend geprüft. PR #34 hat mit Migration `0019_tasks` einen generischen Aufgaben-Kern integriert. Er ist nicht automatisch mit Fachmodulen verbunden und enthält keine Anhänge, Zustellbenachrichtigungen, Hintergrundjobs oder Eskalationen; diese Ausbaupunkte erfordern eine separat abgestimmte Ereignis-/Integrationssemantik.
 
+PR #35 ist inzwischen gemergt und ergänzt mit `0020_notifications` In-App-Benachrichtigungen für Aufgaben-Zuweisungen und Statuswechsel. Outbox- und Inbox-Einträge werden transaktional gespeichert, aber es gibt keinen Worker, Retry-Verarbeitung, E-Mail-/Push-Versand oder Modulereignisse außerhalb der Aufgaben. Der Betrieb eines Workers und zusätzliche Kanäle bleiben Folgearbeit, keine bereits verfügbare Funktion.
+
 ### P1 – Abnahme und Bestand konsolidieren
 
 1. Issue #10: Dienstplanung fachlich abnehmen. PR #26 ist gemergt und ergänzt wöchentliche Verfügbarkeitsfenster, befristete Dienstwünsche/Sperrzeiten und nachvollziehbare Schichtvertretungen. Issue #10 bleibt offen; die Konflikt-/Ruhezeitprüfung ist keine arbeitsrechtliche Freigabe.
@@ -34,10 +36,10 @@ PR #33 hat die Malwareprüfung neuer Dokument-/Vertragsdateien, Dokumentversione
 
 ## Bestätigte GitHub-Lage
 
-- In `main`: Identity inklusive MFA/Sitzungsverwaltung, Kunden, Objekte, Personal/Qualifikationen, Dienstplanung einschließlich Verfügbarkeiten/Vertretungen, Zeiterfassung, OWKS, Dokumente/Verträge, Rechnungswesen, Upload-Scan und Aufgaben (Migrationen `0001`–`0019`); PRs #23, #24, #26, #27, #28, #29, #31, #33 und #34 sind gemergt.
-- Ebenfalls in `main`: fail-closed ClamAV-Scan neuer relevanter Uploads (PR #33) und generischer Aufgaben-Kern (PR #34, Migration `0019_tasks`). Aufgaben sind nicht automatisch mit Fachmodulen gekoppelt.
+- In `main`: Identity inklusive MFA/Sitzungsverwaltung, Kunden, Objekte, Personal/Qualifikationen, Dienstplanung einschließlich Verfügbarkeiten/Vertretungen, Zeiterfassung, OWKS, Dokumente/Verträge, Rechnungswesen, Upload-Scan, Aufgaben und In-App-Aufgabenbenachrichtigungen (Migrationen `0001`–`0020`); PRs #23, #24, #26, #27, #28, #29, #31, #33, #34 und #35 sind gemergt.
+- PR #33 ergänzt fail-closed ClamAV-Scan neuer relevanter Uploads; PR #34 ergänzt den generischen Aufgaben-Kern, der nicht automatisch mit Fachmodulen gekoppelt ist. PR #35 ergänzt transaktionale In-App-Benachrichtigungen für Aufgabenereignisse; die Outbox wird nicht von einem Worker verarbeitet und es gibt keine Retries oder externe Kanäle.
 - Offen ist nur PR #25 (Dokumentation); aktuelle CI-Ergebnisse sind pro PR-Head zu prüfen.
-- Migration `0017_billing` folgt auf `0016_scheduling_availability`; `0018_identity_security` folgt auf `0017_billing`, `0019_tasks` auf `0018_identity_security`. Issues #7–#10 sind offen, #2–#6 geschlossen; PR #25 ist die einzige offene PR.
+- Migration `0017_billing` folgt auf `0016_scheduling_availability`; `0018_identity_security` folgt auf `0017_billing`, `0019_tasks` auf `0018_identity_security` und `0020_notifications` auf `0019_tasks`. Issues #7–#10 sind offen, #2–#6 geschlossen; PR #25 ist die einzige offene PR.
 - Issues #2–#6 sind geschlossen; #7–#10 sind laut frischer GitHub-Abfrage offen. Issue #8 bleibt trotz PR #24 offen; Issue #9 trotz PR #28, Issue #10 trotz PR #26 und Issue #7 trotz PR #27. Offene Issues sind keine Aussage, dass die gemergte Funktion nicht vorhanden ist; keine Issue wurde durch diese Dokumentationsänderung geändert.
 
 ## Abhängigkeiten und Abschlusskriterien
