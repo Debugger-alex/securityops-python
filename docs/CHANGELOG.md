@@ -1,5 +1,13 @@
 # Änderungsprotokoll
 
+## 2026-11-09 – Offenes Leitstellen-Dashboard als PR-Arbeit vermerkt
+
+- Frisch geprüft: PR #38 ist offen gegen `main`; PR #25 bleibt ebenfalls offen. Issues #7–#10 sind offen, #2–#6 geschlossen.
+- `main` bleibt auf `ac31bae99ee9f70026057483f303e86c69159e38`, Alembic-Head `0022_incident_management`, 73 SQLAlchemy-Tabellen und 189 `/api/v1`-Operationen.
+- PR #38 beschreibt eine Leitstellenübersicht mit Recht `control_room.read`, aktiven Objekt- und Fachbereichsprüfungen und begrenzten Listen. Seine Migration `0023_control_room_permission` ist ausstehend und nicht in Main-Tabellen-, API- oder Migrationsinventaren enthalten. Die PR-Beschreibung sagt, bestehende Dashboard-API und Datenmodell blieben unverändert.
+- Beim letzten Statusabruf liefen PR #38 Backend/Migration/PostgreSQL, verschlüsselter Restore, Docker und beide CodeQL-Jobs; Frontend-Checks und SCA waren erfolgreich. Der separate CodeQL-Check war neutral. CI ist kein Merge-, Fachabnahme- oder Produktionsnachweis.
+- Status-, Roadmap-, Audit-, README- und Datenbanktexte aktualisiert, ohne Änderungen an Software oder Migrationen.
+
 ## 2026-11-09 – Dokumentation auf Main mit Vorfallmanagement aktualisiert
 
 - Maßgeblicher `main`-Stand: `ac31bae99ee9f70026057483f303e86c69159e38`, Alembic-Head `0022_incident_management`, 73 SQLAlchemy-Tabellen, 189 `/api/v1`-Operationen und zwei Health-Operationen.

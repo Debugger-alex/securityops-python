@@ -446,7 +446,7 @@ erDiagram
 
 Neue Schemaänderungen benötigen eine neue Alembic-Migration. Ein `Base.metadata.create_all` ist nur in Tests zulässig. Migrationen sollten vor Rollout in PostgreSQL geprüft werden; Daten-destruktive Downgrades sind keine sichere Rollbackstrategie. Release-Migrationen und verschlüsselte Backup-/Restore-Skripte sind vorhanden; produktive Rollouts und Wiederherstellungen sind nicht unabhängig nachgewiesen.
 
-PR #27, #31, #33, #34, #35, #36 und #37 sind gemergt; die Migrationsfolge auf `main` endet auf `0022_incident_management`, nach `0017_billing`, `0018_identity_security`, `0019_tasks`, `0020_notifications` und `0021_key_management`. Issue #7 bleibt trotz des Billing-Merges offen zur fachlichen Abnahme. PR #25 ist die einzige offene PR und ändert ausschließlich Dokumentation.
+PR #27, #31, #33, #34, #35, #36 und #37 sind gemergt; die Migrationsfolge auf `main` endet auf `0022_incident_management`, nach `0017_billing`, `0018_identity_security`, `0019_tasks`, `0020_notifications` und `0021_key_management`. Issue #7 bleibt trotz des Billing-Merges offen zur fachlichen Abnahme. PRs #25 und #38 sind offen. Die in PR #38 erwähnte Revision `0023_control_room_permission` ist nicht Teil dieses Schema-Inventars oder von `main`.
 
 ## Datenhaltungsgrenzen
 

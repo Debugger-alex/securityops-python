@@ -36,14 +36,14 @@ PR #37 ist mit Migration `0022_incident_management` gemergt und ergänzt objektb
 
 1. E2E-, Berechtigungs-, Race-/PostgreSQL-, Upload-/Malware-, Last- und Wiederherstellungstests erweitern.
 2. Datenschutz-/Aufbewahrungsprozess, Auditintegrität, Incident-/Monitoringkonzept und reale Betriebsabnahme belegen.
-3. Dashboard erst aus tatsächlichen freigegebenen Fachkennzahlen erweitern.
+3. Dashboard erst aus tatsächlichen freigegebenen Fachkennzahlen erweitern. PR #38 schlägt eine Leitstellenübersicht vor; bis zu einem Merge ist sie nicht Bestandteil von `main` und ihre Migration `0023_control_room_permission` nicht Teil des aktuellen Schemas.
 
 ## Bestätigte GitHub-Lage
 
 - In `main`: Identity inklusive MFA/Sitzungsverwaltung, Kunden, Objekte, Personal/Qualifikationen, Dienstplanung einschließlich Verfügbarkeiten/Vertretungen, Zeiterfassung, OWKS, Dokumente/Verträge, Rechnungswesen, Upload-Scan, Aufgaben, In-App-Aufgabenbenachrichtigungen, Schlüssel- und Vorfallmanagement (Migrationen `0001`–`0022`); PRs #23, #24, #26, #27, #28, #29, #31, #33, #34, #35, #36 und #37 sind gemergt.
 - PR #33 ergänzt fail-closed ClamAV-Scan neuer relevanter Uploads; PR #34 ergänzt den generischen Aufgaben-Kern, der nicht automatisch mit Fachmodulen gekoppelt ist. PR #35 ergänzt transaktionale In-App-Benachrichtigungen für Aufgabenereignisse; die Outbox wird nicht von einem Worker verarbeitet und es gibt keine Retries oder externe Kanäle.
-- Offen ist nur PR #25 (Dokumentation); aktuelle CI-Ergebnisse sind pro PR-Head zu prüfen.
-- Migration `0017_billing` folgt auf `0016_scheduling_availability`; `0018_identity_security` folgt auf `0017_billing`, `0019_tasks` auf `0018_identity_security`, `0020_notifications` auf `0019_tasks`, `0021_key_management` auf `0020_notifications` und `0022_incident_management` auf `0021_key_management`. Issues #7–#10 sind offen, #2–#6 geschlossen; PR #25 ist die einzige offene PR.
+- PRs #25 (Dokumentation) und #38 (Leitstellen-Dashboard) sind offen; aktuelle CI-Ergebnisse sind pro PR-Head zu prüfen. PR #38 und seine Revision `0023_control_room_permission` sind nicht Teil von `main`.
+- Migration `0017_billing` folgt auf `0016_scheduling_availability`; `0018_identity_security` folgt auf `0017_billing`, `0019_tasks` auf `0018_identity_security`, `0020_notifications` auf `0019_tasks`, `0021_key_management` auf `0020_notifications` und `0022_incident_management` auf `0021_key_management`. `0022_incident_management` bleibt der `main`-Head; `0023_control_room_permission` ist nur in offenem PR #38 vorgesehen. Issues #7–#10 sind offen, #2–#6 geschlossen; PRs #25 und #38 sind offen.
 - Issues #2–#6 sind geschlossen; #7–#10 sind laut frischer GitHub-Abfrage offen. Issue #8 bleibt trotz PR #24 offen; Issue #9 trotz PR #28, Issue #10 trotz PR #26 und Issue #7 trotz PR #27. Offene Issues sind keine Aussage, dass die gemergte Funktion nicht vorhanden ist; keine Issue wurde durch diese Dokumentationsänderung geändert.
 
 ## Abhängigkeiten und Abschlusskriterien
