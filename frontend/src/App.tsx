@@ -29,6 +29,7 @@ import TaskManagement from "./TaskManagement";
 import NotificationManagement from "./NotificationManagement";
 import KeyManagement from "./KeyManagement";
 import IncidentManagement from "./IncidentManagement";
+import ControlRoom from "./ControlRoom";
 import type {
   AuthUser,
   Customer,
@@ -74,6 +75,7 @@ const actionNames: Record<string, string> = {
 const pageSize = 25;
 type ActiveModule =
   | "customers"
+  | "control_room"
   | "objects"
   | "employees"
   | "scheduling"
@@ -240,7 +242,8 @@ export default function App() {
 
   useEffect(() => {
     if (moduleSelectedManually.current) return;
-    if (user && !canReadCustomers && canReadObjects) setActiveModule("objects");
+    if (user?.permissions.includes("control_room.read")) setActiveModule("control_room");
+    else if (user && !canReadCustomers && canReadObjects) setActiveModule("objects");
     else if (user && !canReadCustomers && !canReadObjects && canReadKeys) {
       setActiveModule("keys");
     }
@@ -583,6 +586,9 @@ export default function App() {
         {(canReadCustomers || canCreateCustomers) && <button
           className={activeModule === "customers" ? "module-tab active" : "module-tab"}
           onClick={() => selectModule("customers")}>Kunden</button>}
+        {user.permissions.includes("control_room.read") && <button
+          className={activeModule === "control_room" ? "module-tab active" : "module-tab"}
+          onClick={() => selectModule("control_room")}>Leitstelle</button>}
         {(canReadTasks || canCreateTasks) && <button
           className={activeModule === "tasks" ? "module-tab active" : "module-tab"}
           onClick={() => selectModule("tasks")}>Aufgaben</button>}
@@ -629,6 +635,8 @@ export default function App() {
         />
         : activeModule === "tasks" && (canReadTasks || canCreateTasks)
         ? <TaskManagement user={user} />
+        : activeModule === "control_room" && user.permissions.includes("control_room.read")
+        ? <ControlRoom />
         : activeModule === "keys" && canReadKeys
         ? <KeyManagement canManage={canManageKeys} canMove={canMoveKeys} />
         : activeModule === "notifications" && canReadNotifications

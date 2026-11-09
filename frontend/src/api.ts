@@ -103,6 +103,7 @@ import type {
   IncidentType,
   IncidentSeverity,
   IncidentMeasure,
+  ControlRoom,
 } from "./types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -146,6 +147,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const getSession = () => request<Session>("/auth/me");
+
+export const getControlRoom = (filters: {
+  object_id?: string;
+  from_date?: string;
+  to_date?: string;
+}) => {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value) params.set(key, value);
+  }
+  return request<ControlRoom>(`/control-room?${params.toString()}`);
+};
 
 export const getNotifications = (filters: {
   limit?: number;

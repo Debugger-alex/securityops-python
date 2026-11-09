@@ -17,6 +17,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.api import router
 from app.billing_api import router as billing_router
 from app.config import get_settings
+from app.control_room_api import router as control_room_router
 from app.database import engine
 from app.documents_contracts_api import router as documents_contracts_router
 from app.identity_api import router as identity_router
@@ -97,6 +98,7 @@ app.include_router(billing_router, prefix=settings.api_prefix)
 app.include_router(identity_router, prefix=settings.api_prefix)
 app.include_router(incidents_router, prefix=settings.api_prefix)
 app.include_router(owks_router, prefix=settings.api_prefix)
+app.include_router(control_room_router, prefix=settings.api_prefix)
 
 
 @app.get("/health/live", tags=["System"])
