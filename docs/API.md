@@ -2,11 +2,11 @@
 
 ## Quelle, Basis und Zugriff
 
-Das Inventar wurde am 08.11.2026 aus `backend/app/main.py`, den dort registrierten Routern und dem generierten FastAPI-OpenAPI-Schema erstellt. Basis ist `main` SHA `edad05f3b3029370a62b51a6508962f1dd156592`; Versionierung: `/api/v1`. OpenAPI/Swagger: `/docs`. Das Schema enthält 160 Operationen unter `/api/v1` sowie zwei Health-Operationen außerhalb des Präfixes. OWKS (PR #23), Dokumente/Verträge (PR #24), Dienstplan-Verfügbarkeiten/Vertretungen (PR #26), Rechnungswesen (PR #27) und MFA/Sitzungsverwaltung (PR #31) sind gemergt und im folgenden Inventar enthalten.
+Das Inventar wurde am 09.11.2026 aus `backend/app/main.py`, den dort registrierten Routern und dem generierten FastAPI-OpenAPI-Schema erstellt. Basis ist `main` SHA `d47efae7b58e4f78f60bede783bc3655ab03297c`; Versionierung: `/api/v1`. OpenAPI/Swagger: `/docs`. Das Schema enthält 167 Operationen unter `/api/v1` sowie zwei Health-Operationen außerhalb des Präfixes. OWKS (PR #23), Dokumente/Verträge (PR #24), Dienstplan-Verfügbarkeiten/Vertretungen (PR #26), Rechnungswesen (PR #27), MFA/Sitzungsverwaltung (PR #31), Upload-Prüfung (PR #33) und Aufgaben (PR #34) sind gemergt und im folgenden Inventar enthalten.
 
 Außer `/health/live`, `/health/ready` und `/api/v1/auth/login` sind Endpunkte sitzungsgebunden. Schreibende authentifizierte Requests benötigen zusätzlich den CSRF-Cookie und `X-CSRF-Token` mit demselben Tokenwert; die Sitzung enthält nur Token-Hashes. „Scope“ meint eine zusätzliche serverseitige Bereichsprüfung, nicht ein Ersatzrecht. Die Rechtedaten werden aus Rollen im Backend geladen.
 
-**Allgemeine Fehler:** fehlende/ungültige Sitzung `401`; fehlendes Recht oder CSRF-Fehler `403`; fehlende Ressource bzw. bei Scope-Schutz teils absichtlich verborgene Ressource `404`; Status-/Integritätskonflikt häufig `409`; Validierungsfehler `422`. Login-Limit `429`. Health-Readiness bei DB- oder Redis-Ausfall `503`. Nicht jede dieser Antworten ist im OpenAPI-Schema als eigene Response modelliert; `HTTPValidationError`/`422` ist dort für viele validierte Parameter und Bodies ausgewiesen.
+**Allgemeine Fehler:** fehlende/ungültige Sitzung `401`; fehlendes Recht oder CSRF-Fehler `403`; fehlende Ressource bzw. bei Scope-Schutz teils absichtlich verborgene Ressource `404`; Status-/Integritätskonflikt häufig `409`; Validierungsfehler `422`. Login-Limit `429`. Health-Readiness bei DB- oder Redis-Ausfall `503`. Uploads können bei Malware-Erkennung `422`, bei Überschreiten des Scannerlimits `413` sowie bei Scanner-/Protokollfehlern, Timeout oder Nichterreichbarkeit `503` liefern; Details: [`UPLOAD_SECURITY.md`](UPLOAD_SECURITY.md). Nicht jede dieser Antworten ist im OpenAPI-Schema als eigene Response modelliert; `HTTPValidationError`/`422` ist dort für viele validierte Parameter und Bodies ausgewiesen.
 
 `GET /api/v1/...`-Antworten sind JSON, sofern unten nicht CSV/Datei steht. `[]` bedeutet JSON-Array, `Page` paginierte Antwort. Body-Namen verweisen auf Pydantic-Schemas in `backend/app/schemas.py`; Upload nutzt multipart/form-data. Erfolgsstatus und Response-Schema folgen dem OpenAPI-Output. Parameter in der Spalte **Eingabe** sind zusätzliche Queryparameter und JSON-/Multipart-Bodys; Pfad-IDs stehen im jeweiligen Pfad.
 
@@ -109,7 +109,7 @@ Mitarbeiter-Objektzuweisungen und deren Historie werden auf Objekte mit `objects
 | `GET /api/v1/employees/{employee_id}/sensitive` | `employees.sensitive.read` | – | `200 EmployeeSensitiveRead` | `401`, `403`, `404` |
 | `PATCH /api/v1/employees/{employee_id}/sensitive` | `employees.sensitive.manage` + CSRF | `EmployeeSensitiveUpdate` | `200 EmployeeSensitiveRead` | `401`, `403`, `404`, `422` |
 
-Allgemeine Personalantworten enthalten keine Anschrift, Notfallkontakt- oder internen Notizfelder. Datei-Uploadvalidierung prüft Größe, Dateiendung, gemeldeten MIME-Typ und Signatur; es gibt keinen Malware-Scanner oder Anwendungsebene-Verschlüsselung.
+Allgemeine Personalantworten enthalten keine Anschrift, Notfallkontakt- oder internen Notizfelder. Datei-Uploadvalidierung prüft Größe, Dateiendung, gemeldeten MIME-Typ und Signatur; neue Qualifikationsdateien werden zusätzlich fail-closed mit ClamAV gescannt. Anwendungsebene-Verschlüsselung und rückwirkender Bestandsscan fehlen.
 
 ## Dienstplanung
 
@@ -220,7 +220,7 @@ Ein erfolgreicher Scan-Eintrag beweist bei statischen Kennungen keine physische 
 
 ## Dokumente, Verträge und Erinnerungen
 
-Dokument- und Vertragsrouten erfordern jeweils das genannte Modulrecht und zusätzlich serverseitige Bereichsfilter für Objekt-, Kunden- und Personaldaten. Schreibende Requests benötigen CSRF. Dateien werden über geschützte Endpunkte ausgeliefert; ein Datei-Hash belegt Integrität, nicht Verschlüsselung oder Malwarefreiheit.
+Dokument- und Vertragsrouten erfordern jeweils das genannte Modulrecht und zusätzlich serverseitige Bereichsfilter für Objekt-, Kunden- und Personaldaten. Schreibende Requests benötigen CSRF. Neue Dokumente und Versionen werden vor Speicherung fail-closed mit ClamAV geprüft. Dateien werden über geschützte Endpunkte ausgeliefert; ein Datei-Hash belegt Integrität, nicht Verschlüsselung oder rückwirkende Malwarefreiheit.
 
 | Methode und Route | Recht / Bereich | Eingabe | Erfolg / Response | Wesentliche Fehler |
 |---|---|---|---|---|
@@ -250,10 +250,24 @@ Dokument- und Vertragsrouten erfordern jeweils das genannte Modulrecht und zusä
 
 Die zulässigen Dokumentdateitypen sind PDF, PNG, JPEG, DOCX und XLSX; die konfigurierte Uploadgrenze ist im Backend festgelegt. Erinnerungen werden nicht automatisch täglich generiert oder per E-Mail/Push zugestellt. Die vollständigen Felder und Enums der Schema-Referenzen liefert OpenAPI.
 
+## Aufgaben
+
+| Methode und Route | Recht / Bereich | Eingabe | Erfolg / Response | Wesentliche Fehler |
+|---|---|---|---|---|
+| `GET /api/v1/tasks` | `tasks.read_own`, `tasks.read_all` oder `tasks.manage_all`; Ergebnis zusätzlich nach Aufgaben-/Objektbereich gefiltert | `q` (max. 200), `status`, `priority`, `assigned_to_id`, `customer_id`, `object_id`, `overdue`, `limit` (1–100, Standard 25), `offset` | `200 TaskPage` | `401`, `403`, `422` |
+| `POST /api/v1/tasks` | `tasks.create` + CSRF; Kunden-/Objektzuordnung und verantwortliche Person serverseitig geprüft | `TaskCreate` | `201 TaskRead`; ohne Verantwortlichen wird der Ersteller zugewiesen | `401`, `403`, `422` |
+| `GET /api/v1/tasks/{task_id}` | `tasks.read_own`, `tasks.read_all` oder `tasks.manage_all`; Bereichsprüfung, nicht sichtbare Aufgabe wird verborgen | UUID-Pfad `task_id` | `200 TaskDetail` einschließlich Kommentaren und Verlauf | `401`, `403`, `404` |
+| `PATCH /api/v1/tasks/{task_id}` | `tasks.update_own`, `tasks.manage` oder `tasks.manage_all` sowie zusätzliche Aufgaben-/Objektbereichsprüfung + CSRF | UUID-Pfad `task_id`, `TaskUpdate` | `200 TaskRead`; Statuswechsel zu `completed` verlangt Erledigungsnachweis | `401`, `403`, `404`, `422` |
+| `POST /api/v1/tasks/{task_id}/comments` | dieselben Bearbeitungsrechte und Bereichsprüfung wie Aufgabenänderung + CSRF | UUID-Pfad `task_id`, `TaskCommentCreate` | `201 TaskCommentRead` | `401`, `403`, `404`, `422` |
+| `GET /api/v1/tasks/locations` | `tasks.create`; Auswahlwerte nach Bereich gefiltert | – | `200 TaskLocationsRead` | `401`, `403` |
+| `GET /api/v1/tasks/assignees` | `tasks.assign`; optionale Query `object_id`, Auswahl aktiver Benutzer nach Bereich gefiltert | – | `200 TaskAssigneeRead[]` | `401`, `403`, `422` |
+
+Aufgaben-, Kommentar-, Verlauf- und Auditänderungen werden in Datenbanktransaktionen gespeichert. Fälligkeiten müssen eine Zeitzone enthalten und werden auf UTC normalisiert. Der generische Kern löst keine automatischen Aufgaben aus anderen Fachmodulen aus und enthält keine Anhänge, Zustellbenachrichtigungen, Hintergrundjobs oder Eskalationen; siehe [`TASKS.md`](TASKS.md).
+
 ## Router- und Schemaprüfung
 
-Zum Inventar gehören 160 API-Operationen unter `/api/v1` sowie zwei Health-Operationen außerhalb des Präfixes. Jede Tabellenzeile referenziert Methode, Pfad, Zugriffsregel, Parameter oder Body-Schema, Erfolgsschema und relevante Fehlerklassen. Die vollständigen Feldtypen/Enums der Bodies und Antworten werden von FastAPI unter `/openapi.json` bzw. `/docs` aus dem Quellcode generiert; diese Dokumentation ergänzt dort nicht ausmodellierte Rechte- und Fehlerbedingungen aus den Endpunktimplementierungen.
+Zum Inventar gehören 167 API-Operationen unter `/api/v1` sowie zwei Health-Operationen außerhalb des Präfixes. Jede Tabellenzeile referenziert Methode, Pfad, Zugriffsregel, Parameter oder Body-Schema, Erfolgsschema und relevante Fehlerklassen. Die vollständigen Feldtypen/Enums der Bodies und Antworten werden von FastAPI unter `/openapi.json` bzw. `/docs` aus dem Quellcode generiert; diese Dokumentation ergänzt dort nicht ausmodellierte Rechte- und Fehlerbedingungen aus den Endpunktimplementierungen.
 
 Änderungen an Routern, Pydantic-Schemas, Rechten oder Fehlersemantik müssen sowohl OpenAPI als auch diese Referenz aktualisieren. Der Umfang wird aus dem Quellcode auf `main` erhoben; die API-Dokumentation stellt keine Produktionsfreigabe dar.
 
-PR #27 (Rechnungswesen) und PR #31 (MFA/Sitzungsverwaltung) sind in `main` gemergt. Die zugehörigen Routen sind Teil der oben gezählten 160 API-Operationen. Issue #7 bleibt offen zur fachlichen Abnahme. TOTP-MFA bietet keine E-Mail-basierte Selbstwiederherstellung; ein berechtigter administrativer Passwortreset setzt eine Passwortwechselpflicht und widerruft Sitzungen.
+PR #33 (fail-closed ClamAV-Uploadscan) und PR #34 (Aufgaben-Kern) sind ebenfalls in `main` gemergt. Die betreffenden Uploadrouten und sieben Task-Operationen sind in der obigen Zählung enthalten. Neue Uploads werden synchron geprüft; vorhandene Dateien sind nicht rückwirkend geprüft. Issue #7 bleibt für die fachliche Abnahme des Rechnungswesens offen; Issues #8–#10 sind trotz gemergter Funktionen ebenfalls offen. TOTP-MFA bietet keine E-Mail-basierte Selbstwiederherstellung; ein berechtigter administrativer Passwortreset setzt eine Passwortwechselpflicht und widerruft Sitzungen.

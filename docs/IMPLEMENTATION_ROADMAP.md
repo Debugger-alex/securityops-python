@@ -1,6 +1,6 @@
 # Priorisierte Implementierungs-Roadmap
 
-Diese Roadmap basiert auf dem tatsächlich gemergten `main`-Stand vom 08.11.2026 (SHA `edad05f3b3029370a62b51a6508962f1dd156592`) und der aktuellen GitHub-Abfrage. Statusdetails stehen in [`PROJECT_STATUS.md`](PROJECT_STATUS.md). Priorität folgt Sicherheits- und Datenabhängigkeiten, nicht der Nummer offener Issues.
+Diese Roadmap basiert auf dem tatsächlich gemergten `main`-Stand vom 09.11.2026 (SHA `d47efae7b58e4f78f60bede783bc3655ab03297c`) und der aktuellen GitHub-Abfrage. Statusdetails stehen in [`PROJECT_STATUS.md`](PROJECT_STATUS.md). Priorität folgt Sicherheits- und Datenabhängigkeiten, nicht der Nummer offener Issues.
 
 ## Prioritäten
 
@@ -9,10 +9,12 @@ Diese Roadmap basiert auf dem tatsächlich gemergten `main`-Stand vom 08.11.2026
 1. Issue #9: vorhandenes Produktions-Compose, TLS/Reverse Proxy, sichere Header/Cookies, Secrets, getrennte Datenbankrollen, Redis-Rate-Limiting, Monitoring/Alerting und Release-Migrationen für die Zielumgebung konfigurieren, testen und betreiben.
 2. Verschlüsselte Backups mit getrenntem Ziel, Aufbewahrungs-/Löschregeln, dokumentiertem Wiederanlaufplan und regelmäßigen Betreiber-Restoreübungen einrichten; vorhandene Werkzeuge und der CI-Test sind kein Betriebsnachweis.
 3. Optionales TOTP-MFA, Recovery-Codes, Sitzungsliste/-widerruf und administrativen Passwortreset aus PR #31 unabhängig sicherheitsprüfen. Ein nutzerinitiierter E-Mail-Passwortreset ist mangels Zustellprovider nicht implementiert; dessen Bedarf und Ablauf sind fachlich zu entscheiden.
-4. Sensible Daten-/Objektbereiche, Uploads, Auditgrenzen und Datenschutz unabhängig prüfen. Der derzeitige Upload hat keinen Malware-Scan; Hashing ist keine Verschlüsselung.
+4. Sensible Daten-/Objektbereiche, Uploads, Auditgrenzen und Datenschutz unabhängig prüfen. ClamAV scannt neue Uploads fail-closed; dies ersetzt weder unabhängige Prüfung noch rückwirkenden Bestandsscan. Hashing ist keine Verschlüsselung.
 5. Security-/Dependency-Scanbefunde triagieren und einen Incident-Prozess mit Verantwortlichkeiten/Alarmierungsweg festlegen.
 
 PR #28 ist gemergt und enthält Nginx-Auslieferung, einen nicht privilegierten API-Container, Redis-Rate-Limiting, getrennte Migrationen, verschlüsselte Backups/Restore und Security-Scanning. PR #31 ist gemergt und ergänzt TOTP-MFA sowie Sitzungsverwaltung. Issue #9 bleibt offen. Diese Bausteine und CI-Restoreläufe ersetzen weder eine Umgebungskonfiguration noch regelmäßige produktive Restoreübungen, Monitoring, Incident-Abläufe oder eine Betriebsfreigabe.
+
+PR #33 hat die Malwareprüfung neuer Dokument-/Vertragsdateien, Dokumentversionen, OWKS-Anhänge und Personal-Qualifikationsdateien integriert. Bereits gespeicherte Dateien werden nicht rückwirkend geprüft. PR #34 hat mit Migration `0019_tasks` einen generischen Aufgaben-Kern integriert. Er ist nicht automatisch mit Fachmodulen verbunden und enthält keine Anhänge, Zustellbenachrichtigungen, Hintergrundjobs oder Eskalationen; diese Ausbaupunkte erfordern eine separat abgestimmte Ereignis-/Integrationssemantik.
 
 ### P1 – Abnahme und Bestand konsolidieren
 
@@ -20,8 +22,8 @@ PR #28 ist gemergt und enthält Nginx-Auslieferung, einen nicht privilegierten A
 
 ### P2 – Fachliche Ausbau- und Abnahmeaufgaben
 
-1. OWKS ist in `main` (PR #23, Migration `0014`); Issue #3 ist geschlossen. Fachlich weiterhin prüfen: statische Kennungen sind keine physischen Präsenznachweise, und Uploads besitzen keinen Malware-Scan.
-2. Dokumenten-/Vertragsfunktionen sind in `main` (PR #24, Migration `0015`). Issue #8 ist laut aktueller GitHub-Abfrage offen; Vertragsregeln, Dateizugriff und fachliche Akzeptanz sind vor Erledigung konkret abzugleichen. Nicht gescannte Uploads dürfen nicht als malwarefrei gelten.
+1. OWKS ist in `main` (PR #23, Migration `0014`); Issue #3 ist geschlossen. Fachlich weiterhin prüfen: statische Kennungen sind keine physischen Präsenznachweise. Neue Anhänge werden durch PR #33 fail-closed gescannt; vorhandene Dateien nicht rückwirkend.
+2. Dokumenten-/Vertragsfunktionen sind in `main` (PR #24, Migration `0015`). Issue #8 ist laut aktueller GitHub-Abfrage offen; Vertragsregeln, Dateizugriff und fachliche Akzeptanz sind vor Erledigung konkret abzugleichen. Neue Uploads werden fail-closed geprüft, der Bestand nicht rückwirkend.
 3. Issue #7: das mit PR #27 gemergte Rechnungswesen fachlich abnehmen: Preise/Steuerwerte, Rechnungssnapshots, Korrekturbelege, Zahlungen/Mahnstatus, PDF und Export `securityops-accounting-v1`. Migration `0017_billing` ist in `main`; Preise/Steuersätze bleiben konfigurierte Eingaben, keine steuerliche oder buchhalterische Abnahme ist nachgewiesen. Issue #7 bleibt offen.
 
 ### P3 – Betriebsqualität und vollständiger Nachweis
@@ -32,9 +34,10 @@ PR #28 ist gemergt und enthält Nginx-Auslieferung, einen nicht privilegierten A
 
 ## Bestätigte GitHub-Lage
 
-- In `main`: Identity inklusive MFA/Sitzungsverwaltung, Kunden, Objekte, Personal/Qualifikationen, Dienstplanung einschließlich Verfügbarkeiten/Vertretungen, Zeiterfassung, OWKS, Dokumente/Verträge und Rechnungswesen (Migrationen `0001`–`0018`); PRs #23, #24, #26, #27, #28, #29 und #31 sind gemergt.
+- In `main`: Identity inklusive MFA/Sitzungsverwaltung, Kunden, Objekte, Personal/Qualifikationen, Dienstplanung einschließlich Verfügbarkeiten/Vertretungen, Zeiterfassung, OWKS, Dokumente/Verträge, Rechnungswesen, Upload-Scan und Aufgaben (Migrationen `0001`–`0019`); PRs #23, #24, #26, #27, #28, #29, #31, #33 und #34 sind gemergt.
+- Ebenfalls in `main`: fail-closed ClamAV-Scan neuer relevanter Uploads (PR #33) und generischer Aufgaben-Kern (PR #34, Migration `0019_tasks`). Aufgaben sind nicht automatisch mit Fachmodulen gekoppelt.
 - Offen ist nur PR #25 (Dokumentation); aktuelle CI-Ergebnisse sind pro PR-Head zu prüfen.
-- Migration `0017_billing` folgt auf `0016_scheduling_availability`; `0018_identity_security` folgt auf `0017_billing`. Issues #7–#10 sind offen, #2–#6 geschlossen.
+- Migration `0017_billing` folgt auf `0016_scheduling_availability`; `0018_identity_security` folgt auf `0017_billing`, `0019_tasks` auf `0018_identity_security`. Issues #7–#10 sind offen, #2–#6 geschlossen; PR #25 ist die einzige offene PR.
 - Issues #2–#6 sind geschlossen; #7–#10 sind laut frischer GitHub-Abfrage offen. Issue #8 bleibt trotz PR #24 offen; Issue #9 trotz PR #28, Issue #10 trotz PR #26 und Issue #7 trotz PR #27. Offene Issues sind keine Aussage, dass die gemergte Funktion nicht vorhanden ist; keine Issue wurde durch diese Dokumentationsänderung geändert.
 
 ## Abhängigkeiten und Abschlusskriterien

@@ -22,7 +22,7 @@ SecurityOps ist eine deutschsprachige Verwaltungsplattform für einen Sicherheit
 - Zugriffe sind nach Rolle und bei operativen Daten zusätzlich nach Objekt-/Personalbereich zu prüfen; Daten aus fremden Scopes dürfen auch in Listen und Aggregaten nicht durchsickern.
 - Sensible Objekt- und Personaldaten sowie Dateien ausschließlich über separat autorisierte Backend-Endpunkte bereitstellen.
 - Audit- und Änderungshistorien nicht mit vertraulichen Feldwerten befüllen; die aktuelle Anwendungshistorie ist nicht gegen privilegierte direkte Datenbankänderungen gesichert.
-- Uploads benötigen serverseitige Größen-/Typprüfung und einen autorisierten Abruf. Signaturprüfung ersetzt keinen Malware-Scan.
+- Uploads benötigen serverseitige Größen-/Typprüfung, fail-closed Malware-Scan und autorisierten Abruf. Der Scan neuer Dateien bestätigt weder den bereits gespeicherten Bestand noch eine vollständige Erkennung oder Produktionssicherheit.
 
 ## Dokumentations- und Statusregeln
 
@@ -34,4 +34,4 @@ SecurityOps ist eine deutschsprachige Verwaltungsplattform für einen Sicherheit
 
 ## Ausbau und Betrieb
 
-Die fachliche Reihenfolge richtet sich nach echten Daten- und Berechtigungsabhängigkeiten: Kunden → Objekte → Personal/Qualifikationen → Dienstplanung → Zeiterfassung/OWKS → Dokumente/Verträge → Abrechnung. Die im Repository offenen Abnahmen und Maßnahmen sind in [`docs/IMPLEMENTATION_ROADMAP.md`](docs/IMPLEMENTATION_ROADMAP.md) priorisiert. MFA/Sitzungsverwaltung und Rechnungswesen sind implementiert, aber unabhängig sicherheits- bzw. fachlich zu prüfen; nutzerinitiierter E-Mail-Passwortreset ist nicht vorhanden. Vor produktivem Betrieb sind mindestens RBAC-/Auditprüfung, TLS, Schutz der Uploads, Backup/Restore, Monitoring, Incident-Abläufe und Datenschutz-/Aufbewahrungsvorgaben zu klären und nachzuweisen.
+Die fachliche Reihenfolge richtet sich nach echten Daten- und Berechtigungsabhängigkeiten: Kunden → Objekte → Personal/Qualifikationen → Dienstplanung → Zeiterfassung/OWKS → Dokumente/Verträge → Abrechnung. Der generische Aufgaben-Kern ist implementiert, aber nicht automatisch mit Fachmodulen verknüpft; keine Folgeintegration ohne abgestimmte Ereignis-/Transaktions- und Berechtigungsregeln ergänzen. Die im Repository offenen Abnahmen und Maßnahmen sind in [`docs/IMPLEMENTATION_ROADMAP.md`](docs/IMPLEMENTATION_ROADMAP.md) priorisiert. MFA/Sitzungsverwaltung, ClamAV-Uploadscan und Rechnungswesen sind implementiert, aber unabhängig sicherheits- bzw. fachlich zu prüfen; Uploads werden nicht rückwirkend geprüft. Nutzerinitiierter E-Mail-Passwortreset ist nicht vorhanden. Vor produktivem Betrieb sind mindestens RBAC-/Auditprüfung, TLS, Schutz der Uploads, Backup/Restore, Monitoring, Incident-Abläufe und Datenschutz-/Aufbewahrungsvorgaben zu klären und nachzuweisen.

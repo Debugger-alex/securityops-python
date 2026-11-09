@@ -1,6 +1,16 @@
 # Änderungsprotokoll
 
+## 2026-11-09 – Dokumentation auf Main mit Uploadscan und Aufgaben aktualisiert
+
+- Maßgeblicher `main`-Stand: `d47efae7b58e4f78f60bede783bc3655ab03297c`, Alembic-Head `0019_tasks`, 63 SQLAlchemy-Tabellen, 167 `/api/v1`-Operationen und zwei Health-Operationen.
+- PR #33 ist gemergt: neue Dokument-/Vertragsdateien, neue Dokumentversionen, OWKS-Anhänge und Personal-Qualifikationsdateien werden vor Speicherung fail-closed mit ClamAV geprüft. Es gibt keinen rückwirkenden Bestandsscan; Scanner-Mocks sind kein Produktionsnachweis.
+- PR #34 ist gemergt: Migration `0019_tasks` ergänzt drei Aufgaben-Tabellen und sieben API-Operationen. Es gibt keine automatische Kopplung an Fachmodule, Anhänge, Benachrichtigungszustellung, Hintergrundjobs oder Eskalationen.
+- Frisch geprüft: PR #25 ist die einzige offene PR; Issues #7–#10 sind offen, #2–#6 geschlossen. CI für den vorherigen PR-Head `63c644a` war grün; neue Commits benötigen neue Checks.
+- Status-, API-, Datenbank-/ER-, Architektur-, Audit-, Roadmap-, Sicherheits-, Betriebs-, README-, AGENTS- und Task-Dokumentation gegen Quellcode und Live-GitHub-Status abgeglichen. Nur Markdown/`AGENTS.md` geändert.
+
 ## 2026-11-08 – Dokumentation auf Billing-/MFA-Main synchronisiert
+
+Diese Momentaufnahme bezieht sich auf den damaligen Stand vor PR #33 und #34; aktueller Status und aktuelle Inventare stehen im Eintrag vom 09.11.2026 sowie in [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
 
 - Maßgeblicher `main`-Stand: `edad05f3b3029370a62b51a6508962f1dd156592`, Alembic-Head `0018_identity_security`, 60 SQLAlchemy-Tabellen und 160 `/api/v1`-Operationen.
 - PR #27 (Rechnungswesen, Migration `0017_billing`) und PR #31 (MFA/Sitzungsverwaltung, Migration `0018_identity_security`) sind gemergt. Rechnungswesen ist implementiert, aber nicht steuerlich/buchhalterisch abgenommen; TOTP-MFA ist optional, E-Mail-Selbstreset fehlt.

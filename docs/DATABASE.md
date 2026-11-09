@@ -2,7 +2,7 @@
 
 ## Quelle und Stand
 
-Diese Referenz beschreibt den Quellcode auf `main` (`edad05f3b3029370a62b51a6508962f1dd156592`), insbesondere `backend/app/models.py` und `backend/migrations/versions/`. Die Tabellen-/Spaltenlisten sind aus den SQLAlchemy-Metadaten abgeleitet, die Migrationshistorie aus den Alembic-Dateien. Das Metadateninventar umfasst 60 Tabellen; der Alembic-Head ist `0018_identity_security`. PRs #23, #24, #26, #27 und #31 sind gemergt; ihre Revisionen `0014_owks_wachbuch`, `0015_documents_contracts`, `0016_scheduling_availability`, `0017_billing` und `0018_identity_security` gehören zum aktuellen Schema.
+Diese Referenz beschreibt den Quellcode auf `main` (`d47efae7b58e4f78f60bede783bc3655ab03297c`), insbesondere `backend/app/models.py` und `backend/migrations/versions/`. Die Tabellen-/Spaltenlisten sind aus den SQLAlchemy-Metadaten abgeleitet, die Migrationshistorie aus den Alembic-Dateien. Das Metadateninventar umfasst 63 Tabellen; der Alembic-Head ist `0019_tasks`. PRs #23, #24, #26, #27, #31, #33 und #34 sind gemergt; die Revisionen `0014_owks_wachbuch` bis `0019_tasks` gehören zum aktuellen Schema.
 
 UUID-Primärschlüssel werden in PostgreSQL als UUID geführt. Datums-/Zeitpunktfelder mit `DateTime(timezone=True)` werden als zeitzonenbewusste Zeitpunkte (`TIMESTAMPTZ`) abgebildet; APIs normalisieren Zeitpunkte für operative Zeitdaten nach UTC. JSON-Spalten und Binärdaten verwenden PostgreSQL-JSON bzw. `BYTEA`. Nicht aufgeführte `CHECK`-Regeln können zusätzlich in Schemas/Service-Code validiert werden; hier werden Datenbankconstraints und -indizes dokumentiert.
 
@@ -72,6 +72,9 @@ UUID-Primärschlüssel werden in PostgreSQL als UUID geführt. Datums-/Zeitpunkt
 | `billing_invoice_lines` | PK `id`; `invoice_id`, `rate_id`, `position`, `description`, `kind`, `quantity`, `unit`, `unit_price`, `tax_code`, `tax_rate`, `net_amount`, `tax_amount`, `gross_amount`, `inputs_snapshot` |
 | `billing_payments` | PK `id`; `invoice_id`, `idempotency_key`, `amount`, `paid_on`, `reference`, `created_by_id`, `created_at` |
 | `billing_exports` | PK `id`; `invoice_id`, `format_version`, `idempotency_key`, `payload`, `payload_sha256`, `created_by_id`, `created_at` |
+| `tasks` | PK `id`; `title`, `description`, `assigned_to_id`, `created_by_id`, `customer_id`, `object_id`, `due_at`, `priority`, `status`, `completion_evidence`, `created_at`, `updated_at` |
+| `task_comments` | PK `id`; `task_id`, `author_id`, `body`, `created_at` |
+| `task_history` | PK `id`; `task_id`, `actor_id`, `action`, `changes`, `created_at` |
 
 ### Nullable Spalten
 
@@ -129,6 +132,9 @@ Alle nicht in dieser Liste enthaltenen Spalten sind in den Modellen `nullable=Fa
 | `billing_invoice_lines` | `rate_id` |
 | `billing_payments` | `reference`, `created_by_id` |
 | `billing_exports` | `created_by_id` |
+| `tasks` | `description`, `created_by_id`, `customer_id`, `object_id`, `due_at`, `completion_evidence` |
+| `task_comments` | `author_id` |
+| `task_history` | `actor_id` |
 
 ## Fremdschlüssel und Löschverhalten
 
@@ -176,6 +182,12 @@ Alle nicht in dieser Liste enthaltenen Spalten sind in den Modellen `nullable=Fa
 | `billing_invoices.correction_of_id` | `billing_invoices.id` | `RESTRICT` |
 | `billing_invoice_lines.invoice_id`, `billing_payments.invoice_id`, `billing_exports.invoice_id` | `billing_invoices.id` | jeweils `RESTRICT` |
 | `billing_invoice_lines.rate_id` | `billing_rates.id` | `SET NULL` |
+| `tasks.assigned_to_id` | `users.id` | `RESTRICT` |
+| `tasks.created_by_id` | `users.id` | `SET NULL` |
+| `tasks.customer_id` | `customers.id` | `RESTRICT` |
+| `tasks.object_id` | `objects.id` | `RESTRICT` |
+| `task_comments.task_id`, `task_history.task_id` | `tasks.id` | jeweils `CASCADE` |
+| `task_comments.author_id`, `task_history.actor_id` | `users.id` | jeweils `SET NULL` |
 
 ## Constraints und Indizes
 
@@ -240,6 +252,9 @@ Primärschlüssel sind in der Tabellenübersicht aufgeführt. Die folgenden bena
 | `billing_invoice_lines` | Unique `uq_billing_invoice_lines_position(invoice_id, position)`; Checks `ck_billing_invoice_lines_tax_rate`, `ck_billing_invoice_lines_position` |
 | `billing_payments` | Unique `uq_billing_payments_idempotency(invoice_id, idempotency_key)`; Check `ck_billing_payments_amount`; Index `ix_billing_payments_invoice_date` |
 | `billing_exports` | Unique `uq_billing_exports_invoice_version(invoice_id, format_version)`, `uq_billing_exports_idempotency(idempotency_key)` |
+| `tasks` | Checks `ck_tasks_priority`, `ck_tasks_status`, `ck_tasks_title`; Indizes `ix_tasks_assignee_status_due`, `ix_tasks_object_status_due`, `ix_tasks_customer_status_due` |
+| `task_comments` | Check `ck_task_comments_body`; Index `ix_task_comments_task_created` |
+| `task_history` | Index `ix_task_history_task_created` |
 
 Die `user_roles`- und `role_permissions`-Join-Tabellen haben zusammengesetzte Primärschlüssel; ihre beiden Fremdschlüssel sind jeweils `ON DELETE CASCADE`. Einige modelldeklarierte, nicht benannte Einzelspalten-Unique-Constraints (zum Beispiel `roles.code`) sind oben als Feld-Unique erwähnt. Migrationsspezifische PostgreSQL- und partielle Indizes sind zusätzlich aufgeführt, auch wenn sie nicht vollständig in `Base.metadata` als Modell-Index gespiegelt sind.
 
@@ -321,6 +336,14 @@ erDiagram
     BILLING_RATES o|--o{ BILLING_INVOICE_LINES : source_rate
     BILLING_INVOICES ||--o{ BILLING_PAYMENTS : payments
     BILLING_INVOICES ||--o{ BILLING_EXPORTS : exports
+    USERS ||--o{ TASKS : assigned_to
+    USERS o|--o{ TASKS : created_by
+    CUSTOMERS o|--o{ TASKS : context
+    OBJECTS o|--o{ TASKS : context
+    TASKS ||--o{ TASK_COMMENTS : comments
+    TASKS ||--o{ TASK_HISTORY : history
+    USERS o|--o{ TASK_COMMENTS : author
+    USERS o|--o{ TASK_HISTORY : actor
 ```
 
 `schedule_settings`, `time_tracking_settings` und `document_contract_reminder_settings` sind Singleton-Konfigurationen. Beziehungen zu `users` als Ersteller/Prüfer/Sperrer sowie einzelne optionale Beziehungen sind aus Gründen der Lesbarkeit nicht sämtlich im Diagramm gezeichnet; die Fremdschlüsselliste oben ist vollständig.
@@ -347,18 +370,20 @@ erDiagram
 | `0016_scheduling_availability` | `0015_documents_contracts` | Wöchentliche Mitarbeiter-Verfügbarkeitsfenster, Dienstwünsche/Sperrzeiten, Vertretungsdetails in der Schichthistorie und Recht `scheduling.availability.request` |
 | `0017_billing` | `0016_scheduling_availability` | Preisstammdaten, Rechnungen/-positionen, Zahlungen und idempotente Export-Snapshots; ergänzt `billing.*`-Rechte |
 | `0018_identity_security` | `0017_billing` | TOTP-MFA, verschlüsselte MFA-Secrets, einmalige gehashte Recovery-Codes, Sitzungs-IP/User-Agent, Passwortwechselpflicht und administrative Passwortzurücksetzung; ergänzt Session-/Reset-Rechte |
+| `0019_tasks` | `0018_identity_security` | Generische Aufgaben, Kommentare, Verlauf, Kunden-/Objekt- und Benutzer-FKs, Status-/Prioritätsprüfungen, Indizes sowie `tasks.*`-Rollenrechte |
 
 Neue Schemaänderungen benötigen eine neue Alembic-Migration. Ein `Base.metadata.create_all` ist nur in Tests zulässig. Migrationen sollten vor Rollout in PostgreSQL geprüft werden; Daten-destruktive Downgrades sind keine sichere Rollbackstrategie. Release-Migrationen und verschlüsselte Backup-/Restore-Skripte sind vorhanden; produktive Rollouts und Wiederherstellungen sind nicht unabhängig nachgewiesen.
 
-PR #27 und #31 sind gemergt; die Migrationsfolge `0016_scheduling_availability` → `0017_billing` → `0018_identity_security` ist der aktuelle Main-Stand. Issue #7 bleibt trotz des Billing-Merges offen zur fachlichen Abnahme. PR #25 ist die einzige offene PR und ändert ausschließlich Dokumentation.
+PR #27, #31, #33 und #34 sind gemergt; die Migrationsfolge endet auf `0019_tasks`, nach `0017_billing` und `0018_identity_security`. Issue #7 bleibt trotz des Billing-Merges offen zur fachlichen Abnahme. PR #25 ist die einzige offene PR und ändert ausschließlich Dokumentation.
 
 ## Datenhaltungsgrenzen
 
 - Kunden, Objekte, Personal und Qualifikationen werden überwiegend archiviert statt physisch gelöscht; referenzierte Daten nutzen meist `RESTRICT`.
 - Historien und Auditlogs erfassen für viele Fachänderungen Aktionen/Feldnamen, nicht flächendeckend Vorher-/Nachher-Werte. Direkte privilegierte Datenbankänderungen sind nicht ausgeschlossen.
-- Mitarbeiter-Qualifikationsdateien werden inklusive Dateiinhalt in `employee_qualification_documents.content` gespeichert. `sha256` ist ein Prüfsummenfeld, keine Verschlüsselung oder Malware-Prüfung.
-- OWKS-Anhänge werden in `owks_attachments.content` als `BYTEA` abgelegt. OWKS-Ereignisse, Statushistorien und Anhänge haben Append-only-Trigger in PostgreSQL; privilegierte Datenbankadministratoren bleiben außerhalb dieser Anwendungsschutzgrenze.
-- Dokumentversionen speichern einen privaten `storage_key`, Metadaten und SHA-256; der Dateiinhalt liegt im konfigurierten privaten Dateispeicher und nicht in `document_versions`. Ein Hash ist keine Verschlüsselung oder Malware-Prüfung. Das Dateisystem muss zusätzlich konsistent gesichert werden.
+- Mitarbeiter-Qualifikationsdateien werden inklusive Dateiinhalt in `employee_qualification_documents.content` gespeichert. Neue Uploads werden vor Speicherung durch ClamAV geprüft; vorhandene Dateien werden nicht rückwirkend gescannt. `sha256` ist ein Prüfsummenfeld, keine Verschlüsselung oder Garantie vollständiger Malware-Erkennung.
+- OWKS-Anhänge werden in `owks_attachments.content` als `BYTEA` abgelegt. Neue Uploads werden vor Speicherung durch ClamAV geprüft. OWKS-Ereignisse, Statushistorien und Anhänge haben Append-only-Trigger in PostgreSQL; privilegierte Datenbankadministratoren bleiben außerhalb dieser Anwendungsschutzgrenze.
+- Dokumentversionen speichern einen privaten `storage_key`, Metadaten und SHA-256; der Dateiinhalt liegt im konfigurierten privaten Dateispeicher und nicht in `document_versions`. Neue Dokumente und Versionen werden vor Speicherung durch ClamAV geprüft. Ein Hash ist keine Verschlüsselung oder Garantie vollständiger Malware-Erkennung. Das Dateisystem muss zusätzlich konsistent gesichert werden.
+- `tasks` referenziert den verantwortlichen Benutzer verpflichtend sowie Ersteller, Kunden und Objekt optional. Kommentare und Verlauf hängen mit `CASCADE` an Aufgaben; personenbezogene Autoren-/Akteur-FKs werden bei Benutzerlöschung `SET NULL`. Historie und App-Audit werden mit Aufgabenänderungen transaktional erzeugt; Beziehungen zu fachlichen Aufgabenereignissen oder automatische Folgeaufgaben bestehen nicht.
 - `time_surcharge_calculations` speichert unveränderliche Zeit-/Regelsnapshots; es gibt keine Geldbetrags-Spalte. Geldberechnung ist nicht implementiert.
 - Abwesenheitsdaten und sensible Personal-/Objektdaten sind personenbezogen/sensibel; Verschlüsselung at rest, Aufbewahrung und Löschung müssen für die konkrete Betriebsumgebung entschieden werden.
 - Lokale API-Tests laufen standardmäßig gegen SQLite. PostgreSQL-Constraints, Migrationen und konkurrierende Schreibvorgänge benötigen PostgreSQL-Prüfungen. Backup-/Restore-Skripte und ein synthetischer Restoretest in CI sind vorhanden; das belegt keine Wiederherstellung produktiver Sicherungen.
