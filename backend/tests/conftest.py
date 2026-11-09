@@ -52,6 +52,7 @@ from app.models import (
     KeyMovement,
     Notification,
     NotificationOutbox,
+    NotificationOutboxAttempt,
     ObjectAddress,
     ObjectAssignment,
     ObjectContact,
@@ -129,14 +130,6 @@ def client() -> Generator[TestClient, None, None]:
     limiter.reset()
     Base.metadata.create_all(bind=test_engine)
     with TestingSessionLocal() as db:
-        db.execute(delete(UserSession))
-        db.execute(delete(UserMFARecoveryCode))
-        db.execute(delete(AuditLog))
-        db.execute(delete(TaskComment))
-        db.execute(delete(TaskHistory))
-        db.execute(delete(Notification))
-        db.execute(delete(NotificationOutbox))
-        db.execute(delete(Task))
         if test_engine.dialect.name == "postgresql":
             for table in (
                 "incident_history",
@@ -146,8 +139,18 @@ def client() -> Generator[TestClient, None, None]:
                 "owks_event_statuses",
                 "owks_attachments",
                 "key_movements",
+                "notification_outbox_attempts",
             ):
                 db.execute(text(f"ALTER TABLE {table} DISABLE TRIGGER {table}_append_only"))
+        db.execute(delete(UserSession))
+        db.execute(delete(UserMFARecoveryCode))
+        db.execute(delete(AuditLog))
+        db.execute(delete(TaskComment))
+        db.execute(delete(TaskHistory))
+        db.execute(delete(Notification))
+        db.execute(delete(NotificationOutboxAttempt))
+        db.execute(delete(NotificationOutbox))
+        db.execute(delete(Task))
         db.execute(delete(IncidentHistory))
         db.execute(delete(IncidentPerson))
         db.execute(delete(IncidentAttachment))
@@ -220,6 +223,7 @@ def client() -> Generator[TestClient, None, None]:
                 "owks_event_statuses",
                 "owks_attachments",
                 "key_movements",
+                "notification_outbox_attempts",
             ):
                 db.execute(text(f"ALTER TABLE {table} ENABLE TRIGGER {table}_append_only"))
         db.commit()

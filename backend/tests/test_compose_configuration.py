@@ -18,3 +18,23 @@ def test_api_waits_for_clamav_database_ready_healthcheck() -> None:
     assert "PING" in healthcheck[1]
     assert "VERSION" in healthcheck[1]
     assert "/[1-9][0-9]*/" in healthcheck[1]
+
+
+def test_notification_worker_is_a_separate_healthy_service() -> None:
+    compose_path = Path(__file__).resolve().parents[2] / "docker-compose.yml"
+    compose = yaml.safe_load(compose_path.read_text(encoding="utf-8"))
+    worker = compose["services"]["notification-worker"]
+
+    assert worker["command"] == ["python", "-m", "app.notification_worker", "run"]
+    assert worker["depends_on"]["db"]["condition"] == "service_healthy"
+    assert worker["healthcheck"]["test"] == [
+        "CMD",
+        "python",
+        "-m",
+        "app.notification_worker",
+        "health",
+    ]
+    assert "ports" not in worker
+    assert worker["environment"]["NOTIFICATION_WORKER_MAX_ATTEMPTS"] == (
+        "${NOTIFICATION_WORKER_MAX_ATTEMPTS:-8}"
+    )
