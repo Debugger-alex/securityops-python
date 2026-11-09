@@ -11,6 +11,8 @@ vi.mock("./api", () => ({
   changePassword: vi.fn(),
   createCustomer: vi.fn(),
   createCustomerContact: vi.fn(),
+  createEmployeePortalAbsence: vi.fn(),
+  createEmployeePortalAvailabilityRequest: vi.fn(),
   createScheduleAvailabilityRequest: vi.fn(),
   deleteCustomerContact: vi.fn(),
   getCustomer: vi.fn(),
@@ -21,6 +23,15 @@ vi.mock("./api", () => ({
   getControlRoom: vi.fn(),
   getEmployees: vi.fn(),
   getEmployeeAvailability: vi.fn(),
+  getEmployeePortalAbsences: vi.fn(),
+  getEmployeePortalAvailabilityRequests: vi.fn(),
+  getEmployeePortalNotifications: vi.fn(),
+  getEmployeePortalProfile: vi.fn(),
+  getEmployeePortalQualifications: vi.fn(),
+  getEmployeePortalShift: vi.fn(),
+  getEmployeePortalShifts: vi.fn(),
+  getEmployeePortalTasks: vi.fn(),
+  getEmployeePortalTimeOverview: vi.fn(),
   getObjects: vi.fn(),
   getNotifications: vi.fn(),
   getSession: vi.fn(),
@@ -46,6 +57,7 @@ vi.mock("./api", () => ({
   updateTask: vi.fn(),
   login: vi.fn(),
   markNotificationRead: vi.fn(),
+  markEmployeePortalNotificationRead: vi.fn(),
   revokeUserSession: vi.fn(),
   resetUserPassword: vi.fn(),
   startMFASetup: vi.fn(),
@@ -106,6 +118,48 @@ describe("Kundenformulare", () => {
     vi.mocked(api.createCustomer).mockResolvedValue(customer);
     vi.mocked(api.getCustomer).mockResolvedValue(customer);
     vi.mocked(api.getCustomerHistory).mockResolvedValue([]);
+    vi.mocked(api.getEmployeePortalProfile).mockResolvedValue({
+      full_name: "Mitarbeiter",
+      job_title: "Sicherheitsmitarbeiter",
+    });
+    vi.mocked(api.getEmployeePortalShifts).mockResolvedValue([]);
+    vi.mocked(api.getEmployeePortalTasks).mockResolvedValue([]);
+    vi.mocked(api.getEmployeePortalNotifications).mockResolvedValue([]);
+    vi.mocked(api.getEmployeePortalQualifications).mockResolvedValue([]);
+    vi.mocked(api.getEmployeePortalTimeOverview).mockResolvedValue({
+      items: [],
+      total: 0,
+      total_work_seconds: 0,
+      limit: 100,
+      offset: 0,
+    });
+    vi.mocked(api.getEmployeePortalAbsences).mockResolvedValue([]);
+    vi.mocked(api.getEmployeePortalAvailabilityRequests).mockResolvedValue([]);
+    vi.mocked(api.getEmployeePortalShift).mockResolvedValue({
+      id: "portal-shift-1",
+      object_code: "OBJ-001",
+      object_name: "Testobjekt",
+      starts_at: "2026-12-01T08:00:00Z",
+      ends_at: "2026-12-01T16:00:00Z",
+      break_minutes: 30,
+    });
+    vi.mocked(api.createEmployeePortalAbsence).mockResolvedValue({
+      id: "absence-1",
+      absence_type: "vacation",
+      starts_on: "2026-12-01",
+      ends_on: "2026-12-02",
+      status: "pending",
+      created_at: "2026-11-09T08:00:00Z",
+    });
+    vi.mocked(api.createEmployeePortalAvailabilityRequest).mockResolvedValue({
+      id: "request-1",
+      kind: "blocked",
+      starts_at: "2026-12-01T08:00:00Z",
+      ends_at: "2026-12-01T16:00:00Z",
+      time_zone: "Europe/Berlin",
+      status: "open",
+      created_at: "2026-11-09T08:00:00Z",
+    });
   });
 
   it("öffnet die Leitstelle automatisch für berechtigte Rollen", async () => {
@@ -143,7 +197,7 @@ describe("Kundenformulare", () => {
         email: "aufgaben@example.de",
         full_name: "Aufgabenbearbeitung",
         is_active: true,
-        roles: ["employee"],
+        roles: ["operations"],
         permissions: ["tasks.read_own", "tasks.create", "tasks.update_own"],
       },
     });
@@ -164,7 +218,7 @@ describe("Kundenformulare", () => {
         email: "benachrichtigungen@example.com",
         full_name: "Benachrichtigungszugriff",
         is_active: true,
-        roles: ["employee"],
+        roles: ["operations"],
         permissions: ["notifications.read_own", "tasks.read_own"],
       },
     });
@@ -259,7 +313,7 @@ describe("Kundenformulare", () => {
         email: "planleser@example.de",
         full_name: "Planleser",
         is_active: true,
-        roles: ["employee"],
+        roles: ["operations"],
         permissions: ["scheduling.read"],
       },
     });
@@ -430,7 +484,7 @@ describe("Kundenformulare", () => {
     });
   });
 
-  it("ermöglicht Mitarbeitenden, eigene Dienstwünsche einzureichen", async () => {
+  it("zeigt Mitarbeitenden das Portal und reicht eigene Anträge ohne Employee-ID ein", async () => {
     vi.mocked(api.getSession).mockResolvedValue({
       user: {
         id: "employee-user",
@@ -442,41 +496,104 @@ describe("Kundenformulare", () => {
         permissions: ["scheduling.read", "scheduling.availability.request"],
       },
     });
-    vi.mocked(api.getScheduleSettings).mockResolvedValue({
-      time_zone: "Europe/Berlin",
-      minimum_rest_hours: 11,
-      updated_at: "2026-01-01T00:00:00Z",
-    });
-    vi.mocked(api.getScheduleShifts).mockResolvedValue([]);
-    vi.mocked(api.getScheduleAvailabilityRequests).mockResolvedValue([]);
-    vi.mocked(api.createScheduleAvailabilityRequest).mockResolvedValue({} as Awaited<
-      ReturnType<typeof api.createScheduleAvailabilityRequest>
-    >);
-
     render(<App />);
 
-    await screen.findByRole("heading", { name: "Eigene Zeitwünsche" });
-    const form = screen.getByRole("button", { name: "Zeitraum einreichen" }).closest("form")!;
-    fireEvent.change(form.querySelector('input[name="starts_at_local"]')!, {
-      target: { value: "2026-12-01T09:00" },
+    expect(await screen.findByRole("heading", { name: "Willkommen, Mitarbeiter" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Mitarbeiterportal" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Personal" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Abwesenheit & Verfügbarkeit" }));
+
+    const absenceForm = screen.getByRole("button", { name: "Abwesenheit einreichen" }).closest("form")!;
+    fireEvent.change(absenceForm.querySelector('input[name="starts_on"]')!, {
+      target: { value: "2026-12-01" },
     });
-    fireEvent.change(form.querySelector('input[name="ends_at_local"]')!, {
-      target: { value: "2026-12-01T17:00" },
+    fireEvent.change(absenceForm.querySelector('input[name="ends_on"]')!, {
+      target: { value: "2026-12-03" },
     });
-    fireEvent.submit(form);
+    fireEvent.submit(absenceForm);
 
     await waitFor(() => {
-      expect(api.createScheduleAvailabilityRequest).toHaveBeenCalledWith(
+      expect(api.createEmployeePortalAbsence).toHaveBeenCalledWith(
         expect.objectContaining({
-          kind: "preferred",
-          starts_at_local: "2026-12-01T09:00",
-          ends_at_local: "2026-12-01T17:00",
+          absence_type: "vacation",
+          starts_on: "2026-12-01",
+          ends_on: "2026-12-03",
         }),
       );
     });
-    expect(api.createScheduleAvailabilityRequest).not.toHaveBeenCalledWith(
+    expect(api.createEmployeePortalAbsence).not.toHaveBeenCalledWith(
       expect.objectContaining({ employee_id: expect.any(String) }),
     );
+
+    const availabilityForm = screen.getByRole("button", { name: "Verfügbarkeit einreichen" }).closest("form")!;
+    fireEvent.change(availabilityForm.querySelector('input[name="starts_at_local"]')!, {
+      target: { value: "2026-12-05T09:00" },
+    });
+    fireEvent.change(availabilityForm.querySelector('input[name="ends_at_local"]')!, {
+      target: { value: "2026-12-05T17:00" },
+    });
+    fireEvent.submit(availabilityForm);
+    await waitFor(() => {
+      expect(api.createEmployeePortalAvailabilityRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: "blocked",
+          starts_at_local: "2026-12-05T09:00",
+          ends_at_local: "2026-12-05T17:00",
+        }),
+      );
+    });
+    expect(api.createEmployeePortalAvailabilityRequest).not.toHaveBeenCalledWith(
+      expect.objectContaining({ employee_id: expect.any(String) }),
+    );
+  });
+
+  it("lädt Dienstdetails und markiert eigene Portalbenachrichtigungen", async () => {
+    vi.mocked(api.getSession).mockResolvedValue({
+      user: {
+        id: "portal-user",
+        username: "portal",
+        email: "portal@example.de",
+        full_name: "Portalkonto",
+        is_active: true,
+        roles: ["employee"],
+        permissions: [],
+      },
+    });
+    const shift = {
+      id: "portal-shift-1",
+      object_code: "OBJ-001",
+      object_name: "Testobjekt",
+      starts_at: "2026-12-01T08:00:00Z",
+      ends_at: "2026-12-01T16:00:00Z",
+      break_minutes: 30,
+    };
+    vi.mocked(api.getEmployeePortalShifts).mockResolvedValue([shift]);
+    vi.mocked(api.getEmployeePortalShift).mockResolvedValue(shift);
+    const notification = {
+      id: "notification-1",
+      event_type: "task.assigned" as const,
+      title: "Neue Aufgabe",
+      body: "Kontrollgang durchführen",
+      created_at: "2026-11-09T08:00:00Z",
+      read_at: null,
+    };
+    vi.mocked(api.getEmployeePortalNotifications).mockResolvedValue([notification]);
+    vi.mocked(api.markEmployeePortalNotificationRead).mockResolvedValue({
+      ...notification,
+      read_at: "2026-11-09T09:00:00Z",
+    });
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Details" }));
+    expect(await screen.findByRole("heading", { name: "Dienst-Details" })).toBeTruthy();
+    expect(api.getEmployeePortalShift).toHaveBeenCalledWith("portal-shift-1");
+
+    fireEvent.click(screen.getByRole("button", { name: "Benachrichtigungen" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Als gelesen markieren" }));
+    await waitFor(() => {
+      expect(api.markEmployeePortalNotificationRead).toHaveBeenCalledWith("notification-1");
+    });
+    expect(screen.queryByRole("button", { name: "Als gelesen markieren" })).toBeNull();
   });
 
   it("zeigt Mitarbeitenden die Zeiterfassung und startet eine Buchung", async () => {
@@ -487,7 +604,7 @@ describe("Kundenformulare", () => {
         email: "mitarbeiter@example.de",
         full_name: "Mitarbeiter",
         is_active: true,
-        roles: ["employee"],
+        roles: ["operations"],
         permissions: ["time_tracking.read_own", "time_tracking.create"],
       },
     });
