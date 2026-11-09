@@ -33,7 +33,7 @@ Die Migration weist alle Aufgabenberechtigungen der Administratorrolle zu, Lese-
 
 PR #35 hat mit `0020_notifications` eine In-App-Inbox ergänzt. Tatsächliche Neuzuweisungen und Statuswechsel erzeugen deduplizierte Empfängerbenachrichtigungen und einen Outbox-Eintrag innerhalb derselben Datenbanktransaktion wie Aufgabenhistorie und Audit. Neue Zuweisungen benachrichtigen die neue verantwortliche Person; Statuswechsel benachrichtigen die verantwortliche Person und den Ersteller, soweit diese nicht selbst handeln.
 
-Die Outbox wird derzeit nur beschrieben und persistiert; es gibt keinen Worker, Scheduler, Retry-Lauf, Job-Monitor, E-Mail-/Push-Provider oder Ereignisse aus anderen Modulen. Einträge sind daher keine Bestätigung, dass Outbox-Ereignisse verarbeitet oder externe Zustellungen vorgenommen wurden. Ein späterer Worker und Modulanschlüsse benötigen eigene Zustell-, Wiederholungs-, Deduplizierungs-, Berechtigungs- und Auditregeln.
+Die Outbox wird auf `main` nur beschrieben und persistiert; es gibt dort keinen Worker, Scheduler, Retry-Lauf, Job-Monitor, E-Mail-/Push-Provider oder Ereignisse aus anderen Modulen. Einträge sind daher keine Bestätigung, dass Outbox-Ereignisse verarbeitet oder externe Zustellungen vorgenommen wurden. Offener PR #39 schlägt einen separaten Worker sowie Migration `0024_notification_outbox_worker` vor; dies ist ausstehende PR-Arbeit. Ein späterer Worker und Modulanschlüsse benötigen eigene Zustell-, Wiederholungs-, Deduplizierungs-, Berechtigungs- und Auditregeln.
 
 ## Grenzen und Folgeintegration
 

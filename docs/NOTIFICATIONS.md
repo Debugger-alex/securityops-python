@@ -20,6 +20,8 @@ Die Migration `0020_notifications` vergibt die Berechtigung an die vorhandenen S
 
 Es gibt in diesem Umfang **keinen Outbox-Worker, Scheduler, Retry-Lauf, Job-Monitor, E-Mail- oder Push-Provider**. Offene Outbox-Ereignisse werden daher nicht automatisch abgearbeitet; die In-App-Einträge selbst sind bereits dauerhaft verfügbar. Für den produktiven Ausbau sind ein unabhängig vom Browser laufender Worker, konkurrenzsichere Jobübernahme, Retry- und Backoff-Regeln, eine nachvollziehbare Versuchshistorie, Fehler-/Dead-Letter-Behandlung, Metriken und Betriebsalarme erforderlich. Erst dann sollten weitere Kanäle und Ereignisse aus anderen Modulen angeschlossen werden.
 
+PR #39 ist offen und schlägt einen solchen Worker sowie Migration `0024_notification_outbox_worker` vor. Die PR-Beschreibung umfasst idempotente Verarbeitung der Aufgabenereignisse, konkurrierende Claims, Lease-Wiederaufnahme, konfigurierbare Versuche mit Backoff und Dead-Letter-/Attempt-Historie. Diese Änderungen sind nicht in `main` enthalten; E-Mail/Push und Task-Erinnerungen/Eskalationen sind laut PR-Beschreibung weiterhin nicht vorgesehen.
+
 ## Migration und Rückbau
 
 `0020_notifications` folgt linear auf `0019_tasks`. Ein Downgrade wird abgelehnt, sobald Outbox- oder Benachrichtigungsdaten oder Berechtigungszuordnungen zu benutzerdefinierten Rollen vorhanden sind. Diese Daten müssen vor einem Rückbau ausdrücklich gesichert beziehungsweise fachlich behandelt werden.

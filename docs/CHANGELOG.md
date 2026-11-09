@@ -1,11 +1,19 @@
 # Änderungsprotokoll
 
+Einträge unterhalb der aktuellen Momentaufnahme dokumentieren den Status zum jeweils damaligen Prüfzeitpunkt.
+
+## 2026-11-09 – PR #39 für Notification-Outbox-Worker offen
+
+- `main` bleibt bei Merge-Commit `b275b5a0eb4a82a480e3c15ee09a0a5c85453a6d`, Alembic-Head `0023_control_room_permission`, 73 SQLAlchemy-Tabellen und 190 `/api/v1`-Operationen. PRs #25 und #39 sind offen.
+- PR #39 schlägt einen separaten Worker für `task.assigned`/`task.status_changed`, idempotente In-App-Erzeugung, PostgreSQL-Claims mit `SKIP LOCKED`, Lease-Wiederaufnahme, Backoff/Retry, Dead-Letter-Status und Attempt-Historie vor. Migration `0024_notification_outbox_worker` und alle übrigen Änderungen bleiben PR-Arbeit und sind nicht Bestandteil von `main`.
+- Laut PR-Beschreibung sind E-Mail/Push sowie Task-Erinnerungen/Eskalationen nicht enthalten. Der geprüfte CI-Lauf von PR #39 endete mit einem fehlgeschlagenen Backend-Testjob; die übrigen sieben Checks waren erfolgreich. Daraus folgt keine Integration oder Betriebsabnahme. PR #25s vorheriger Head `9ef2294` hatte acht erfolgreiche Checks; Änderungen an #25 erfordern neue vollständige Checks.
+
 ## 2026-11-09 – Leitstellenübersicht in main integriert
 
 - PR #38 wurde am 09.11.2026 mit Merge-Commit `b275b5a0eb4a82a480e3c15ee09a0a5c85453a6d` gemergt. `main` hat nun Alembic-Head `0023_control_room_permission`, 73 SQLAlchemy-Tabellen und 190 `/api/v1`-Operationen (192 einschließlich zwei Health-Operationen).
 - Die Revision ergänzt `control_room.read` und Rollenzuweisungen, ohne neue Tabellen zu erstellen. `GET /api/v1/control-room` liefert serverberechnete Kennzahlen und begrenzte Listen aus vorhandenen Fachmodulen; Fachberechtigungen und Objekt-/Personenbereich werden je Quelle geprüft. Sensible Vorfallberichte und Anhänge werden nicht ausgegeben; keine simulierten Alarme oder automatische Aktualisierung.
 - Im ersten CI-Lauf schlug Backend/Migration/PostgreSQL fehl; der Reparaturlauf auf PR-Head `7b10693` war einschließlich aller acht Checks erfolgreich. Die PR-Beschreibung meldet 85 Backendtests bestanden/13 übersprungen und 42 Frontendtests bestanden. Dies sind keine fachlichen oder produktiven Nachweise.
-- Frisch geprüft: PR #25 ist die einzige offene PR; Issues #7–#10 sind offen, #2–#6 geschlossen. Der frühere offene PR-Status und fehlgeschlagene CI-Lauf von #38 in der vorherigen Momentaufnahme sind historisch, nicht aktuell.
+- Beim damaligen Prüfzeitpunkt war PR #25 die einzige offene PR; Issues #7–#10 waren offen, #2–#6 geschlossen. PR #39 wurde später erstellt und wird in der aktuellen Momentaufnahme oben geführt.
 - Status-, Roadmap-, Audit-, README-, API-, Architektur- und Datenbanktexte auf den gemergten Stand synchronisiert; PR #25 bleibt offen.
 
 ## 2026-11-09 – Dokumentation auf Main mit Vorfallmanagement aktualisiert
