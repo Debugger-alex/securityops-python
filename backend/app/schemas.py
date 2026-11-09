@@ -568,6 +568,128 @@ class ObjectPage(BaseModel):
     offset: int
 
 
+KeyStatus = Literal["available", "issued", "lost", "defective", "archived"]
+KeyMovementType = Literal["issued", "returned", "lost", "defective", "inventory"]
+
+
+class PhysicalKeyCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    key_number: str = Field(min_length=1, max_length=80)
+    description: str = Field(min_length=1, max_length=500)
+    object_id: UUID
+
+    @field_validator("key_number", "description")
+    @classmethod
+    def key_text_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Schlüsselnummer und Beschreibung dürfen nicht leer sein.")
+        return value
+
+
+class PhysicalKeyUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    description: str = Field(min_length=1, max_length=500)
+
+    @field_validator("description")
+    @classmethod
+    def description_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Die Beschreibung darf nicht leer sein.")
+        return value
+
+
+class PhysicalKeyRead(BaseModel):
+    id: UUID
+    key_number: str
+    description: str
+    object_id: UUID
+    object_code: str
+    object_name: str
+    status: KeyStatus
+    current_employee_id: UUID | None
+    current_employee_name: str | None
+    archived_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class PhysicalKeyPage(BaseModel):
+    items: list[PhysicalKeyRead]
+    total: int
+    limit: int
+    offset: int
+
+
+class KeyMovementCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    movement_type: KeyMovementType
+    employee_id: UUID | None = None
+    acknowledged: bool = False
+    acknowledgement_note: str | None = Field(default=None, max_length=2000)
+    note: str | None = Field(default=None, max_length=5000)
+
+    @field_validator("acknowledgement_note", "note")
+    @classmethod
+    def movement_notes_must_not_be_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip() or None
+
+    @model_validator(mode="after")
+    def issue_requires_employee_acknowledgement(self):
+        if self.movement_type == "issued":
+            if self.employee_id is None:
+                raise ValueError("Für eine Ausgabe muss ein Mitarbeiter gewählt werden.")
+            if not self.acknowledged:
+                raise ValueError("Die Empfangsquittierung muss bestätigt werden.")
+        elif self.employee_id is not None or self.acknowledged or self.acknowledgement_note:
+            raise ValueError(
+                "Mitarbeiter- und Quittierungsangaben sind nur bei einer Ausgabe zulässig."
+            )
+        return self
+
+
+class KeyMovementRead(BaseModel):
+    id: UUID
+    key_id: UUID
+    key_number: str
+    object_id: UUID
+    employee_id: UUID | None
+    employee_name: str | None
+    actor_id: UUID
+    actor_name: str
+    movement_type: KeyMovementType
+    key_status_after: Literal["available", "issued", "lost", "defective"]
+    acknowledged_at: datetime | None
+    acknowledgement_note: str | None
+    note: str | None
+    created_at: datetime
+
+
+class KeyMovementPage(BaseModel):
+    items: list[KeyMovementRead]
+    total: int
+    limit: int
+    offset: int
+
+
+class KeyEmployeeCandidate(BaseModel):
+    id: UUID
+    employee_number: str
+    full_name: str
+
+
+class KeyObjectCandidate(BaseModel):
+    id: UUID
+    code: str
+    name: str
+
+
 EmployeeStatus = Literal["active", "inactive", "leave", "terminated"]
 
 
