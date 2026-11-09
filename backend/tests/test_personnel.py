@@ -6,7 +6,14 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from app.identity_api import password_hasher
-from app.models import ObjectAssignment, Permission, Role, User
+from app.malware_scanner import MalwareScannerError
+from app.models import (
+    EmployeeQualificationDocument,
+    ObjectAssignment,
+    Permission,
+    Role,
+    User,
+)
 
 
 def sign_in_as(client: TestClient, username: str, password: str) -> str:
@@ -623,3 +630,39 @@ def test_qualification_documents_are_versioned_and_permission_protected(
         files={"document": ("archiviert.pdf", b"%PDF-1.4\narchived", "application/pdf")},
     )
     assert rejected.status_code == 409
+
+
+def test_qualification_upload_is_not_created_when_scanner_is_unavailable(
+    client: TestClient, monkeypatch
+) -> None:
+    admin_headers = {"X-CSRF-Token": sign_in_as(client, "admin", ADMIN_PASSWORD)}
+    employee = client.post(
+        "/api/v1/employees",
+        headers=admin_headers,
+        json={
+            "employee_number": "P-SCAN-001",
+            "full_name": "Testperson Scan",
+            "hired_on": str(date.today()),
+        },
+    )
+    assert employee.status_code == 201
+    qualification = client.post(
+        f"/api/v1/employees/{employee.json()['id']}/qualifications",
+        headers=admin_headers,
+        json={"category": "Zertifikat", "name": "Scanprüfung"},
+    )
+    assert qualification.status_code == 201
+
+    def unavailable(_content: bytes) -> None:
+        raise MalwareScannerError("unavailable")
+
+    monkeypatch.setattr("app.upload_scanning.scan_upload", unavailable)
+    rejected = client.post(
+        f"/api/v1/employees/{employee.json()['id']}/qualifications/"
+        f"{qualification.json()['id']}/documents",
+        headers=admin_headers,
+        files={"document": ("nachweis.pdf", b"%PDF-1.4\nprivate", "application/pdf")},
+    )
+    assert rejected.status_code == 503
+    with TestingSessionLocal() as db:
+        assert db.scalar(select(EmployeeQualificationDocument)) is None

@@ -59,6 +59,7 @@ from app.schemas import (
     EmployeeStatus,
     EmployeeUpdate,
 )
+from app.upload_scanning import scan_upload_or_reject
 
 router = APIRouter()
 MAX_QUALIFICATION_DOCUMENT_SIZE = 10 * 1024 * 1024
@@ -1119,6 +1120,13 @@ def upload_employee_qualification_document(
             detail="Der Dateiinhalt passt nicht zum angegebenen Dateityp",
         )
     filename = safe_qualification_filename(document.filename, extension)
+    scan_upload_or_reject(
+        db,
+        request,
+        content=content,
+        actor_id=principal.user.id,
+        surface="personnel_qualification",
+    )
     version = (
         db.scalar(
             select(func.max(EmployeeQualificationDocument.version)).where(
