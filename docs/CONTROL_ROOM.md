@@ -19,7 +19,7 @@ Die Datumsauswahl wird als UTC-Kalendertag interpretiert. Sie filtert OWKS-Ereig
 
 ## Nicht enthaltene Kategorien
 
-Es gibt keine belastbare Quelle für Alarmmeldungen außerhalb der OWKS-Ereignisse, fehlende Dienstbesetzungen, Qualifikationskonflikte mit konkreten Schichten, Eskalationsstufen, Kundenfreigaben, allgemeine Personalfehlzeiten ohne eingetragene Abwesenheit oder dringende Aufgaben aus nicht erfassten Systemen. Diese Kategorien werden nicht als leere Kennzahlen oder simulierte Meldungen dargestellt. In-App-Benachrichtigungen werden nicht als operative Quelle verwendet; für die Outbox ist derzeit kein Worker integriert.
+Es gibt keine belastbare Quelle für Alarmmeldungen außerhalb der OWKS-Ereignisse, fehlende Dienstbesetzungen, Qualifikationskonflikte mit konkreten Schichten, Eskalationsstufen, Kundenfreigaben, allgemeine Personalfehlzeiten ohne eingetragene Abwesenheit oder dringende Aufgaben aus nicht erfassten Systemen. Diese Kategorien werden nicht als leere Kennzahlen oder simulierte Meldungen dargestellt. Der separate Worker verarbeitet nur Aufgaben-Zuweisungs- und Statusereignisse zu In-App-Benachrichtigungen und speist die Leitstellenübersicht nicht; es gibt keine automatische Dashboard-Aktualisierung oder Alarmierung.
 
 ## Berechtigungen und Migration
 
