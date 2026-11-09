@@ -103,6 +103,99 @@ export interface IncidentChoices {
   objects: Array<{ id: string; name: string; code: string }>;
   assignees: Array<{ id: string; full_name: string }>;
 }
+
+export interface ControlRoomObject {
+  id: string;
+  code: string;
+  name: string;
+}
+
+export interface ControlRoomShift {
+  id: string;
+  employee_id: string;
+  employee_name: string;
+  object_id: string;
+  object_name: string;
+  starts_at: string;
+  ends_at: string;
+  status: "published";
+}
+
+export interface ControlRoomOWKSEvent {
+  id: string;
+  object_id: string;
+  object_name: string;
+  event_type: string;
+  severity: string;
+  title: string;
+  occurred_at: string;
+  status: "open" | "in_progress";
+}
+
+export interface ControlRoomIncident {
+  id: string;
+  title: string;
+  object_id: string;
+  object_name: string;
+  severity: IncidentSeverity;
+  status: IncidentStatus;
+  due_at: string | null;
+  assigned_to_name: string;
+  created_at: string;
+}
+
+export interface ControlRoomTask {
+  id: string;
+  title: string;
+  object_id: string | null;
+  object_name: string | null;
+  status: TaskStatus;
+  priority: TaskPriority;
+  due_at: string | null;
+  assigned_to_name: string;
+  created_at: string;
+}
+
+export interface ControlRoomAbsence {
+  employee_id: string;
+  employee_name: string;
+  absence_type: EmployeeAbsenceType;
+  status: EmployeeAbsenceStatus;
+  starts_on: string;
+  ends_on: string;
+}
+
+export interface ControlRoomQualification {
+  employee_id: string;
+  employee_name: string;
+  category: string;
+  name: string;
+  expires_on: string;
+}
+
+export interface ControlRoomBillingApproval {
+  id: string;
+  invoice_number: string;
+  object_name: string;
+  issued_on: string;
+  created_at: string;
+}
+
+export interface ControlRoom {
+  generated_at: string;
+  range_start: string;
+  range_end: string;
+  counts: Record<string, number>;
+  objects?: ControlRoomObject[];
+  shifts?: ControlRoomShift[];
+  owks_events?: ControlRoomOWKSEvent[];
+  incidents?: ControlRoomIncident[];
+  tasks?: ControlRoomTask[];
+  absences?: ControlRoomAbsence[];
+  qualifications?: ControlRoomQualification[];
+  billing_approvals?: ControlRoomBillingApproval[];
+}
+
 export type EmployeeStatus = "active" | "inactive" | "leave" | "terminated";
 export type EmployeeAbsenceType = "vacation" | "sick_leave" | "other";
 export type EmployeeAbsenceStatus = "pending" | "approved" | "rejected";

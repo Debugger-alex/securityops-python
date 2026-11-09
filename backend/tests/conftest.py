@@ -306,6 +306,7 @@ def client() -> Generator[TestClient, None, None]:
             "incidents.manage_all",
             "incidents.sensitive.read",
             "incidents.sensitive.manage",
+            "control_room.read",
         )
         permissions = {}
         for code in permission_codes:
@@ -382,6 +383,7 @@ def client() -> Generator[TestClient, None, None]:
                 "incidents.manage_all",
                 "incidents.sensitive.read",
                 "incidents.sensitive.manage",
+                "control_room.read",
                 "documents.read",
                 "documents.create",
                 "documents.update",
@@ -432,6 +434,7 @@ def client() -> Generator[TestClient, None, None]:
                 "incidents.create",
                 "incidents.update",
                 "incidents.sensitive.read",
+                "control_room.read",
             ),
         )
         get_or_create_role(
