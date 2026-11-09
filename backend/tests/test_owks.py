@@ -14,9 +14,11 @@ from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from app import owks_scheduler
 from app.identity_api import password_hasher
+from app.malware_scanner import MalwareDetected
 from app.models import (
     Employee,
     ObjectAssignment,
+    OWKSAttachment,
     OWKSEvent,
     OWKSRoute,
     Permission,
@@ -460,6 +462,39 @@ def test_owks_permission_and_foreign_object_attachment_are_denied(client: TestCl
         },
     )
     assert managed_event.status_code == 201
+
+
+def test_owks_attachment_is_not_created_when_scanner_detects_malware(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    admin_headers = {"X-CSRF-Token": sign_in(client)}
+    object_id = create_object(client, admin_headers, "OWKS-SCAN")
+    event = client.post(
+        "/api/v1/owks/events",
+        headers=admin_headers,
+        json={
+            "object_id": object_id,
+            "event_type": "entry",
+            "title": "Scanprüfung",
+            "description": "",
+            "severity": "info",
+            "client_event_id": str(uuid4()),
+        },
+    )
+    assert event.status_code == 201
+
+    def infected(_content: bytes) -> None:
+        raise MalwareDetected
+
+    monkeypatch.setattr("app.upload_scanning.scan_upload", infected)
+    rejected = client.post(
+        f"/api/v1/owks/events/{event.json()['id']}/attachments",
+        headers=admin_headers,
+        files={"document": ("bericht.pdf", b"%PDF-1.4\nprivate", "application/pdf")},
+    )
+    assert rejected.status_code == 422
+    with TestingSessionLocal() as db:
+        assert db.scalar(select(OWKSAttachment)) is None
 
 
 def test_missed_monitor_is_idempotent_and_uses_elapsed_utc_intervals(client: TestClient) -> None:

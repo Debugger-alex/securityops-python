@@ -109,6 +109,11 @@ def override_get_db() -> Generator[Session, None, None]:
         db.close()
 
 
+@pytest.fixture(autouse=True)
+def mock_upload_scanner(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.upload_scanning.scan_upload", lambda _content: None)
+
+
 @pytest.fixture()
 def client() -> Generator[TestClient, None, None]:
     limiter.reset()
