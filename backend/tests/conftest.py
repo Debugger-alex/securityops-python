@@ -43,6 +43,12 @@ from app.models import (
     EmployeeQualification,
     EmployeeQualificationDocument,
     EmployeeSensitiveDetails,
+    Incident,
+    IncidentAttachment,
+    IncidentHistory,
+    IncidentMeasure,
+    IncidentPerson,
+    IncidentSensitiveDetails,
     KeyMovement,
     Notification,
     NotificationOutbox,
@@ -133,12 +139,21 @@ def client() -> Generator[TestClient, None, None]:
         db.execute(delete(Task))
         if test_engine.dialect.name == "postgresql":
             for table in (
+                "incident_history",
+                "incident_people",
+                "incident_attachments",
                 "owks_events",
                 "owks_event_statuses",
                 "owks_attachments",
                 "key_movements",
             ):
                 db.execute(text(f"ALTER TABLE {table} DISABLE TRIGGER {table}_append_only"))
+        db.execute(delete(IncidentHistory))
+        db.execute(delete(IncidentPerson))
+        db.execute(delete(IncidentAttachment))
+        db.execute(delete(IncidentMeasure))
+        db.execute(delete(IncidentSensitiveDetails))
+        db.execute(delete(Incident))
         db.execute(delete(KeyMovement))
         db.execute(delete(PhysicalKey))
         db.execute(delete(OWKSAttachment))
@@ -198,6 +213,9 @@ def client() -> Generator[TestClient, None, None]:
         db.execute(delete(User))
         if test_engine.dialect.name == "postgresql":
             for table in (
+                "incident_history",
+                "incident_people",
+                "incident_attachments",
                 "owks_events",
                 "owks_event_statuses",
                 "owks_attachments",
@@ -281,6 +299,13 @@ def client() -> Generator[TestClient, None, None]:
             "keys.read",
             "keys.manage",
             "keys.move",
+            "incidents.read",
+            "incidents.read_all",
+            "incidents.create",
+            "incidents.update",
+            "incidents.manage_all",
+            "incidents.sensitive.read",
+            "incidents.sensitive.manage",
         )
         permissions = {}
         for code in permission_codes:
@@ -350,6 +375,13 @@ def client() -> Generator[TestClient, None, None]:
                 "keys.read",
                 "keys.manage",
                 "keys.move",
+                "incidents.read",
+                "incidents.read_all",
+                "incidents.create",
+                "incidents.update",
+                "incidents.manage_all",
+                "incidents.sensitive.read",
+                "incidents.sensitive.manage",
                 "documents.read",
                 "documents.create",
                 "documents.update",
@@ -380,6 +412,8 @@ def client() -> Generator[TestClient, None, None]:
                 "tasks.create",
                 "tasks.update_own",
                 "notifications.read_own",
+                "incidents.read",
+                "incidents.create",
             ),
         )
         get_or_create_role(
@@ -394,6 +428,10 @@ def client() -> Generator[TestClient, None, None]:
                 "documents.download",
                 "keys.read",
                 "keys.move",
+                "incidents.read",
+                "incidents.create",
+                "incidents.update",
+                "incidents.sensitive.read",
             ),
         )
         get_or_create_role(
