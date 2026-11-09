@@ -31,9 +31,9 @@ Die Migration weist alle Aufgabenberechtigungen der Administratorrolle zu, Lese-
 
 ## In-App-Benachrichtigungen
 
-PR #35 hat mit `0020_notifications` eine In-App-Inbox ergänzt. Tatsächliche Neuzuweisungen und Statuswechsel erzeugen deduplizierte Empfängerbenachrichtigungen und einen Outbox-Eintrag innerhalb derselben Datenbanktransaktion wie Aufgabenhistorie und Audit. Neue Zuweisungen benachrichtigen die neue verantwortliche Person; Statuswechsel benachrichtigen die verantwortliche Person und den Ersteller, soweit diese nicht selbst handeln.
+PR #35 hat mit `0020_notifications` eine In-App-Inbox und persistente Outbox ergänzt. Tatsächliche Neuzuweisungen und Statuswechsel erzeugen ein Outbox-Ereignis innerhalb derselben Datenbanktransaktion wie Aufgabenhistorie und Audit. Der Worker erzeugt daraus deduplizierte Empfängerbenachrichtigungen; neue Zuweisungen benachrichtigen die neue verantwortliche Person, Statuswechsel die verantwortliche Person und den Ersteller, soweit diese nicht selbst handeln.
 
-Die Outbox wird auf `main` nur beschrieben und persistiert; es gibt dort keinen Worker, Scheduler, Retry-Lauf, Job-Monitor, E-Mail-/Push-Provider oder Ereignisse aus anderen Modulen. Einträge sind daher keine Bestätigung, dass Outbox-Ereignisse verarbeitet oder externe Zustellungen vorgenommen wurden. Offener PR #39 schlägt einen separaten Worker sowie Migration `0024_notification_outbox_worker` vor; dies ist ausstehende PR-Arbeit. Ein späterer Worker und Modulanschlüsse benötigen eigene Zustell-, Wiederholungs-, Deduplizierungs-, Berechtigungs- und Auditregeln.
+Der separate Worker aus PR #39 / Migration `0024_notification_outbox_worker` verarbeitet `task.assigned` und `task.status_changed` zu In-App-Einträgen. Er nutzt PostgreSQL-Claims mit `SKIP LOCKED`, Lease-/Token-Schutz, Wiederaufnahme abgelaufener Claims, idempotente Empfängererzeugung, exponentiellen Backoff, Dead-Letter-Status und append-only Attempt-Historie. Der Worker führt außerdem den OWKS-Prüfzyklus aus, der zuvor im API-Lifespan lief. Das bestätigt nur die implementierte Verarbeitung dieser Ereignisse, nicht externe Zustellung oder produktive Betriebsfähigkeit: E-Mail/Push, Task-Erinnerungen/Eskalationen und Ereignisse aus anderen Modulen bleiben ausgeschlossen.
 
 ## Grenzen und Folgeintegration
 

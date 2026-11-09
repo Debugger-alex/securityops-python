@@ -107,7 +107,7 @@ Zuschlagsregeln unterstützen Nacht, Samstag, Sonntag, Feiertag und betriebliche
 
 Das Backend liest `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER` und `POSTGRES_PASSWORD` aus der Umgebung. Compose setzt `POSTGRES_HOST=db` für den enthaltenen PostgreSQL-Dienst. Für einen externen PostgreSQL-Server können diese Werte in der `.env` auf dessen Verbindungsdaten gesetzt werden. `CORS_ORIGINS` steuert die erlaubte Browser-Origin. Der Datenbankport wird absichtlich nicht öffentlich freigegeben. Sitzungen verwenden zufällige opaque Cookies; der Datenbankeintrag speichert nur den Token-Hash. Schreibzugriffe erfordern einen CSRF-Header. Passwort-Hashes werden mit Argon2id erzeugt.
 
-Bei direktem Backend-Start außerhalb von Docker: Python 3.12+, `cd backend`, `pip install '.[test]'`, die PostgreSQL-Variablen setzen, Migrationen einmalig mit `alembic upgrade head` ausführen und danach `uvicorn app.main:app --reload` starten. Für lokale HTTP-Entwicklung müssen `APP_ENV=development` und `SESSION_COOKIE_SECURE=false` ausdrücklich gesetzt werden. `POSTGRES_PASSWORD` sollte nicht in Quellcode oder Versionsverwaltung abgelegt werden.
+Bei direktem Backend-Start außerhalb von Docker: Python 3.12+, `cd backend`, `pip install '.[test]'`, die PostgreSQL-Variablen setzen, Migrationen einmalig mit `alembic upgrade head` ausführen und danach `uvicorn app.main:app --reload` starten. Für Notification-/OWKS-Hintergrundverarbeitung zusätzlich in einem separaten Prozess `python -m app.notification_worker run` starten. Für lokale HTTP-Entwicklung müssen `APP_ENV=development` und `SESSION_COOKIE_SECURE=false` ausdrücklich gesetzt werden. `POSTGRES_PASSWORD` sollte nicht in Quellcode oder Versionsverwaltung abgelegt werden.
 
 ## Tests
 
@@ -145,7 +145,7 @@ Migration `0019_tasks` ergänzt einen generischen Aufgaben-Kern mit Zuständigke
 
 ## In-App-Benachrichtigungen (in `main`, PR #35)
 
-Migration `0020_notifications` ergänzt eine empfängergebundene Inbox und dauerhafte Outbox. Tatsächliche Aufgaben-Neuzuweisungen und Statuswechsel erzeugen die In-App-Einträge zusammen mit Aufgabenhistorie und Audit transaktional; Lesestatus und Liste sind über `notifications.read_own` und Aufgabenbereichsrechte geschützt. Die Outbox wird gespeichert, aber nicht durch einen Worker abgearbeitet. Es gibt keine Retry-Verarbeitung, E-Mail-/Push-Zustellung oder Benachrichtigungsereignisse aus anderen Modulen.
+Migration `0020_notifications` ergänzt eine empfängergebundene Inbox und dauerhafte Outbox; Migration `0024_notification_outbox_worker` ergänzt den separaten Worker und append-only Attempt-Historie. Der Worker verarbeitet `task.assigned` und `task.status_changed` idempotent zu In-App-Einträgen, mit konkurrierenden Claims, Lease/Wiederaufnahme, Backoff/Retry und Dead-Letter-Status. Derselbe Dienst führt den OWKS-Prüfzyklus aus. Lesestatus und Liste sind über `notifications.read_own` und Aufgabenbereichsrechte geschützt. E-Mail-/Push-Zustellung, Task-Erinnerungen/Eskalationen und Ereignisse aus anderen Modulen sind nicht enthalten; der Worker ist keine fachliche oder produktive Abnahme.
 
 ## Schlüsselverwaltung (in `main`, PR #36)
 

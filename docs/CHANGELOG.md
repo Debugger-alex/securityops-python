@@ -2,7 +2,13 @@
 
 Einträge unterhalb der aktuellen Momentaufnahme dokumentieren den Status zum jeweils damaligen Prüfzeitpunkt.
 
-## 2026-11-09 – PR #39 für Notification-Outbox-Worker offen
+## 2026-11-09 – PR #39 integriert, Migration 0024 aktuell
+
+- `main` steht auf Merge-Commit `a8cc63b3eeef9cbcdc033e4156ca046c14e8c99a`, Alembic-Head `0024_notification_outbox_worker`, 74 SQLAlchemy-Tabellen und 190 `/api/v1`-Operationen (192 einschließlich zwei Health-Operationen). PR #39 ist gemergt; PR #25 ist nach frischer Abfrage die einzige offene PR. Issues #7–#10 sind offen und #2–#6 geschlossen.
+- Der separate Notification-/OWKS-Worker verarbeitet ausschließlich `task.assigned` und `task.status_changed` idempotent zu In-App-Benachrichtigungen. PostgreSQL-Claims mit `SKIP LOCKED`, Lease-/Token-Schutz, Wiederaufnahme, Backoff/Retry, Dead-Letter-Status und append-only Attempt-Historie sind implementiert. Der OWKS-Prüfzyklus wurde aus dem API-Lifespan in den Worker verlagert.
+- E-Mail/Push, Task-Erinnerungen/Eskalationen und Ereignisse aus anderen Fachmodulen bleiben ausgeschlossen. Auf dem PR-#39-Merge-Head `b78c96a` waren alle acht GitHub-Checks erfolgreich; dies ist kein Nachweis produktiven Betriebs oder fachlicher Abnahme. PR #25 wurde auf den integrierten Stand synchronisiert; seine frischen Checks stehen nach dem Push aus.
+
+## Historische Momentaufnahme 2026-11-09 – PR #39 für Notification-Outbox-Worker offen
 
 - `main` bleibt bei Merge-Commit `b275b5a0eb4a82a480e3c15ee09a0a5c85453a6d`, Alembic-Head `0023_control_room_permission`, 73 SQLAlchemy-Tabellen und 190 `/api/v1`-Operationen. PRs #25 und #39 sind offen.
 - PR #39 schlägt einen separaten Worker für `task.assigned`/`task.status_changed`, idempotente In-App-Erzeugung, PostgreSQL-Claims mit `SKIP LOCKED`, Lease-Wiederaufnahme, Backoff/Retry, Dead-Letter-Status und Attempt-Historie vor. Migration `0024_notification_outbox_worker` und alle übrigen Änderungen bleiben PR-Arbeit und sind nicht Bestandteil von `main`.

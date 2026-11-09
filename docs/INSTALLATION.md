@@ -18,7 +18,7 @@
 
 ## Ohne Container
 
-Backend: Python 3.12+, `cd backend`, `pip install '.[test]'`, PostgreSQL-Umgebung setzen, Migrationen einmalig mit `alembic upgrade head` ausführen und `uvicorn app.main:app --reload` starten. Für lokale HTTP-Entwicklung `APP_ENV=development` und `SESSION_COOKIE_SECURE=false` ausdrücklich setzen. Frontend-Entwicklung: `cd frontend`, `npm ci`, `npm run dev`.
+Backend: Python 3.12+, `cd backend`, `pip install '.[test]'`, PostgreSQL-Umgebung setzen, Migrationen einmalig mit `alembic upgrade head` ausführen und `uvicorn app.main:app --reload` starten. Für Notification-/OWKS-Hintergrundverarbeitung zusätzlich in einem separaten Prozess `python -m app.notification_worker run` starten. Für lokale HTTP-Entwicklung `APP_ENV=development` und `SESSION_COOKIE_SECURE=false` ausdrücklich setzen. Frontend-Entwicklung: `cd frontend`, `npm ci`, `npm run dev`.
 
 ## Status
 
