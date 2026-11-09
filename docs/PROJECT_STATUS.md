@@ -1,6 +1,6 @@
 # SecurityOps – Projektstatus
 
-**Geprüft:** 09.11.2026 · **`main`:** `a8cc63b3eeef9cbcdc033e4156ca046c14e8c99a`
+**Geprüft:** 09.11.2026 · **`main`:** `082b3681ec54f6cdded99d855f6305341d33e19d`
 
 Diese Momentaufnahme trennt gemergten Quellcode, offene PRs, CI und fachliche Abnahme. PR-Inhalt ist kein Bestandteil von `main`; grüne CI beweist weder fachliche Abnahme noch Datenschutz-, Rechts- oder Produktionsreife.
 
@@ -32,19 +32,28 @@ Diese Momentaufnahme trennt gemergten Quellcode, offene PRs, CI und fachliche Ab
 
 | PR | Status / CI (frisch geprüft) | Basis | Inhalt, Abhängigkeit und Abgrenzung |
 |---|---|---|---|
-| [#25](https://github.com/Xonni-star/securityops-python/pull/25) | Offen; frische Checks nach dieser Aktualisierung ausstehend | `main` | Diese Dokumentationssynchronisierung. Ausschließlich Dokumentation; kein Merge, keine Issue-Änderung. |
+| [#44](https://github.com/Xonni-star/securityops-python/pull/44) | Offen; Merge-Status sauber; alle acht Checks erfolgreich | `main` | Leitstelle um operative Aktionen erweitern; nicht Bestandteil von `main`. |
+| [#43](https://github.com/Xonni-star/securityops-python/pull/43) | Offen; Merge-Status sauber; alle acht Checks erfolgreich | `main` | Mitarbeiter-Self-Service-MVP. Eigene offene Abwesenheits- und Verfügbarkeitsanträge können bearbeitet werden; keine Rücknahme, Dokumentfreigabe oder Stammdatenanträge. Keine Migration; Details und Grenzen in [EMPLOYEE_PORTAL.md](EMPLOYEE_PORTAL.md). |
+| [#42](https://github.com/Xonni-star/securityops-python/pull/42) | Offen; Merge-Status instabil; keine Checks gemeldet | `stack/pr-40-owks-incident` | Kundenportal mit sicherer Kontaktverknüpfung ergänzen; gestapelt auf #40, nicht Bestandteil von `main`. |
+| [#40](https://github.com/Xonni-star/securityops-python/pull/40) | Offen; Merge-Status sauber; alle acht Checks erfolgreich | `main` | OWKS-Ereignisse als Vorfälle erfassen; nicht Bestandteil von `main`. |
+| [#25](https://github.com/Xonni-star/securityops-python/pull/25) | Gemergt am 09.11.2026 (`9eaed08`) | `main` | Dokumentationssynchronisierung. |
 PR #38 wurde am 09.11.2026 mit Merge-Commit `b275b5a0eb4a82a480e3c15ee09a0a5c85453a6d` gemergt und integrierte die Leitstellenübersicht sowie Revision `0023_control_room_permission`. PR #39 wurde anschließend mit Merge-Commit `a8cc63b3eeef9cbcdc033e4156ca046c14e8c99a` gemergt; Worker und Revision `0024_notification_outbox_worker` sind nun Bestandteil von `main`.
 
 ## Vollständiger PR- und Issue-Index
 
 | PR | Status am Prüftag | Titel |
 |---|---|---|
+| [#44](https://github.com/Xonni-star/securityops-python/pull/44) | Offen; CI erfolgreich | Leitstelle um operative Aktionen erweitern |
+| [#43](https://github.com/Xonni-star/securityops-python/pull/43) | Offen; CI erfolgreich | Mitarbeiter-Self-Service-MVP |
+| [#42](https://github.com/Xonni-star/securityops-python/pull/42) | Offen; keine Checks gemeldet; Merge-Status instabil | Kundenportal mit sicherer Kontaktverknüpfung ergänzen |
+| [#41](https://github.com/Xonni-star/securityops-python/pull/41) | Gemergt am 09.11.2026 (`082b368`) | docs: Aktualisiere offenen PR-Status |
+| [#40](https://github.com/Xonni-star/securityops-python/pull/40) | Offen; CI erfolgreich | OWKS-Ereignisse als Vorfälle erfassen |
 | [#37](https://github.com/Xonni-star/securityops-python/pull/37) | Gemergt am 09.11.2026 (`ac31bae`) | Vorfall- und Beschwerdemanagement ergänzen |
 | [#38](https://github.com/Xonni-star/securityops-python/pull/38) | Gemergt am 09.11.2026 (`b275b5a`) | Zentrale Leitstellenübersicht mit Objektzugriff |
 | [#39](https://github.com/Xonni-star/securityops-python/pull/39) | Gemergt am 09.11.2026 (`a8cc63b`) | Persistenten Worker für Task-Benachrichtigungen ergänzen |
 | [#36](https://github.com/Xonni-star/securityops-python/pull/36) | Gemergt am 09.11.2026 (`744eff7`) | Schlüsselverwaltung für physische Schlüssel |
 | [#35](https://github.com/Xonni-star/securityops-python/pull/35) | Gemergt am 09.11.2026 (`881ba08`) | Implementiere In-App-Benachrichtigungen für Aufgaben |
-| [#25](https://github.com/Xonni-star/securityops-python/pull/25) | Offen | Dokumentation mit aktuellem main- und PR-Stand synchronisieren |
+| [#25](https://github.com/Xonni-star/securityops-python/pull/25) | Gemergt am 09.11.2026 (`9eaed08`) | Dokumentation mit aktuellem main- und PR-Stand synchronisieren |
 | [#34](https://github.com/Xonni-star/securityops-python/pull/34) | Gemergt | Zentrales Aufgabenmanagement: generischer Aufgaben-Kern |
 | [#33](https://github.com/Xonni-star/securityops-python/pull/33) | Gemergt | Add fail-closed malware scanning for uploads |
 | [#31](https://github.com/Xonni-star/securityops-python/pull/31) | Gemergt | Ergänzt MFA und Sitzungsverwaltung |
@@ -85,7 +94,7 @@ PR #38 wurde am 09.11.2026 mit Merge-Commit `b275b5a0eb4a82a480e3c15ee09a0a5c854
 
 ## PR- und Issue-Verlauf
 
-- PRs #26, #27, #28, #29, #31, #33, #34, #35, #36, #37, #38 und #39 wurden gemergt. PR #25 (Dokumentation) ist nach frischer Abfrage die einzige offene PR; CI-Status gilt nur für den jeweils geprüften Head.
+- PRs #25, #26, #27, #28, #29, #31, #33, #34, #35, #36, #37, #38, #39 und #41 wurden gemergt. Die offenen PRs #40, #42, #43 und #44 sind nicht Bestandteil von `main`; CI-Status gilt nur für den jeweils geprüften Head.
 - PR #21 ist geschlossen, nicht gemergt; die enthaltenen Änderungen sind laut Verlauf in #22/`main` enthalten.
 - Issues #2, #3, #4, #5 und #6 sind geschlossen; #7, #8, #9 und #10 sind laut frischer GitHub-Abfrage offen. Issue #8 wird trotz des gemergten PR #24 als OPEN geführt und bleibt bis zur Bestätigung offen. Keine Issue wurde durch diese Dokumentationsänderung verändert.
 - Issue #9 bleibt trotz des gemergten PR #28 offen. Der Merge enthält Betriebswerkzeuge und CI-Prüfungen, aber keinen Nachweis eines realen produktiven Rollouts, Restore-Drills, Monitorings oder Incident-Prozesses.
@@ -97,7 +106,7 @@ PR #38 wurde am 09.11.2026 mit Merge-Commit `b275b5a0eb4a82a480e3c15ee09a0a5c854
 - PR #37 wurde am 09.11.2026 mit Merge-Commit `ac31bae99ee9f70026057483f303e86c69159e38` gemergt. Migration `0022_incident_management` ergänzt sechs Tabellen und zwölf API-Operationen. Die Backendlogik prüft Objektbereich und sieben abgestufte `incidents.*`-Rechte; sensible Details, Beteiligte/Zeugen und Anhänge sind zusätzlich begrenzt. Neue Anhänge werden fail-closed mit ClamAV geprüft und privat gespeichert; Download ist authentifiziert, scoped und sensitiv berechtigt. Verlauf, Personenbezüge und Dateireferenzen sind durch PostgreSQL-Trigger append-only. Vorgänge können OWKS referenzieren, ändern OWKS aber nicht; Maßnahmen bleiben manuell, ohne automatische Task-/Benachrichtigungsintegration, Fristerinnerungen oder Eskalationen. PR-CI: alle acht Checks erfolgreich; PR-Text meldet 82 Backendtests bestanden/13 übersprungen, 39 Frontendtests bestanden, Ruff/Format und Alembic-Head erfolgreich. Das belegt keine fachliche, rechtliche oder produktive Abnahme.
 - PR #38 wurde nach erfolgreicher CI am 09.11.2026 gemergt (`b275b5a0eb4a82a480e3c15ee09a0a5c85453a6d`). Der frühere Backend/Migration/PostgreSQL-Fehlschlag auf dem vorherigen PR-Head wurde im Reparaturlauf behoben; auf dem Merge-Head waren alle acht Checks erfolgreich. `0023_control_room_permission` ergänzt `control_room.read` und weist das Recht den Rollen Administrator, Geschäftsführung, Operations und Objektleitung zu; es werden keine Tabellen angelegt. Die Leitstellenroute nutzt zusätzliche Fach- und Objektbereichsprüfungen; sensible Vorfallberichte, Details und Anhänge werden nicht ausgegeben. Dies ist CI-/Implementierungsnachweis, keine fachliche Abnahme oder Produktionsfreigabe.
 - PR #39 wurde am 09.11.2026 mit Merge-Commit `a8cc63b3eeef9cbcdc033e4156ca046c14e8c99a` integriert. Auf Merge-Head `b78c96a` waren alle acht GitHub-Checks erfolgreich. Die Migration ergänzt `notification_outbox_attempts`, Claim-/Lock-Felder und Statuswerte; der Worker verarbeitet ausschließlich `task.assigned` und `task.status_changed` zu In-App-Benachrichtigungen und führt den OWKS-Prüfzyklus aus. E-Mail/Push und Task-Erinnerungen/Eskalationen sind nicht enthalten. CI ist kein fachlicher, Datenschutz- oder Produktionsnachweis.
-- Die frische GitHub-Abfrage am 09.11.2026 zeigt PR #25 als einzige offene PR sowie Issues #7–#10 offen und #2–#6 geschlossen. PR #25 läuft gegen `main` einschließlich PR #39; der vorherige Head `adc1645` hatte acht erfolgreiche Checks. Änderungen benötigen frische Checks.
+- Die frische GitHub-Abfrage am 09.11.2026 zeigt PRs #40, #42, #43 und #44 offen sowie Issues #7–#10 offen und #2–#6 geschlossen. #40, #43 und #44 hatten acht erfolgreiche Checks; für #42 wurden keine Checks gemeldet und der Merge-Status war instabil. #43 läuft gegen `main` auf Head `74d8fb5`; seine CI belegt keine fachliche Abnahme. Änderungen benötigen frische Checks.
 
 ## Tests, Betrieb und Abnahme
 
