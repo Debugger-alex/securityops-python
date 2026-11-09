@@ -1,0 +1,288 @@
+import { useEffect, useRef, useState } from "react";
+import { getControlRoom } from "./api";
+import type { ControlRoom as ControlRoomData } from "./types";
+
+type StatusFilter =
+  | ""
+  | "überfällig"
+  | "dringend"
+  | "open"
+  | "in_progress"
+  | "blocked"
+  | "reported"
+  | "investigating"
+  | "action_required"
+  | "pending"
+  | "approved"
+  | "high"
+  | "normal"
+  | "low"
+  | "critical"
+  | "warning"
+  | "published";
+
+const dateInUtc = (date: Date) => date.toISOString().slice(0, 10);
+const initialFromDate = () => {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() - 7);
+  return dateInUtc(date);
+};
+const initialToDate = () => {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + 30);
+  return dateInUtc(date);
+};
+
+function dateTime(value: string) {
+  return new Intl.DateTimeFormat("de-DE", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "UTC",
+  }).format(new Date(value)) + " UTC";
+}
+
+function date(value: string) {
+  return new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeZone: "UTC" })
+    .format(new Date(`${value}T00:00:00Z`));
+}
+
+function statusName(value: string) {
+  const names: Record<string, string> = {
+    open: "Offen",
+    in_progress: "In Bearbeitung",
+    blocked: "Blockiert",
+    reported: "Gemeldet",
+    investigating: "In Prüfung",
+    action_required: "Maßnahme erforderlich",
+    pending: "Ausstehend",
+    approved: "Genehmigt",
+    critical: "Kritisch",
+    warning: "Warnung",
+    missed: "Versäumte Kontrolle",
+    deviation: "Abweichung",
+    manipulation: "Manipulation",
+    notification: "Alarmmeldung",
+    control: "Kontrolle",
+    entry: "Eintrag",
+    handover: "Übergabe",
+    low: "Niedrig",
+    normal: "Normal",
+    high: "Hoch",
+    urgent: "Dringend",
+    vacation: "Urlaub",
+    sick_leave: "Krankheit",
+    other: "Sonstige",
+  };
+  return names[value] ?? value;
+}
+
+export default function ControlRoom() {
+  const [data, setData] = useState<ControlRoomData | null>(null);
+  const [objectId, setObjectId] = useState("");
+  const [fromDate, setFromDate] = useState(initialFromDate);
+  const [toDate, setToDate] = useState(initialToDate);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
+  const requestId = useRef(0);
+
+  useEffect(() => {
+    const currentRequest = ++requestId.current;
+    setLoading(true);
+    setError("");
+    getControlRoom({
+      object_id: objectId || undefined,
+      from_date: fromDate,
+      to_date: toDate,
+    })
+      .then((response) => {
+        if (requestId.current === currentRequest) setData(response);
+      })
+      .catch((reason: unknown) => {
+        if (requestId.current === currentRequest) {
+          setData(null);
+          setError(reason instanceof Error ? reason.message : "Leitstellendaten konnten nicht geladen werden.");
+        }
+      })
+      .finally(() => {
+        if (requestId.current === currentRequest) setLoading(false);
+      });
+    return () => {
+      requestId.current += 1;
+    };
+  }, [fromDate, objectId, refreshKey, toDate]);
+
+  const counts = data?.counts ?? {};
+  const cards = [
+    ["Aktive Objekte", "active_objects"],
+    ["Laufende Dienste", "active_shifts"],
+    ["Offene Kontrollen / Alarme", "open_owks_events"],
+    ["Offene Vorfälle", "open_incidents"],
+    ["Überfällige Vorfälle", "overdue_incidents"],
+    ["Offene Aufgaben", "open_tasks"],
+    ["Dringende Aufgaben", "urgent_tasks"],
+    ["Personalausfälle", "active_absences"],
+    ["Qualifikationsprobleme", "qualification_problems"],
+    ["Abrechnungsfreigaben", "billing_approvals"],
+  ] as const;
+  const visibleCards = cards.filter(([, key]) => key in counts);
+  const matchesStatus = (
+    status: string,
+    overdue: boolean,
+    urgent = false,
+    severityOrPriority = "",
+  ) => {
+    if (!statusFilter) return true;
+    if (statusFilter === "überfällig") return overdue;
+    if (statusFilter === "dringend") return urgent;
+    return status === statusFilter || severityOrPriority === statusFilter;
+  };
+
+  return (
+    <section className="control-room">
+      <div className="panel-heading">
+        <div><p className="eyebrow">OPERATIONSÜBERSICHT</p><h2>Leitstelle</h2></div>
+        <button className="secondary-button" onClick={() => setRefreshKey((value) => value + 1)}
+          disabled={loading}>Aktualisieren</button>
+      </div>
+      <div className="control-room-filters" aria-label="Leitstellenfilter">
+        <label>Objekt
+          <select value={objectId} onChange={(event) => setObjectId(event.target.value)}>
+            <option value="">Alle zugänglichen Objekte</option>
+            {(data?.objects ?? []).map((object) =>
+              <option key={object.id} value={object.id}>{object.name} ({object.code})</option>)}
+          </select>
+        </label>
+        <label>Zeitraum von
+          <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
+        </label>
+        <label>Zeitraum bis
+          <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
+        </label>
+        <label>Status / Priorität
+          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}>
+            <option value="">Alle</option>
+            <option value="überfällig">Überfällig</option>
+            <option value="dringend">Dringend</option>
+            <option value="open">Offen</option>
+            <option value="in_progress">In Bearbeitung</option>
+            <option value="blocked">Blockiert</option>
+            <option value="reported">Gemeldet</option>
+            <option value="investigating">In Prüfung</option>
+            <option value="action_required">Maßnahme erforderlich</option>
+            <option value="pending">Ausstehend</option>
+            <option value="approved">Genehmigt</option>
+            <option value="high">Hoch</option>
+            <option value="normal">Normal</option>
+            <option value="low">Niedrig</option>
+            <option value="critical">Kritisch</option>
+            <option value="warning">Warnung</option>
+            <option value="published">Veröffentlicht</option>
+          </select>
+        </label>
+      </div>
+
+      {loading && <p className="muted" role="status">Leitstellendaten werden geladen …</p>}
+      {error && <p className="alert page-alert" role="alert">{error}</p>}
+      {!loading && !error && data && <>
+        <p className="control-room-updated">
+          Erstellt am {dateTime(data.generated_at)} · Zeitraum {date(data.range_start)} bis {date(data.range_end)} (UTC)
+        </p>
+        <section className="control-room-stats" aria-label="Leitstellenkennzahlen">
+          {visibleCards.map(([label, key]) =>
+            <article className="stat-card" key={key}>
+              <span>{label}</span><strong>{counts[key]}</strong>
+            </article>)}
+        </section>
+
+        <div className="control-room-grid">
+          {data.objects && <article className="panel control-room-panel">
+            <h3>Aktive Objekte <span>{counts.active_objects ?? data.objects.length}</span></h3>
+            {data.objects.length === 0 ? <p className="empty">Keine aktiven, zugänglichen Objekte.</p> :
+              <ul>{data.objects.map((item) =>
+                <li key={item.id}><strong>{item.name}</strong><small>{item.code}</small></li>)}</ul>}
+          </article>}
+          {data.shifts && <article className="panel control-room-panel">
+            <h3>Laufende Dienste <span>{counts.active_shifts ?? data.shifts.length}</span></h3>
+            {data.shifts.filter((item) => matchesStatus(item.status, false)).length === 0 ? <p className="empty">Keine passenden veröffentlichten Dienste laufen derzeit.</p> :
+              <ul>{data.shifts.filter((item) => matchesStatus(item.status, false)).map((item) =>
+                <li key={item.id}><strong>{item.employee_name} · {item.object_name}</strong>
+                  <small>Bis {dateTime(item.ends_at)} · Veröffentlicht</small></li>)}</ul>}
+          </article>}
+          {data.owks_events && <article className="panel control-room-panel">
+            <h3>Kontrollen und Alarmmeldungen <span>{counts.open_owks_events ?? data.owks_events.length}</span></h3>
+            {data.owks_events.filter((item) => matchesStatus(item.status, false) &&
+              matchesStatus(item.severity, false, item.severity === "critical", item.severity)).length === 0
+              ? <p className="empty">Keine passenden offenen Kontrollereignisse im Zeitraum.</p>
+              : <ul>{data.owks_events.filter((item) => matchesStatus(item.status, false) &&
+                matchesStatus(item.severity, false, item.severity === "critical", item.severity)).map((item) =>
+                <li key={item.id}><strong>{item.title}</strong>
+                  <small>{item.object_name} · {statusName(item.event_type)} · {statusName(item.severity)} · {statusName(item.status)} · {dateTime(item.occurred_at)}</small></li>)}</ul>}
+          </article>}
+          {data.incidents && <article className="panel control-room-panel">
+            <h3>Offene Vorfälle <span>{counts.open_incidents ?? data.incidents.length}</span></h3>
+            {data.incidents.filter((item) =>
+              matchesStatus(item.status,
+              Boolean(item.due_at && Date.parse(item.due_at) < Date.now()),
+              false,
+              item.severity),
+            ).length === 0 ? <p className="empty">Keine passenden offenen Vorfälle.</p> :
+              <ul>{data.incidents.filter((item) =>
+                matchesStatus(item.status,
+                Boolean(item.due_at && Date.parse(item.due_at) < Date.now()),
+                false,
+                item.severity),
+              ).map((item) =>
+                <li key={item.id}><strong>{item.title}</strong>
+                  <small>{item.object_name} · {statusName(item.status)} · {statusName(item.severity)} · Verantwortlich: {item.assigned_to_name}
+                    {item.due_at ? ` · Fällig ${dateTime(item.due_at)}` : ""}</small></li>)}</ul>}
+          </article>}
+          {data.tasks && <article className="panel control-room-panel">
+            <h3>Offene Aufgaben <span>{counts.open_tasks ?? data.tasks.length}</span></h3>
+            {data.tasks.filter((item) =>
+              matchesStatus(item.status,
+              Boolean(item.due_at && Date.parse(item.due_at) < Date.now()),
+              item.priority === "urgent" || Boolean(item.due_at && Date.parse(item.due_at) < Date.now()),
+              item.priority),
+            ).length === 0 ? <p className="empty">Keine passenden offenen Aufgaben.</p> :
+              <ul>{data.tasks.filter((item) =>
+                matchesStatus(item.status,
+                Boolean(item.due_at && Date.parse(item.due_at) < Date.now()),
+                item.priority === "urgent" || Boolean(item.due_at && Date.parse(item.due_at) < Date.now()),
+                item.priority),
+              ).map((item) =>
+                <li key={item.id}><strong>{item.title}</strong>
+                  <small>{item.object_name ?? "Ohne Objekt"} · {statusName(item.status)} · {statusName(item.priority)} · Verantwortlich: {item.assigned_to_name}
+                    {item.due_at ? ` · Fällig ${dateTime(item.due_at)}` : ""}</small></li>)}</ul>}
+          </article>}
+          {data.absences && <article className="panel control-room-panel">
+            <h3>Personalausfälle <span>{counts.active_absences ?? data.absences.length}</span></h3>
+            {data.absences.filter((item) => matchesStatus(item.status, false)).length === 0 ? <p className="empty">Keine passenden offenen oder bestätigten Abwesenheiten im Zeitraum.</p> :
+              <ul>{data.absences.filter((item) => matchesStatus(item.status, false)).map((item, index) =>
+                <li key={`${item.employee_id}-${item.starts_on}-${index}`}><strong>{item.employee_name}</strong>
+                  <small>{statusName(item.absence_type)} · {statusName(item.status)} · {date(item.starts_on)}–{date(item.ends_on)}</small></li>)}</ul>}
+          </article>}
+          {data.qualifications && <article className="panel control-room-panel">
+            <h3>Qualifikationen <span>{counts.qualification_problems ?? data.qualifications.length}</span></h3>
+            {data.qualifications.filter((item) =>
+              matchesStatus("open", item.expires_on < dateInUtc(new Date())),
+            ).length === 0 ? <p className="empty">Keine passenden abgelaufenen oder auslaufenden Qualifikationen.</p> :
+              <ul>{data.qualifications.filter((item) =>
+                matchesStatus("open", item.expires_on < dateInUtc(new Date())),
+              ).map((item, index) =>
+                <li key={`${item.employee_id}-${item.name}-${index}`}><strong>{item.name} · {item.employee_name}</strong>
+                  <small>{item.category} · {item.expires_on < dateInUtc(new Date()) ? "Abgelaufen am" : "Läuft aus am"} {date(item.expires_on)}</small></li>)}</ul>}
+          </article>}
+          {data.billing_approvals && <article className="panel control-room-panel">
+            <h3>Offene Abrechnungsfreigaben <span>{counts.billing_approvals ?? data.billing_approvals.length}</span></h3>
+            {data.billing_approvals.length === 0 ? <p className="empty">Keine offenen Rechnungsfreigaben für zugängliche Objekte.</p> :
+              <ul>{data.billing_approvals.map((item) =>
+                <li key={item.id}><strong>{item.invoice_number} · {item.object_name}</strong>
+                  <small>Rechnungsdatum {date(item.issued_on)} · Erstellt {dateTime(item.created_at)}</small></li>)}</ul>}
+          </article>}
+        </div>
+      </>}
+    </section>
+  );
+}

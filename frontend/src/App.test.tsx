@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import * as api from "./api";
-import type { Customer } from "./types";
+import type { ControlRoom, Customer } from "./types";
 
 vi.mock("./api", () => ({
   archiveCustomer: vi.fn(),
@@ -18,6 +18,7 @@ vi.mock("./api", () => ({
   getCustomerObjects: vi.fn(),
   getCustomers: vi.fn(),
   getDashboard: vi.fn(),
+  getControlRoom: vi.fn(),
   getEmployees: vi.fn(),
   getEmployeeAvailability: vi.fn(),
   getObjects: vi.fn(),
@@ -95,6 +96,7 @@ describe("Kundenformulare", () => {
         permissions: ["customers.read", "customers.create"],
       },
     });
+
     vi.mocked(api.getCustomers).mockResolvedValue({
       items: [],
       total: 0,
@@ -104,6 +106,33 @@ describe("Kundenformulare", () => {
     vi.mocked(api.createCustomer).mockResolvedValue(customer);
     vi.mocked(api.getCustomer).mockResolvedValue(customer);
     vi.mocked(api.getCustomerHistory).mockResolvedValue([]);
+  });
+
+  it("öffnet die Leitstelle automatisch für berechtigte Rollen", async () => {
+    vi.mocked(api.getSession).mockResolvedValue({
+      user: {
+        id: "control-room-user",
+        username: "leitstelle",
+        email: "leitstelle@example.de",
+        full_name: "Leitstellenzugriff",
+        is_active: true,
+        roles: ["operations"],
+        permissions: ["control_room.read", "objects.read"],
+      },
+    });
+    const controlRoom: ControlRoom = {
+      generated_at: "2026-11-09T06:00:00Z",
+      range_start: "2026-11-02",
+      range_end: "2026-12-09",
+      counts: { active_objects: 0 },
+      objects: [],
+    };
+    vi.mocked(api.getControlRoom).mockResolvedValue(controlRoom);
+    render(<App />);
+
+    expect(await screen.findByRole("button", { name: "Leitstelle" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Leitstelle" })).toBeTruthy();
+    expect(await screen.findByText("Keine aktiven, zugänglichen Objekte.")).toBeTruthy();
   });
 
   it("bietet berechtigten Nutzern das zentrale Aufgabenmodul in der Navigation an", async () => {

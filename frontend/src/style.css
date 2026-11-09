@@ -477,3 +477,28 @@ footer span { padding: 0 5px; }
   .incident-meta dd { margin-bottom: 8px; }
   .incident-status-form { grid-template-columns: 1fr; }
 }
+.control-room { padding-bottom: 12px; }
+.control-room > .panel-heading { margin-top: 20px; }
+.control-room-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin: 14px 0; }
+.control-room-filters label { display: grid; flex: 1 1 170px; gap: 6px; color: #43515c; font-size: .82rem; font-weight: 600; }
+.control-room-filters input, .control-room-filters select {
+  min-width: 0; min-height: 40px; border: 1px solid #dfe6ea; border-radius: 7px; background: white; padding: 8px 10px; color: #172635;
+}
+.control-room-updated { margin: 10px 0 16px; color: #74818d; font-size: .8rem; }
+.control-room-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); gap: 12px; }
+.control-room-stats .stat-card { min-width: 0; min-height: 74px; padding: 14px 16px; }
+.control-room-stats .stat-card span { font-size: .82rem; }
+.control-room-stats .stat-card strong { padding-left: 8px; font-size: 1.4rem; }
+.control-room-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 18px; align-items: start; }
+.control-room-panel { padding: 18px; }
+.control-room-panel h3 { display: flex; justify-content: space-between; gap: 12px; margin: 0 0 12px; font-size: 1rem; }
+.control-room-panel h3 span { color: #74818d; font-size: .82rem; font-weight: 600; }
+.control-room-panel ul { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
+.control-room-panel li { display: grid; gap: 4px; padding: 10px 11px; border-radius: 7px; background: #f7f9fa; }
+.control-room-panel li strong { overflow-wrap: anywhere; font-size: .86rem; }
+.control-room-panel li small { color: #74818d; font-size: .77rem; line-height: 1.45; }
+.control-room-panel .empty { margin: 0; padding: 16px 8px; font-size: .83rem; }
+@media (max-width: 760px) {
+  .control-room-grid { grid-template-columns: 1fr; }
+  .control-room-filters label { flex-basis: 145px; }
+}
