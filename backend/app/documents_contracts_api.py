@@ -63,6 +63,7 @@ from app.models import (
     ObjectAssignment,
     SecurityObject,
 )
+from app.upload_scanning import scan_upload_or_reject
 
 router = APIRouter()
 
@@ -542,6 +543,9 @@ def create_document(
         db, payload.customer_id, payload.object_id, payload.employee_id
     )
     _ensure_document_link_scope(db, principal, customer_id, payload.object_id, payload.employee_id)
+    scan_upload_or_reject(
+        db, request, content=content, actor_id=principal.user.id, surface="document"
+    )
     document = Document(
         document_number=payload.document_number,
         title=payload.title,
@@ -623,6 +627,9 @@ def upload_document_version(
         raise HTTPException(status_code=404, detail="Aktives Dokument nicht gefunden")
     _ensure_document_scope(db, document, principal)
     safe_name, media_type, content = _upload_content(file)
+    scan_upload_or_reject(
+        db, request, content=content, actor_id=principal.user.id, surface="document_version"
+    )
     latest = (
         db.scalar(
             select(func.max(DocumentVersion.version)).where(

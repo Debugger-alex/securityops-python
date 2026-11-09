@@ -49,6 +49,7 @@ from app.schemas import (
     OWKSSyncEventCreate,
     OWKSSyncResult,
 )
+from app.upload_scanning import scan_upload_or_reject
 
 router = APIRouter(prefix="/owks", tags=["OWKS-Wachbuch"])
 MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024
@@ -1031,6 +1032,9 @@ def upload_attachment(
     file_name = PurePosixPath((document.filename or "").replace("\\", "/")).name
     if not file_name or len(file_name) > 200 or any(ord(char) < 32 for char in file_name):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Ungültiger Dateiname")
+    scan_upload_or_reject(
+        db, request, content=content, actor_id=principal.user.id, surface="owks_attachment"
+    )
     attachment = OWKSAttachment(
         event_id=event.id,
         file_name=file_name,
