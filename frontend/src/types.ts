@@ -395,6 +395,26 @@ export interface TaskPage {
   offset: number;
 }
 
+export type NotificationEventType = "task.assigned" | "task.status_changed";
+
+export interface NotificationItem {
+  id: string;
+  task_id: string;
+  event_type: NotificationEventType;
+  title: string;
+  body: string;
+  created_at: string;
+  read_at: string | null;
+}
+
+export interface NotificationPage {
+  items: NotificationItem[];
+  total: number;
+  unread_count: number;
+  limit: number;
+  offset: number;
+}
+
 export interface TaskAssignee {
   id: string;
   full_name: string;

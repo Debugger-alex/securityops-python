@@ -43,6 +43,8 @@ from app.models import (
     EmployeeQualification,
     EmployeeQualificationDocument,
     EmployeeSensitiveDetails,
+    Notification,
+    NotificationOutbox,
     ObjectAddress,
     ObjectAssignment,
     ObjectContact,
@@ -124,6 +126,8 @@ def client() -> Generator[TestClient, None, None]:
         db.execute(delete(AuditLog))
         db.execute(delete(TaskComment))
         db.execute(delete(TaskHistory))
+        db.execute(delete(Notification))
+        db.execute(delete(NotificationOutbox))
         db.execute(delete(Task))
         if test_engine.dialect.name == "postgresql":
             for table in ("owks_events", "owks_event_statuses", "owks_attachments"):
@@ -259,6 +263,7 @@ def client() -> Generator[TestClient, None, None]:
             "tasks.manage",
             "tasks.assign",
             "tasks.manage_all",
+            "notifications.read_own",
         )
         permissions = {}
         for code in permission_codes:
@@ -320,6 +325,11 @@ def client() -> Generator[TestClient, None, None]:
                 "time_tracking.surcharges.manage",
                 "time_tracking.periods.read",
                 "time_tracking.periods.lock",
+                "tasks.read_all",
+                "tasks.create",
+                "tasks.manage",
+                "tasks.assign",
+                "notifications.read_own",
                 "documents.read",
                 "documents.create",
                 "documents.update",
@@ -349,6 +359,7 @@ def client() -> Generator[TestClient, None, None]:
                 "tasks.read_own",
                 "tasks.create",
                 "tasks.update_own",
+                "notifications.read_own",
             ),
         )
         get_or_create_role(
