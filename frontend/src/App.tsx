@@ -28,6 +28,7 @@ import IdentitySecurity from "./IdentitySecurity";
 import TaskManagement from "./TaskManagement";
 import NotificationManagement from "./NotificationManagement";
 import KeyManagement from "./KeyManagement";
+import IncidentManagement from "./IncidentManagement";
 import type {
   AuthUser,
   Customer,
@@ -83,6 +84,7 @@ type ActiveModule =
   | "tasks"
   | "notifications"
   | "keys"
+  | "incidents"
   | "security";
 
 function messageFrom(reason: unknown, fallback: string) {
@@ -175,6 +177,9 @@ export default function App() {
   const canReadKeys = user?.permissions.includes("keys.read") ?? false;
   const canManageKeys = user?.permissions.includes("keys.manage") ?? false;
   const canMoveKeys = user?.permissions.includes("keys.move") ?? false;
+  const canAccessIncidents = user?.permissions.some((permission) =>
+    ["incidents.read", "incidents.read_all", "incidents.manage_all", "incidents.create"].includes(permission),
+  ) ?? false;
 
   useEffect(() => {
     getSession()
@@ -608,6 +613,9 @@ export default function App() {
         {canReadOWKS && <button
           className={activeModule === "owks" ? "module-tab active" : "module-tab"}
           onClick={() => selectModule("owks")}>Wachbuch</button>}
+        {canAccessIncidents && <button
+          className={activeModule === "incidents" ? "module-tab active" : "module-tab"}
+          onClick={() => selectModule("incidents")}>Vorfälle & Beschwerden</button>}
         <button
           className={activeModule === "security" ? "module-tab active" : "module-tab"}
           onClick={() => selectModule("security")}>Sicherheit</button>
@@ -631,6 +639,8 @@ export default function App() {
         ? <BillingManagement user={user} />
         : activeModule === "owks" && canReadOWKS
         ? <OWKSManagement user={user} />
+        : activeModule === "incidents" && canAccessIncidents
+        ? <IncidentManagement user={user} />
         : activeModule === "time_tracking" && canReadTimeTracking
         ? <TimeTracking user={user} />
         : activeModule === "scheduling" && canReadScheduling

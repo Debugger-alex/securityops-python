@@ -2178,3 +2178,183 @@ class OWKSAttachment(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
+
+
+class Incident(Base):
+    __tablename__ = "incidents"
+    __table_args__ = (
+        CheckConstraint(
+            "incident_type IN ('incident', 'accident', 'assault', 'property_damage', 'complaint', 'other')",
+            name="ck_incidents_type",
+        ),
+        CheckConstraint(
+            "severity IN ('low', 'medium', 'high', 'critical')", name="ck_incidents_severity"
+        ),
+        CheckConstraint(
+            "status IN ('reported', 'investigating', 'action_required', 'closed')",
+            name="ck_incidents_status",
+        ),
+        CheckConstraint("length(trim(title)) > 0", name="ck_incidents_title"),
+        CheckConstraint("length(trim(report)) > 0", name="ck_incidents_report"),
+        Index("ix_incidents_object_status_due", "object_id", "status", "due_at"),
+        Index("ix_incidents_assignee_status", "assigned_to_id", "status"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    report: Mapped[str] = mapped_column(Text, nullable=False)
+    incident_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    severity: Mapped[str] = mapped_column(String(20), nullable=False)
+    object_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("objects.id", ondelete="RESTRICT"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(
+        String(30), default="reported", server_default=text("'reported'"), nullable=False
+    )
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    assigned_to_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    owks_event_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("owks_events.id", ondelete="RESTRICT"), nullable=True
+    )
+    created_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    object: Mapped[SecurityObject] = relationship()
+    assignee: Mapped[User] = relationship(foreign_keys=[assigned_to_id])
+    creator: Mapped[User | None] = relationship(foreign_keys=[created_by_id])
+
+
+class IncidentSensitiveDetails(Base):
+    __tablename__ = "incident_sensitive_details"
+
+    incident_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("incidents.id", ondelete="RESTRICT"), primary_key=True
+    )
+    narrative: Mapped[str | None] = mapped_column(Text, nullable=True)
+    closure_report: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updated_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class IncidentMeasure(Base):
+    __tablename__ = "incident_measures"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('open', 'in_progress', 'completed')", name="ck_incident_measures_status"
+        ),
+        CheckConstraint("length(trim(title)) > 0", name="ck_incident_measures_title"),
+        Index("ix_incident_measures_incident_status_due", "incident_id", "status", "due_at"),
+        Index("ix_incident_measures_assignee_status", "assigned_to_id", "status"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    incident_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("incidents.id", ondelete="RESTRICT"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    assigned_to_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(
+        String(20), default="open", server_default=text("'open'"), nullable=False
+    )
+    created_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
+class IncidentPerson(Base):
+    __tablename__ = "incident_people"
+    __table_args__ = (
+        CheckConstraint("role IN ('involved', 'witness')", name="ck_incident_people_role"),
+        CheckConstraint("length(trim(name)) > 0", name="ck_incident_people_name"),
+        Index("ix_incident_people_incident_created", "incident_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    incident_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("incidents.id", ondelete="RESTRICT"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    role: Mapped[str] = mapped_column(String(20), nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class IncidentAttachment(Base):
+    __tablename__ = "incident_attachments"
+    __table_args__ = (
+        CheckConstraint(
+            "media_type IN ('application/pdf', 'image/png', 'image/jpeg')",
+            name="ck_incident_attachments_media_type",
+        ),
+        CheckConstraint(
+            "size_bytes > 0 AND size_bytes <= 10485760", name="ck_incident_attachments_size"
+        ),
+        Index("ix_incident_attachments_incident_created", "incident_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    incident_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("incidents.id", ondelete="RESTRICT"), nullable=False
+    )
+    storage_key: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
+    file_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    media_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    uploaded_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class IncidentHistory(Base):
+    __tablename__ = "incident_history"
+    __table_args__ = (Index("ix_incident_history_incident_created", "incident_id", "created_at"),)
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    incident_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("incidents.id", ondelete="RESTRICT"), nullable=False
+    )
+    actor_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )
+    action: Mapped[str] = mapped_column(String(50), nullable=False)
+    changes: Mapped[dict[str, object]] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
