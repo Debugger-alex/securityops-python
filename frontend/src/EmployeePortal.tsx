@@ -2,6 +2,8 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
   createEmployeePortalAbsence,
   createEmployeePortalAvailabilityRequest,
+  updateEmployeePortalAbsence,
+  updateEmployeePortalAvailabilityRequest,
   getEmployeePortalAbsences,
   getEmployeePortalAvailabilityRequests,
   getEmployeePortalNotifications,
@@ -81,10 +83,35 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
+function formatLocalDateTimeInput(value: string, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone,
+  }).formatToParts(new Date(value));
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}T${values.hour}:${values.minute}`;
+}
+
 function formatHours(seconds: number) {
   return new Intl.NumberFormat("de-DE", {
     maximumFractionDigits: 1,
   }).format(seconds / 3600);
+}
+
+function historyEventName(event: string) {
+  const names: Record<string, string> = {
+    requested: "Eingereicht",
+    updated: "Bearbeitet",
+    approved: "Freigegeben",
+    accepted: "Angenommen",
+    rejected: "Abgelehnt",
+  };
+  return names[event] ?? event;
 }
 
 export default function EmployeePortal() {
@@ -100,6 +127,8 @@ export default function EmployeePortal() {
   >([]);
   const [section, setSection] = useState<PortalSection>("shifts");
   const [selectedShift, setSelectedShift] = useState<PortalShift | null>(null);
+  const [editingAbsence, setEditingAbsence] = useState<string | null>(null);
+  const [editingAvailability, setEditingAvailability] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -211,6 +240,53 @@ export default function EmployeePortal() {
       );
     } catch (reason) {
       setError(messageFrom(reason, "Die Benachrichtigung konnte nicht aktualisiert werden."));
+    }
+  }
+
+  async function submitAbsenceUpdate(event: FormEvent<HTMLFormElement>, absenceId: string) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    setBusy(true);
+    setError("");
+    setSuccess("");
+    try {
+      await updateEmployeePortalAbsence(absenceId, {
+        absence_type: String(data.get("absence_type")) as keyof typeof absenceNames,
+        starts_on: String(data.get("starts_on")),
+        ends_on: String(data.get("ends_on")),
+      });
+      setEditingAbsence(null);
+      setSuccess("Der ausstehende Abwesenheitsantrag wurde aktualisiert.");
+      await loadPortal();
+    } catch (reason) {
+      setError(messageFrom(reason, "Der Abwesenheitsantrag konnte nicht geändert werden."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitAvailabilityUpdate(
+    event: FormEvent<HTMLFormElement>,
+    requestId: string,
+  ) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    setBusy(true);
+    setError("");
+    setSuccess("");
+    try {
+      await updateEmployeePortalAvailabilityRequest(requestId, {
+        kind: String(data.get("kind")) as "preferred" | "blocked",
+        starts_at_local: String(data.get("starts_at_local")),
+        ends_at_local: String(data.get("ends_at_local")),
+      });
+      setEditingAvailability(null);
+      setSuccess("Der offene Verfügbarkeitsantrag wurde aktualisiert.");
+      await loadPortal();
+    } catch (reason) {
+      setError(messageFrom(reason, "Der Verfügbarkeitsantrag konnte nicht geändert werden."));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -418,11 +494,41 @@ export default function EmployeePortal() {
               {absences.length === 0 ? <p className="empty">Keine Abwesenheitsanträge vorhanden.</p> : (
                 <ul className="portal-list">
                   {absences.map((absence) => (
-                    <li key={absence.id}>
-                      <div><strong>{absenceNames[absence.absence_type]}</strong>
+                    <li key={absence.id} className="portal-request-item">
+                      <div>
+                        <strong>{absenceNames[absence.absence_type]}</strong>
                         <small>{formatDate(absence.starts_on)} – {formatDate(absence.ends_on)}</small>
+                        <small>Status: {statusNames[absence.status]} · zuletzt geändert: {formatDateTime(absence.updated_at)}</small>
+                        <small className="portal-request-history">
+                          Verlauf: {absence.history.map((item) =>
+                            `${historyEventName(item.event)} am ${formatDateTime(item.occurred_at)}`,
+                          ).join(" · ")}
+                        </small>
                       </div>
                       <span className="status status-inactive">{statusNames[absence.status]}</span>
+                      {absence.status === "pending" && <div className="portal-request-actions">
+                        <button className="text-button" onClick={() =>
+                          setEditingAbsence(editingAbsence === absence.id ? null : absence.id)
+                        }>Bearbeiten</button>
+                      </div>}
+                      {editingAbsence === absence.id && <form
+                        className="portal-edit-form"
+                        onSubmit={(event) => void submitAbsenceUpdate(event, absence.id)}
+                      >
+                        <label>Art
+                          <select name="absence_type" defaultValue={absence.absence_type}>
+                            {Object.entries(absenceNames).map(([value, name]) =>
+                              <option key={value} value={value}>{name}</option>,
+                            )}
+                          </select>
+                        </label>
+                        <label>Beginn<input name="starts_on" type="date" defaultValue={absence.starts_on} required /></label>
+                        <label>Ende<input name="ends_on" type="date" defaultValue={absence.ends_on} required /></label>
+                        <div className="portal-request-actions">
+                          <button className="primary-button" disabled={busy}>Änderungen speichern</button>
+                          <button type="button" className="secondary-button" onClick={() => setEditingAbsence(null)}>Abbrechen</button>
+                        </div>
+                      </form>}
                     </li>
                   ))}
                 </ul>
@@ -435,11 +541,51 @@ export default function EmployeePortal() {
               {availabilityRequests.length === 0 ? <p className="empty">Keine Verfügbarkeitswünsche vorhanden.</p> : (
                 <ul className="portal-list">
                   {availabilityRequests.map((item) => (
-                    <li key={item.id}>
-                      <div><strong>{item.kind === "blocked" ? "Nicht verfügbar" : "Bevorzugter Zeitraum"}</strong>
+                    <li key={item.id} className="portal-request-item">
+                      <div>
+                        <strong>{item.kind === "blocked" ? "Nicht verfügbar" : "Bevorzugter Zeitraum"}</strong>
                         <small>{formatDateTime(item.starts_at)} – {formatDateTime(item.ends_at)}</small>
+                        <small>Status: {statusNames[item.status]} · zuletzt geändert: {formatDateTime(item.updated_at)}</small>
+                        {item.reviewed_at && <small>Entschieden am: {formatDateTime(item.reviewed_at)}</small>}
+                        <small className="portal-request-history">
+                          Verlauf: {item.history.map((event) =>
+                            `${historyEventName(event.event)} am ${formatDateTime(event.occurred_at)}`,
+                          ).join(" · ")}
+                        </small>
                       </div>
                       <span className="status status-inactive">{statusNames[item.status]}</span>
+                      {item.status === "open" && <div className="portal-request-actions">
+                        <button className="text-button" onClick={() =>
+                          setEditingAvailability(editingAvailability === item.id ? null : item.id)
+                        }>Bearbeiten</button>
+                      </div>}
+                      {editingAvailability === item.id && <form
+                        className="portal-edit-form"
+                        onSubmit={(event) => void submitAvailabilityUpdate(event, item.id)}
+                      >
+                        <label>Art
+                          <select name="kind" defaultValue={item.kind}>
+                            <option value="blocked">Nicht verfügbar</option>
+                            <option value="preferred">Bevorzugter Zeitraum</option>
+                          </select>
+                        </label>
+                        <label>Beginn<input
+                          name="starts_at_local"
+                          type="datetime-local"
+                          defaultValue={formatLocalDateTimeInput(item.starts_at, item.time_zone)}
+                          required
+                        /></label>
+                        <label>Ende<input
+                          name="ends_at_local"
+                          type="datetime-local"
+                          defaultValue={formatLocalDateTimeInput(item.ends_at, item.time_zone)}
+                          required
+                        /></label>
+                        <div className="portal-request-actions">
+                          <button className="primary-button" disabled={busy}>Änderungen speichern</button>
+                          <button type="button" className="secondary-button" onClick={() => setEditingAvailability(null)}>Abbrechen</button>
+                        </div>
+                      </form>}
                     </li>
                   ))}
                 </ul>

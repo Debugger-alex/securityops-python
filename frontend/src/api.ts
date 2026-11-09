@@ -779,6 +779,19 @@ export const createEmployeePortalAbsence = (data: {
     body: JSON.stringify(data),
   });
 
+export const updateEmployeePortalAbsence = (
+  absenceId: string,
+  data: {
+    absence_type?: EmployeeAbsenceType;
+    starts_on?: string;
+    ends_on?: string;
+  },
+) =>
+  request<EmployeePortalAbsence>(`/employee-portal/me/absences/${absenceId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+
 export const getEmployeePortalAvailabilityRequests = () =>
   request<EmployeePortalAvailabilityRequest[]>("/employee-portal/me/availability-requests");
 
@@ -793,6 +806,24 @@ export const createEmployeePortalAvailabilityRequest = (data: {
     method: "POST",
     body: JSON.stringify(data),
   });
+
+export const updateEmployeePortalAvailabilityRequest = (
+  requestId: string,
+  data: {
+    kind?: ScheduleAvailabilityRequestKind;
+    starts_at_local?: string;
+    ends_at_local?: string;
+    starts_at_fold?: 0 | 1;
+    ends_at_fold?: 0 | 1;
+  },
+) =>
+  request<EmployeePortalAvailabilityRequest>(
+    `/employee-portal/me/availability-requests/${requestId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    },
+  );
 
 export const getEmployeeSensitiveDetails = (id: string) =>
   request<EmployeeSensitiveDetails>(`/employees/${id}/sensitive`);

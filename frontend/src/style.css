@@ -525,6 +525,7 @@ footer span { padding: 0 5px; }
 .portal-request-grid form > .muted { margin: 0; line-height: 1.45; }
 .portal-request-grid form button { justify-self: start; }
 .portal-request-grid .form-row { align-items: end; }
+.portal-request-history { line-height: 1.45; }
 @media (max-width: 850px) {
   .portal-request-grid { grid-template-columns: 1fr; }
 }

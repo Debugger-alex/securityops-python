@@ -32,6 +32,8 @@ vi.mock("./api", () => ({
   getEmployeePortalShifts: vi.fn(),
   getEmployeePortalTasks: vi.fn(),
   getEmployeePortalTimeOverview: vi.fn(),
+  updateEmployeePortalAbsence: vi.fn(),
+  updateEmployeePortalAvailabilityRequest: vi.fn(),
   getObjects: vi.fn(),
   getNotifications: vi.fn(),
   getSession: vi.fn(),
@@ -150,6 +152,8 @@ describe("Kundenformulare", () => {
       ends_on: "2026-12-02",
       status: "pending",
       created_at: "2026-11-09T08:00:00Z",
+      updated_at: "2026-11-09T08:00:00Z",
+      history: [{ event: "requested", occurred_at: "2026-11-09T08:00:00Z" }],
     });
     vi.mocked(api.createEmployeePortalAvailabilityRequest).mockResolvedValue({
       id: "request-1",
@@ -159,6 +163,9 @@ describe("Kundenformulare", () => {
       time_zone: "Europe/Berlin",
       status: "open",
       created_at: "2026-11-09T08:00:00Z",
+      updated_at: "2026-11-09T08:00:00Z",
+      reviewed_at: null,
+      history: [{ event: "requested", occurred_at: "2026-11-09T08:00:00Z" }],
     });
   });
 
@@ -545,6 +552,83 @@ describe("Kundenformulare", () => {
     expect(api.createEmployeePortalAvailabilityRequest).not.toHaveBeenCalledWith(
       expect.objectContaining({ employee_id: expect.any(String) }),
     );
+  });
+
+  it("zeigt Antragsverläufe und ermöglicht nur offene eigene Anträge zu bearbeiten", async () => {
+    vi.mocked(api.getSession).mockResolvedValue({
+      user: {
+        id: "employee-user",
+        username: "mitarbeiter",
+        email: "mitarbeiter@example.de",
+        full_name: "Mitarbeiter",
+        is_active: true,
+        roles: ["employee"],
+        permissions: [],
+      },
+    });
+    vi.mocked(api.getEmployeePortalAbsences).mockResolvedValue([{
+      id: "absence-1",
+      absence_type: "vacation",
+      starts_on: "2026-12-01",
+      ends_on: "2026-12-03",
+      status: "pending",
+      created_at: "2026-11-09T08:00:00Z",
+      updated_at: "2026-11-09T08:00:00Z",
+      history: [{ event: "requested", occurred_at: "2026-11-09T08:00:00Z" }],
+    }]);
+    vi.mocked(api.getEmployeePortalAvailabilityRequests).mockResolvedValue([{
+      id: "request-1",
+      kind: "blocked",
+      starts_at: "2026-12-05T08:00:00Z",
+      ends_at: "2026-12-05T12:00:00Z",
+      time_zone: "Europe/Berlin",
+      status: "accepted",
+      created_at: "2026-11-09T08:00:00Z",
+      updated_at: "2026-11-09T09:00:00Z",
+      reviewed_at: "2026-11-09T09:00:00Z",
+      history: [
+        { event: "requested", occurred_at: "2026-11-09T08:00:00Z" },
+        { event: "accepted", occurred_at: "2026-11-09T09:00:00Z" },
+      ],
+    }]);
+    vi.mocked(api.updateEmployeePortalAbsence).mockResolvedValue({
+      id: "absence-1",
+      absence_type: "vacation",
+      starts_on: "2026-12-02",
+      ends_on: "2026-12-04",
+      status: "pending",
+      created_at: "2026-11-09T08:00:00Z",
+      updated_at: "2026-11-09T10:00:00Z",
+      history: [
+        { event: "requested", occurred_at: "2026-11-09T08:00:00Z" },
+        { event: "updated", occurred_at: "2026-11-09T10:00:00Z" },
+      ],
+    });
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Willkommen, Mitarbeiter" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Abwesenheit & Verfügbarkeit" }));
+    expect(screen.getAllByText(/Verlauf: Eingereicht am/)).toHaveLength(2);
+    expect(screen.getByText(/Angenommen am/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Zurückziehen" })).toBeNull();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Bearbeiten" })[0]);
+    const form = screen.getByDisplayValue("2026-12-01").closest("form")!;
+    fireEvent.change(form.querySelector('input[name="starts_on"]')!, {
+      target: { value: "2026-12-02" },
+    });
+    fireEvent.change(form.querySelector('input[name="ends_on"]')!, {
+      target: { value: "2026-12-04" },
+    });
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(api.updateEmployeePortalAbsence).toHaveBeenCalledWith("absence-1", {
+        absence_type: "vacation",
+        starts_on: "2026-12-02",
+        ends_on: "2026-12-04",
+      });
+    });
   });
 
   it("lädt Dienstdetails und markiert eigene Portalbenachrichtigungen", async () => {

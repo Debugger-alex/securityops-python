@@ -485,6 +485,11 @@ export interface EmployeePortalTimeOverview {
 
 export type EmployeePortalAbsenceType = EmployeeAbsenceType;
 
+export interface EmployeePortalRequestHistory {
+  event: "requested" | "updated" | "approved" | "accepted" | "rejected";
+  occurred_at: string;
+}
+
 export interface EmployeePortalAbsence {
   id: string;
   absence_type: EmployeeAbsenceType;
@@ -492,6 +497,8 @@ export interface EmployeePortalAbsence {
   ends_on: string;
   status: EmployeeAbsenceStatus;
   created_at: string;
+  updated_at: string;
+  history: EmployeePortalRequestHistory[];
 }
 
 export interface EmployeePortalAvailabilityRequest {
@@ -502,6 +509,9 @@ export interface EmployeePortalAvailabilityRequest {
   time_zone: string;
   status: ScheduleAvailabilityRequestStatus;
   created_at: string;
+  updated_at: string;
+  reviewed_at: string | null;
+  history: EmployeePortalRequestHistory[];
 }
 
 export interface EmployeePage {

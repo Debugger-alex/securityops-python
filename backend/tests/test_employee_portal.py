@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from app.identity_api import password_hasher
 from app.models import (
+    AuditLog,
     Customer,
     Employee,
     EmployeeAbsence,
@@ -437,6 +438,157 @@ def test_employee_portal_requests_are_owned_pending_and_not_self_approvable(
         assert request_record is not None
         assert request_record.status == "open"
         assert request_record.created_by_id == saved_absence.created_by_id
+
+
+def test_employee_portal_can_edit_only_own_undecided_requests(client: TestClient) -> None:
+    _, _ = create_linked_employee("portal-bearbeiten")
+    _, other_employee_id = create_linked_employee("portal-bearbeiten-fremd")
+    csrf = sign_in(client, "portal-bearbeiten")
+    headers = {"X-CSRF-Token": csrf}
+    absence = client.post(
+        "/api/v1/employee-portal/me/absences",
+        headers=headers,
+        json={
+            "absence_type": "vacation",
+            "starts_on": "2026-12-01",
+            "ends_on": "2026-12-03",
+        },
+    )
+    availability = client.post(
+        "/api/v1/employee-portal/me/availability-requests",
+        headers=headers,
+        json={
+            "kind": "blocked",
+            "starts_at_local": "2026-12-05T08:00:00",
+            "ends_at_local": "2026-12-05T12:00:00",
+        },
+    )
+    assert absence.status_code == 201
+    assert availability.status_code == 201
+    absence_id = UUID(absence.json()["id"])
+    availability_id = UUID(availability.json()["id"])
+
+    updated_absence = client.patch(
+        f"/api/v1/employee-portal/me/absences/{absence_id}",
+        headers=headers,
+        json={"starts_on": "2026-12-02", "ends_on": "2026-12-04"},
+    )
+    updated_availability = client.patch(
+        f"/api/v1/employee-portal/me/availability-requests/{availability_id}",
+        headers=headers,
+        json={"kind": "preferred"},
+    )
+    assert updated_absence.status_code == 200, updated_absence.text
+    assert updated_absence.json()["starts_on"] == "2026-12-02"
+    assert updated_absence.json()["history"][-1]["event"] == "updated"
+    assert updated_availability.status_code == 200, updated_availability.text
+    assert updated_availability.json()["kind"] == "preferred"
+    assert updated_availability.json()["history"][-1]["event"] == "updated"
+
+    with TestingSessionLocal() as db:
+        foreign_absence = EmployeeAbsence(
+            employee_id=other_employee_id,
+            absence_type="vacation",
+            starts_on=date(2026, 12, 1),
+            ends_on=date(2026, 12, 2),
+            status="pending",
+        )
+        foreign_request = ScheduleAvailabilityRequest(
+            employee_id=other_employee_id,
+            kind="blocked",
+            starts_at=datetime(2026, 12, 5, 7, tzinfo=UTC),
+            ends_at=datetime(2026, 12, 5, 11, tzinfo=UTC),
+            status="open",
+        )
+        db.add_all([foreign_absence, foreign_request])
+        db.commit()
+        foreign_absence_id = foreign_absence.id
+        foreign_request_id = foreign_request.id
+
+    for path, body in (
+        (
+            f"/api/v1/employee-portal/me/absences/{foreign_absence_id}",
+            {"starts_on": "2026-12-02"},
+        ),
+        (
+            f"/api/v1/employee-portal/me/availability-requests/{foreign_request_id}",
+            {"kind": "preferred"},
+        ),
+    ):
+        assert client.patch(path, headers=headers, json=body).status_code == 404
+
+    assert (
+        client.patch(
+            f"/api/v1/employee-portal/me/absences/{absence_id}",
+            headers=headers,
+            json={"status": "approved"},
+        ).status_code
+        == 422
+    )
+    assert (
+        client.patch(
+            f"/api/v1/employee-portal/me/absences/{absence_id}",
+            headers=headers,
+            json={"starts_on": "2026-12-05", "ends_on": "2026-12-04"},
+        ).status_code
+        == 422
+    )
+
+    with TestingSessionLocal() as db:
+        saved_absence = db.get(EmployeeAbsence, absence_id)
+        saved_request = db.get(ScheduleAvailabilityRequest, availability_id)
+        assert saved_absence is not None
+        assert saved_request is not None
+        saved_absence.status = "approved"
+        saved_request.status = "accepted"
+        saved_request.reviewed_at = datetime.now(UTC)
+        db.commit()
+        absence_decision_log = AuditLog(
+            action="employee_portal.absence_updated",
+            entity_type="employee_absence",
+            entity_id=str(absence_id),
+            details={"fields": ["status"]},
+        )
+        availability_decision_log = AuditLog(
+            action="scheduling.availability_request_reviewed",
+            entity_type="schedule_availability_request",
+            entity_id=str(availability_id),
+            details={"status": "accepted"},
+        )
+        db.add_all([absence_decision_log, availability_decision_log])
+        db.commit()
+    assert (
+        client.patch(
+            f"/api/v1/employee-portal/me/absences/{absence_id}",
+            headers=headers,
+            json={"starts_on": "2026-12-03"},
+        ).status_code
+        == 409
+    )
+    assert (
+        client.patch(
+            f"/api/v1/employee-portal/me/availability-requests/{availability_id}",
+            headers=headers,
+            json={"kind": "blocked"},
+        ).status_code
+        == 409
+    )
+    assert (
+        client.get("/api/v1/employee-portal/me/availability-requests").json()[0]["history"][-1][
+            "event"
+        ]
+        == "accepted"
+    )
+    with TestingSessionLocal() as db:
+        assert db.get(EmployeeAbsence, absence_id) is not None
+        assert db.get(ScheduleAvailabilityRequest, availability_id) is not None
+        actions = db.scalars(
+            select(AuditLog.action).where(
+                AuditLog.entity_id.in_([str(absence_id), str(availability_id)])
+            )
+        ).all()
+        assert "employee_portal.absence_updated" in actions
+        assert "employee_portal.availability_updated" in actions
 
 
 def test_employee_portal_authentication_role_and_active_link_are_required(
