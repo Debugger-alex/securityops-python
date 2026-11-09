@@ -50,6 +50,8 @@ import type {
   TimeEntryCorrection,
   TimeEntrySummary,
   MissingShift,
+  NotificationItem,
+  NotificationPage,
   FederalState,
   TimeSurchargeCalculation,
   TimeSurchargeCategory,
@@ -125,6 +127,21 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const getSession = () => request<Session>("/auth/me");
+
+export const getNotifications = (filters: {
+  limit?: number;
+  offset?: number;
+  unread_only?: boolean;
+}) => {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined) params.set(key, String(value));
+  }
+  return request<NotificationPage>(`/notifications?${params.toString()}`);
+};
+
+export const markNotificationRead = (notificationId: string) =>
+  request<NotificationItem>(`/notifications/${notificationId}/read`, { method: "PATCH" });
 
 export interface TaskFilters {
   q?: string;

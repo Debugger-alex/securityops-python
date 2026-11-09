@@ -287,6 +287,70 @@ class TaskHistory(Base):
     actor: Mapped["User | None"] = relationship()
 
 
+class NotificationOutbox(Base):
+    __tablename__ = "notification_outbox"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'processing', 'completed', 'failed')",
+            name="ck_notification_outbox_status",
+        ),
+        CheckConstraint("attempt_count >= 0", name="ck_notification_outbox_attempt_count"),
+        UniqueConstraint("dedupe_key", name="uq_notification_outbox_dedupe_key"),
+        Index("ix_notification_outbox_status_available", "status", "available_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    dedupe_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    aggregate_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    aggregate_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    payload: Mapped[dict[str, object]] = mapped_column(JSON, default=dict, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20), default="pending", server_default=text("'pending'"), nullable=False
+    )
+    attempt_count: Mapped[int] = mapped_column(default=0, server_default=text("0"), nullable=False)
+    available_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    __table_args__ = (
+        UniqueConstraint("outbox_id", "recipient_id", name="uq_notifications_event_recipient"),
+        Index("ix_notifications_recipient_created", "recipient_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    outbox_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("notification_outbox.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    recipient_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    task_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("tasks.id", ondelete="RESTRICT"), nullable=False
+    )
+    event_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    body: Mapped[str] = mapped_column(String(500), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    recipient: Mapped[User] = relationship()
+    task: Mapped[Task] = relationship()
+    outbox_event: Mapped[NotificationOutbox] = relationship()
+
+
 class Customer(Base):
     __tablename__ = "customers"
     __table_args__ = (
