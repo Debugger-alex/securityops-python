@@ -75,6 +75,13 @@ import type {
   OWKSAttachment,
   BillingRate,
   BillingInvoice,
+  TaskAssignee,
+  TaskDetail,
+  TaskItem,
+  TaskLocations,
+  TaskPage,
+  TaskPriority,
+  TaskStatus,
 } from "./types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -118,6 +125,54 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const getSession = () => request<Session>("/auth/me");
+
+export interface TaskFilters {
+  q?: string;
+  status?: TaskStatus | "";
+  priority?: TaskPriority | "";
+  overdue?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+export const getTasks = (filters: TaskFilters) => {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined && value !== "") params.set(key, String(value));
+  }
+  return request<TaskPage>(`/tasks?${params.toString()}`);
+};
+
+export const getTask = (taskId: string) => request<TaskDetail>(`/tasks/${taskId}`);
+
+export const getTaskLocations = () => request<TaskLocations>("/tasks/locations");
+
+export const getTaskAssignees = (objectId?: string) => {
+  const query = objectId ? `?object_id=${encodeURIComponent(objectId)}` : "";
+  return request<TaskAssignee[]>(`/tasks/assignees${query}`);
+};
+
+export const createTask = (data: {
+  title: string;
+  description?: string;
+  assigned_to_id?: string;
+  customer_id?: string;
+  object_id?: string;
+  due_at?: string;
+  priority: TaskPriority;
+}) => request<TaskItem>("/tasks", { method: "POST", body: JSON.stringify(data) });
+
+export const updateTask = (
+  taskId: string,
+  data: Partial<Pick<TaskItem, "title" | "description" | "assigned_to_id" | "customer_id"
+    | "object_id" | "due_at" | "priority" | "status" | "completion_evidence">>,
+) => request<TaskItem>(`/tasks/${taskId}`, { method: "PATCH", body: JSON.stringify(data) });
+
+export const createTaskComment = (taskId: string, body: string) =>
+  request<TaskDetail["comments"][number]>(`/tasks/${taskId}/comments`, {
+    method: "POST",
+    body: JSON.stringify({ body }),
+  });
 
 export const getBillingRates = () => request<BillingRate[]>("/billing/rates");
 
