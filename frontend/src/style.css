@@ -422,3 +422,58 @@ footer span { padding: 0 5px; }
   .document-filter-row > label:not(.checkbox-label) { flex: 1 1 100%; }
   .approval-list li { align-items: start; flex-direction: column; }
 }
+
+.incident-module { display: grid; gap: 16px; padding-bottom: 12px; }
+.incident-module > .panel-heading { margin: 0; }
+.incident-layout { display: grid; grid-template-columns: minmax(250px, .7fr) minmax(0, 1.6fr); gap: 16px; align-items: start; }
+.incident-list { display: grid; gap: 12px; }
+.incident-list > label, .incident-form label, .incident-status-form label {
+  display: grid; gap: 6px; color: #43515c; font-size: .82rem; font-weight: 600;
+}
+.incident-list > .incident-overdue-filter { display: flex; align-items: center; gap: 8px; }
+.incident-overdue-filter input { width: 16px; height: 16px; margin: 0; accent-color: #177d79; }
+.incident-list select, .incident-form input, .incident-form select, .incident-form textarea,
+.incident-status-form select {
+  min-width: 0; min-height: 40px; border: 1px solid #dfe6ea; border-radius: 7px;
+  background: white; padding: 8px 10px; color: #172635;
+}
+.incident-form { display: grid; gap: 12px; margin-top: 14px; }
+.incident-form textarea { resize: vertical; }
+.incident-form button, .incident-status-form button { justify-self: start; }
+.incident-workspace { display: grid; gap: 16px; min-width: 0; }
+.incident-workspace h3 { margin: 0; font-size: 1.05rem; }
+.incident-workspace h4 { margin: 0 0 10px; font-size: .95rem; }
+.incident-workspace h5 { margin: 3px 0; font-size: .88rem; }
+.incident-items { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.incident-item { display: grid; width: 100%; gap: 5px; padding: 12px; border: 1px solid #e8edef; border-radius: 8px; background: white; text-align: left; cursor: pointer; }
+.incident-item.selected { border-color: #177d79; background: #f4fbf9; }
+.incident-item span { color: #74818d; font-size: .78rem; }
+.incident-pagination { display: flex; justify-content: space-between; gap: 8px; }
+.incident-pagination button { padding: 7px 10px; border: 1px solid #dfe6ea; border-radius: 7px; background: white; color: #42515d; cursor: pointer; }
+.incident-pagination button:disabled { opacity: .5; cursor: not-allowed; }
+.incident-detail { display: grid; gap: 18px; }
+.incident-detail .panel-heading { margin: 0; }
+.incident-detail .panel-heading h3 { overflow-wrap: anywhere; }
+.incident-status { flex: 0 0 auto; border-radius: 999px; padding: 5px 9px; background: #f0f2f4; color: #52616c; font-size: .75rem; }
+.status-reported { background: #eaf3f8; color: #245c81; }
+.status-investigating, .status-action_required { background: #fff5d9; color: #8a6413; }
+.status-closed { background: #e8f5ed; color: #17664d; }
+.incident-meta { display: grid; grid-template-columns: minmax(120px, .4fr) minmax(0, 1fr); gap: 8px 14px; margin: 0; }
+.incident-meta dt { color: #74818d; font-size: .82rem; }
+.incident-meta dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .88rem; }
+.incident-status-form { grid-template-columns: minmax(160px, .7fr) auto; align-items: end; }
+.incident-sensitive { display: grid; gap: 12px; padding: 16px; border: 1px solid #f0dfb8; border-radius: 9px; background: #fffaf0; }
+.incident-sensitive > p { margin: 0; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.incident-people, .incident-attachments { display: grid; gap: 7px; margin: 0; padding-left: 20px; color: #43515c; font-size: .84rem; }
+.incident-attachments button { padding: 0; border: 0; background: transparent; color: #177d79; cursor: pointer; text-align: left; }
+.incident-history { display: grid; gap: 8px; margin: 0; padding-left: 24px; }
+.incident-history li { display: flex; flex-wrap: wrap; gap: 8px 14px; color: #43515c; font-size: .82rem; }
+.incident-history time { color: #74818d; }
+@media (max-width: 850px) {
+  .incident-layout { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .incident-meta { grid-template-columns: 1fr; gap: 4px; }
+  .incident-meta dd { margin-bottom: 8px; }
+  .incident-status-form { grid-template-columns: 1fr; }
+}

@@ -12,6 +12,97 @@ export type PhysicalKeyStatus = "available" | "issued" | "lost" | "defective" | 
 export type KeyMovementType = "issued" | "returned" | "lost" | "defective" | "inventory";
 export type TaskPriority = "low" | "normal" | "high" | "urgent";
 export type TaskStatus = "open" | "in_progress" | "blocked" | "completed" | "cancelled";
+export type IncidentType =
+  | "incident"
+  | "accident"
+  | "assault"
+  | "property_damage"
+  | "complaint"
+  | "other";
+export type IncidentSeverity = "low" | "medium" | "high" | "critical";
+export type IncidentStatus = "reported" | "investigating" | "action_required" | "closed";
+export type IncidentMeasureStatus = "open" | "in_progress" | "completed";
+
+export interface IncidentItem {
+  id: string;
+  title: string;
+  report: string;
+  incident_type: IncidentType;
+  severity: IncidentSeverity;
+  object_id: string;
+  object_name: string;
+  status: IncidentStatus;
+  due_at: string | null;
+  assigned_to_id: string;
+  assigned_to_name: string;
+  owks_event_id: string | null;
+  created_by_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IncidentSensitiveDetails {
+  narrative: string | null;
+  closure_report: string | null;
+  updated_by_id: string | null;
+  updated_at: string | null;
+}
+
+export interface IncidentPerson {
+  id: string;
+  name: string;
+  role: "involved" | "witness";
+  notes: string | null;
+  created_at: string;
+}
+
+export interface IncidentAttachment {
+  id: string;
+  file_name: string;
+  media_type: string;
+  size_bytes: number;
+  sha256: string;
+  created_at: string;
+}
+
+export interface IncidentMeasure {
+  id: string;
+  title: string;
+  description: string | null;
+  due_at: string | null;
+  assigned_to_id: string;
+  status: IncidentMeasureStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IncidentHistory {
+  id: string;
+  actor_id: string | null;
+  action: string;
+  changes: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface IncidentDetail extends IncidentItem {
+  sensitive_details: IncidentSensitiveDetails | null;
+  people: IncidentPerson[];
+  attachments: IncidentAttachment[];
+  measures: IncidentMeasure[];
+  history: IncidentHistory[];
+}
+
+export interface IncidentPage {
+  items: IncidentItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface IncidentChoices {
+  objects: Array<{ id: string; name: string; code: string }>;
+  assignees: Array<{ id: string; full_name: string }>;
+}
 export type EmployeeStatus = "active" | "inactive" | "leave" | "terminated";
 export type EmployeeAbsenceType = "vacation" | "sick_leave" | "other";
 export type EmployeeAbsenceStatus = "pending" | "approved" | "rejected";

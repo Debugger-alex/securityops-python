@@ -92,6 +92,17 @@ import type {
   KeyMovementType,
   KeyEmployeeCandidate,
   KeyObjectCandidate,
+  IncidentDetail,
+  IncidentItem,
+  IncidentPage,
+  IncidentChoices,
+  IncidentPerson,
+  IncidentAttachment,
+  IncidentSensitiveDetails,
+  IncidentStatus,
+  IncidentType,
+  IncidentSeverity,
+  IncidentMeasure,
 } from "./types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -150,6 +161,117 @@ export const getNotifications = (filters: {
 
 export const markNotificationRead = (notificationId: string) =>
   request<NotificationItem>(`/notifications/${notificationId}/read`, { method: "PATCH" });
+
+export const getIncidents = (filters: {
+  status?: IncidentStatus | "";
+  object_id?: string;
+  overdue?: boolean;
+  limit?: number;
+  offset?: number;
+}) => {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined && value !== "") params.set(key, String(value));
+  }
+  return request<IncidentPage>(`/incidents?${params.toString()}`);
+};
+
+export const getIncident = (incidentId: string) =>
+  request<IncidentDetail>(`/incidents/${incidentId}`);
+
+export const getIncidentChoices = (objectId?: string) => {
+  const query = objectId ? `?object_id=${encodeURIComponent(objectId)}` : "";
+  return request<IncidentChoices>(`/incidents/choices${query}`);
+};
+
+export const createIncident = (data: {
+  title: string;
+  report: string;
+  incident_type: IncidentType;
+  severity: IncidentSeverity;
+  object_id: string;
+  due_at?: string;
+  assigned_to_id?: string;
+  owks_event_id?: string;
+}) => request<IncidentItem>("/incidents", { method: "POST", body: JSON.stringify(data) });
+
+export const updateIncident = (
+  incidentId: string,
+  data: Partial<Pick<IncidentItem, "title" | "report" | "incident_type" | "severity" | "due_at" | "assigned_to_id">>,
+) => request<IncidentItem>(`/incidents/${incidentId}`, {
+  method: "PATCH",
+  body: JSON.stringify(data),
+});
+
+export const updateIncidentStatus = (incidentId: string, status: IncidentStatus) =>
+  request<IncidentItem>(`/incidents/${incidentId}/status`, {
+    method: "POST",
+    body: JSON.stringify({ status }),
+  });
+
+export const updateIncidentSensitiveDetails = (
+  incidentId: string,
+  data: Pick<IncidentSensitiveDetails, "narrative" | "closure_report">,
+) => request<IncidentSensitiveDetails>(`/incidents/${incidentId}/sensitive`, {
+  method: "PATCH",
+  body: JSON.stringify(data),
+});
+
+export const addIncidentPerson = (
+  incidentId: string,
+  data: Pick<IncidentPerson, "name" | "role" | "notes">,
+) => request<IncidentPerson>(`/incidents/${incidentId}/people`, {
+  method: "POST",
+  body: JSON.stringify(data),
+});
+
+export const createIncidentMeasure = (
+  incidentId: string,
+  data: {
+    title: string;
+    description?: string;
+    due_at?: string;
+    assigned_to_id: string;
+  },
+) => request<IncidentMeasure>(`/incidents/${incidentId}/measures`, {
+  method: "POST",
+  body: JSON.stringify(data),
+});
+
+export const updateIncidentMeasure = (
+  incidentId: string,
+  measureId: string,
+  data: Partial<Pick<IncidentMeasure, "title" | "description" | "due_at" | "assigned_to_id" | "status">>,
+) => request<IncidentMeasure>(`/incidents/${incidentId}/measures/${measureId}`, {
+  method: "PATCH",
+  body: JSON.stringify(data),
+});
+
+export const uploadIncidentAttachment = (incidentId: string, file: File) => {
+  const form = new FormData();
+  form.append("file", file);
+  return request<IncidentAttachment>(`/incidents/${incidentId}/attachments`, {
+    method: "POST",
+    body: form,
+  });
+};
+
+export const downloadIncidentAttachment = async (incidentId: string, attachmentId: string) => {
+  const csrf = document.cookie.split("; ").find((cookie) =>
+    cookie.startsWith("securityops_csrf="))?.split("=")[1];
+  const response = await fetch(
+    `/api/v1/incidents/${incidentId}/attachments/${attachmentId}/download`,
+    {
+      credentials: "same-origin",
+      headers: csrf ? { "X-CSRF-Token": decodeURIComponent(csrf) } : {},
+    },
+  );
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(typeof body?.detail === "string" ? body.detail : `Serverfehler (${response.status})`);
+  }
+  return response.blob();
+};
 
 export interface TaskFilters {
   q?: string;

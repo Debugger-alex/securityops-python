@@ -3,6 +3,8 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, status
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from redis import Redis
@@ -18,6 +20,7 @@ from app.config import get_settings
 from app.database import engine
 from app.documents_contracts_api import router as documents_contracts_router
 from app.identity_api import router as identity_router
+from app.incidents_api import router as incidents_router
 from app.key_management_api import router as key_management_router
 from app.notifications_api import router as notifications_router
 from app.owks_api import router as owks_router
@@ -61,6 +64,18 @@ def rate_limit_exceeded_handler(_request, _exc: RateLimitExceeded) -> JSONRespon
 
 
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request, exc: RequestValidationError):
+    if request.url.path.startswith(f"{settings.api_prefix}/incidents"):
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            content={"detail": "Eingaben für den Vorfall sind ungültig."},
+        )
+    return await request_validation_exception_handler(request, exc)
+
+
 app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(
     CORSMiddleware,
@@ -80,6 +95,7 @@ app.include_router(key_management_router, prefix=settings.api_prefix)
 app.include_router(documents_contracts_router, prefix=settings.api_prefix)
 app.include_router(billing_router, prefix=settings.api_prefix)
 app.include_router(identity_router, prefix=settings.api_prefix)
+app.include_router(incidents_router, prefix=settings.api_prefix)
 app.include_router(owks_router, prefix=settings.api_prefix)
 
 
