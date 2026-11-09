@@ -843,6 +843,117 @@ class EmployeeObjectAssignmentHistory(Base):
     employee: Mapped[Employee] = relationship(back_populates="object_assignment_history")
 
 
+class PhysicalKey(Base):
+    __tablename__ = "physical_keys"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('available', 'issued', 'lost', 'defective', 'archived')",
+            name="ck_physical_keys_status",
+        ),
+        CheckConstraint("length(trim(key_number)) > 0", name="ck_physical_keys_number"),
+        CheckConstraint("length(trim(description)) > 0", name="ck_physical_keys_description"),
+        CheckConstraint(
+            "(status = 'issued' AND current_employee_id IS NOT NULL) "
+            "OR (status != 'issued' AND current_employee_id IS NULL)",
+            name="ck_physical_keys_holder_status",
+        ),
+        CheckConstraint(
+            "(status = 'archived' AND archived_at IS NOT NULL) "
+            "OR (status != 'archived' AND archived_at IS NULL)",
+            name="ck_physical_keys_archived_at",
+        ),
+        Index("ix_physical_keys_object_status", "object_id", "status", "archived_at"),
+        Index("ix_physical_keys_holder_status", "current_employee_id", "status"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    key_number: Mapped[str] = mapped_column(String(80), unique=True, nullable=False)
+    description: Mapped[str] = mapped_column(String(500), nullable=False)
+    object_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("objects.id", ondelete="RESTRICT"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(
+        String(20), default="available", server_default=text("'available'"), nullable=False
+    )
+    current_employee_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("employees.id", ondelete="RESTRICT"), nullable=True
+    )
+    created_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    object: Mapped[SecurityObject] = relationship()
+    current_employee: Mapped[Employee | None] = relationship(foreign_keys=[current_employee_id])
+    movements: Mapped[list["KeyMovement"]] = relationship(
+        back_populates="key", order_by="KeyMovement.created_at"
+    )
+
+
+class KeyMovement(Base):
+    __tablename__ = "key_movements"
+    __table_args__ = (
+        CheckConstraint(
+            "movement_type IN ('issued', 'returned', 'lost', 'defective', 'inventory')",
+            name="ck_key_movements_type",
+        ),
+        CheckConstraint(
+            "key_status_after IN ('available', 'issued', 'lost', 'defective')",
+            name="ck_key_movements_status_after",
+        ),
+        CheckConstraint(
+            "movement_type != 'issued' OR "
+            "(employee_id IS NOT NULL AND acknowledged_at IS NOT NULL)",
+            name="ck_key_movements_issue_acknowledged",
+        ),
+        CheckConstraint(
+            "(movement_type = 'issued' AND key_status_after = 'issued') "
+            "OR (movement_type = 'returned' AND key_status_after = 'available') "
+            "OR (movement_type = 'lost' AND key_status_after = 'lost') "
+            "OR (movement_type = 'defective' AND key_status_after = 'defective') "
+            "OR (movement_type = 'inventory' AND key_status_after IN "
+            "('available', 'issued'))",
+            name="ck_key_movements_type_status",
+        ),
+        Index("ix_key_movements_key_created", "key_id", "created_at"),
+        Index("ix_key_movements_object_created", "object_id", "created_at"),
+        Index("ix_key_movements_employee_created", "employee_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    key_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("physical_keys.id", ondelete="RESTRICT"), nullable=False
+    )
+    object_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("objects.id", ondelete="RESTRICT"), nullable=False
+    )
+    employee_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("employees.id", ondelete="RESTRICT"), nullable=True
+    )
+    actor_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    movement_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    key_status_after: Mapped[str] = mapped_column(String(20), nullable=False)
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    acknowledgement_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    key: Mapped[PhysicalKey] = relationship(back_populates="movements")
+    employee: Mapped[Employee | None] = relationship()
+    actor: Mapped[User] = relationship()
+
+
 class EmployeeAbsence(Base):
     __tablename__ = "employee_absences"
     __table_args__ = (

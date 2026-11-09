@@ -27,6 +27,7 @@ import BillingManagement from "./BillingManagement";
 import IdentitySecurity from "./IdentitySecurity";
 import TaskManagement from "./TaskManagement";
 import NotificationManagement from "./NotificationManagement";
+import KeyManagement from "./KeyManagement";
 import type {
   AuthUser,
   Customer,
@@ -81,6 +82,7 @@ type ActiveModule =
   | "owks"
   | "tasks"
   | "notifications"
+  | "keys"
   | "security";
 
 function messageFrom(reason: unknown, fallback: string) {
@@ -170,6 +172,9 @@ export default function App() {
   const canReadNotifications = Boolean(
     user?.permissions.includes("notifications.read_own") && canReadTasks,
   );
+  const canReadKeys = user?.permissions.includes("keys.read") ?? false;
+  const canManageKeys = user?.permissions.includes("keys.manage") ?? false;
+  const canMoveKeys = user?.permissions.includes("keys.move") ?? false;
 
   useEffect(() => {
     getSession()
@@ -231,6 +236,9 @@ export default function App() {
   useEffect(() => {
     if (moduleSelectedManually.current) return;
     if (user && !canReadCustomers && canReadObjects) setActiveModule("objects");
+    else if (user && !canReadCustomers && !canReadObjects && canReadKeys) {
+      setActiveModule("keys");
+    }
     else if (user && !canReadCustomers && !canReadObjects && canReadEmployees) {
       setActiveModule("employees");
     } else if (user && !canReadCustomers && !canReadObjects && !canReadEmployees && canReadScheduling) {
@@ -272,7 +280,7 @@ export default function App() {
     ) {
       setActiveModule("notifications");
     }
-  }, [canAccessBilling, canAccessDocuments, canCreateTasks, canReadCustomers, canReadEmployees, canReadNotifications, canReadObjects, canReadOWKS, canReadScheduling, canReadTasks, canReadTimeTracking, user]);
+  }, [canAccessBilling, canAccessDocuments, canCreateTasks, canReadCustomers, canReadEmployees, canReadKeys, canReadNotifications, canReadObjects, canReadOWKS, canReadScheduling, canReadTasks, canReadTimeTracking, user]);
 
   async function submitLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -563,7 +571,7 @@ export default function App() {
       <section className="intro">
         <p className="eyebrow">SECURITYOPS VERWALTUNG</p>
         <h1>Guten Tag.</h1>
-        <p>Kunden, Objekte, Personal, Aufgaben, Dienste und Arbeitszeiten zentral verwalten.</p>
+        <p>Kunden, Objekte, Personal, Schlüssel, Aufgaben, Dienste und Arbeitszeiten zentral verwalten.</p>
       </section>
 
       <nav className="module-tabs" aria-label="Verwaltungsmodule">
@@ -579,6 +587,9 @@ export default function App() {
         {canReadObjects && <button
           className={activeModule === "objects" ? "module-tab active" : "module-tab"}
           onClick={() => selectModule("objects")}>Objekte</button>}
+        {canReadKeys && <button
+          className={activeModule === "keys" ? "module-tab active" : "module-tab"}
+          onClick={() => selectModule("keys")}>Schlüssel</button>}
         {canReadEmployees && <button
           className={activeModule === "employees" ? "module-tab active" : "module-tab"}
           onClick={() => selectModule("employees")}>Personal</button>}
@@ -610,6 +621,8 @@ export default function App() {
         />
         : activeModule === "tasks" && (canReadTasks || canCreateTasks)
         ? <TaskManagement user={user} />
+        : activeModule === "keys" && canReadKeys
+        ? <KeyManagement canManage={canManageKeys} canMove={canMoveKeys} />
         : activeModule === "notifications" && canReadNotifications
         ? <NotificationManagement />
         : activeModule === "documents" && canAccessDocuments

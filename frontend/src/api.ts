@@ -84,6 +84,14 @@ import type {
   TaskPage,
   TaskPriority,
   TaskStatus,
+  PhysicalKey,
+  PhysicalKeyPage,
+  PhysicalKeyStatus,
+  KeyMovement,
+  KeyMovementPage,
+  KeyMovementType,
+  KeyEmployeeCandidate,
+  KeyObjectCandidate,
 } from "./types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -649,6 +657,58 @@ export const getObjects = (filters: ObjectFilters) => {
   if (filters.includeArchived) params.set("include_archived", "true");
   return request<ObjectPage>(`/objects?${params}`);
 };
+
+export interface PhysicalKeyFilters {
+  q: string;
+  status: PhysicalKeyStatus | "";
+  object_id: string;
+  employee_id: string;
+  include_archived: boolean;
+  limit: number;
+  offset: number;
+}
+
+export const getKeys = (filters: PhysicalKeyFilters) => {
+  const params = new URLSearchParams({
+    limit: String(filters.limit),
+    offset: String(filters.offset),
+  });
+  if (filters.q.trim()) params.set("q", filters.q.trim());
+  if (filters.status) params.set("status", filters.status);
+  if (filters.object_id) params.set("object_id", filters.object_id);
+  if (filters.employee_id) params.set("employee_id", filters.employee_id);
+  if (filters.include_archived) params.set("include_archived", "true");
+  return request<PhysicalKeyPage>(`/keys?${params}`);
+};
+
+export const getKeyObjects = () => request<KeyObjectCandidate[]>("/keys/objects");
+
+export const getEligibleKeyEmployees = (objectId: string) =>
+  request<KeyEmployeeCandidate[]>(`/keys/eligible-employees?object_id=${encodeURIComponent(objectId)}`);
+
+export const createKey = (data: { key_number: string; description: string; object_id: string }) =>
+  request<PhysicalKey>("/keys", { method: "POST", body: JSON.stringify(data) });
+
+export const updateKey = (keyId: string, data: { description: string }) =>
+  request<PhysicalKey>(`/keys/${keyId}`, { method: "PATCH", body: JSON.stringify(data) });
+
+export const archiveKey = (keyId: string) =>
+  request<PhysicalKey>(`/keys/${keyId}/archive`, { method: "POST" });
+
+export const createKeyMovement = (keyId: string, data: {
+  movement_type: KeyMovementType;
+  employee_id?: string;
+  acknowledged?: boolean;
+  acknowledgement_note?: string;
+  note?: string;
+}) =>
+  request<KeyMovement>(`/keys/${keyId}/movements`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const getKeyMovements = (keyId: string, limit = 100, offset = 0) =>
+  request<KeyMovementPage>(`/keys/${keyId}/movements?limit=${limit}&offset=${offset}`);
 
 export const getCustomerObjects = (customerId: string) =>
   getObjects({
