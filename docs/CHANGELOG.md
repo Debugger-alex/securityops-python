@@ -2,11 +2,16 @@
 
 Einträge unterhalb der aktuellen Momentaufnahme dokumentieren den Status zum jeweils damaligen Prüfzeitpunkt.
 
-## 2026-11-09 – PR #39 integriert, Migration 0024 aktuell
+## 2026-11-09 – PR #25 gemergt; PR #40 offen
 
-- `main` steht auf Merge-Commit `a8cc63b3eeef9cbcdc033e4156ca046c14e8c99a`, Alembic-Head `0024_notification_outbox_worker`, 74 SQLAlchemy-Tabellen und 190 `/api/v1`-Operationen (192 einschließlich zwei Health-Operationen). PR #39 ist gemergt; PR #25 ist nach frischer Abfrage die einzige offene PR. Issues #7–#10 sind offen und #2–#6 geschlossen.
+- `main` steht auf Merge-Commit `9eaed08d98e4d7ae3b00b02abe7141f801a64964`. PR #25 wurde um 08:13 UTC gemergt; der Main-Stand enthält weiterhin PR #39 und Migration `0024_notification_outbox_worker`.
+- PR #40 wurde um 08:09 UTC eröffnet, ist offen und nicht Bestandteil von `main`. Seine CI-Workflows standen zunächst auf `action_required`; anschließend wurden alle acht Checks erfolgreich abgeschlossen (letzter Abschluss 08:17 UTC). Für diese Dokumentationskorrektur wurden keine Workflows erneut ausgelöst. Die vorgeschlagenen Änderungen aus #40 werden nicht als Main-Funktion dokumentiert.
+
+## Historische Momentaufnahme 2026-11-09, 08:02 UTC – PR #39 integriert, Migration 0024 aktuell (vor PR #40)
+
+- `main` stand auf Merge-Commit `a8cc63b3eeef9cbcdc033e4156ca046c14e8c99a`, Alembic-Head `0024_notification_outbox_worker`, 74 SQLAlchemy-Tabellen und 190 `/api/v1`-Operationen (192 einschließlich zwei Health-Operationen). PR #39 war gemergt; PR #25 war nach damaliger Abfrage die einzige offene PR. Issues #7–#10 waren offen und #2–#6 geschlossen.
 - Der separate Notification-/OWKS-Worker verarbeitet ausschließlich `task.assigned` und `task.status_changed` idempotent zu In-App-Benachrichtigungen. PostgreSQL-Claims mit `SKIP LOCKED`, Lease-/Token-Schutz, Wiederaufnahme, Backoff/Retry, Dead-Letter-Status und append-only Attempt-Historie sind implementiert. Der OWKS-Prüfzyklus wurde aus dem API-Lifespan in den Worker verlagert.
-- E-Mail/Push, Task-Erinnerungen/Eskalationen und Ereignisse aus anderen Fachmodulen bleiben ausgeschlossen. Auf dem PR-#39-Merge-Head `b78c96a` waren alle acht GitHub-Checks erfolgreich; dies ist kein Nachweis produktiven Betriebs oder fachlicher Abnahme. PR #25 wurde auf den integrierten Stand synchronisiert; seine frischen Checks stehen nach dem Push aus.
+- E-Mail/Push, Task-Erinnerungen/Eskalationen und Ereignisse aus anderen Fachmodulen bleiben ausgeschlossen. Auf dem PR-#39-Merge-Head `b78c96a` waren alle acht GitHub-Checks erfolgreich; dies ist kein Nachweis produktiven Betriebs oder fachlicher Abnahme. PR #25 war auf den integrierten Stand synchronisiert; seine frischen Checks standen nach dem Push aus.
 
 ## Historische Momentaufnahme 2026-11-09 – PR #39 für Notification-Outbox-Worker offen
 
@@ -20,7 +25,7 @@ Einträge unterhalb der aktuellen Momentaufnahme dokumentieren den Status zum je
 - Die Revision ergänzt `control_room.read` und Rollenzuweisungen, ohne neue Tabellen zu erstellen. `GET /api/v1/control-room` liefert serverberechnete Kennzahlen und begrenzte Listen aus vorhandenen Fachmodulen; Fachberechtigungen und Objekt-/Personenbereich werden je Quelle geprüft. Sensible Vorfallberichte und Anhänge werden nicht ausgegeben; keine simulierten Alarme oder automatische Aktualisierung.
 - Im ersten CI-Lauf schlug Backend/Migration/PostgreSQL fehl; der Reparaturlauf auf PR-Head `7b10693` war einschließlich aller acht Checks erfolgreich. Die PR-Beschreibung meldet 85 Backendtests bestanden/13 übersprungen und 42 Frontendtests bestanden. Dies sind keine fachlichen oder produktiven Nachweise.
 - Beim damaligen Prüfzeitpunkt war PR #25 die einzige offene PR; Issues #7–#10 waren offen, #2–#6 geschlossen. PR #39 wurde später erstellt und wird in der aktuellen Momentaufnahme oben geführt.
-- Status-, Roadmap-, Audit-, README-, API-, Architektur- und Datenbanktexte auf den gemergten Stand synchronisiert; PR #25 bleibt offen.
+- Status-, Roadmap-, Audit-, README-, API-, Architektur- und Datenbanktexte auf den gemergten Stand synchronisiert; PR #25 war zu diesem damaligen Prüfzeitpunkt noch offen.
 
 ## 2026-11-09 – Dokumentation auf Main mit Vorfallmanagement aktualisiert
 
