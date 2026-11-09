@@ -35,6 +35,13 @@ vi.mock("./api", () => ({
   startTimeEntry: vi.fn(),
   getTimeCorrections: vi.fn(),
   getMissingShifts: vi.fn(),
+  getTasks: vi.fn(),
+  getTask: vi.fn(),
+  getTaskAssignees: vi.fn(),
+  getTaskLocations: vi.fn(),
+  createTask: vi.fn(),
+  createTaskComment: vi.fn(),
+  updateTask: vi.fn(),
   login: vi.fn(),
   revokeUserSession: vi.fn(),
   resetUserPassword: vi.fn(),
@@ -95,6 +102,27 @@ describe("Kundenformulare", () => {
     vi.mocked(api.createCustomer).mockResolvedValue(customer);
     vi.mocked(api.getCustomer).mockResolvedValue(customer);
     vi.mocked(api.getCustomerHistory).mockResolvedValue([]);
+  });
+
+  it("bietet berechtigten Nutzern das zentrale Aufgabenmodul in der Navigation an", async () => {
+    vi.mocked(api.getSession).mockResolvedValue({
+      user: {
+        id: "task-user",
+        username: "aufgaben",
+        email: "aufgaben@example.de",
+        full_name: "Aufgabenbearbeitung",
+        is_active: true,
+        roles: ["employee"],
+        permissions: ["tasks.read_own", "tasks.create", "tasks.update_own"],
+      },
+    });
+    vi.mocked(api.getTasks).mockResolvedValue({ items: [], total: 0, limit: 25, offset: 0 });
+    vi.mocked(api.getTaskLocations).mockResolvedValue({ customers: [], objects: [] });
+    render(<App />);
+
+    expect(await screen.findByRole("button", { name: "Aufgaben" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Aufgaben" })).toBeTruthy();
+    expect(await screen.findByText("Keine Aufgaben gefunden.")).toBeTruthy();
   });
 
   it("sendet den MFA-Code beim Anmelden an den Server", async () => {

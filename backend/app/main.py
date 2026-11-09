@@ -23,6 +23,7 @@ from app.owks_scheduler import run_monitoring_scheduler
 from app.personnel_api import router as personnel_router
 from app.rate_limit import limiter
 from app.scheduling_api import router as scheduling_router
+from app.tasks_api import router as tasks_router
 from app.time_tracking_api import router as time_tracking_router
 from app.time_tracking_surcharges import router as time_tracking_surcharges_router
 
@@ -71,6 +72,7 @@ app.include_router(personnel_router, prefix=settings.api_prefix)
 app.include_router(scheduling_router, prefix=settings.api_prefix)
 app.include_router(time_tracking_router, prefix=settings.api_prefix)
 app.include_router(time_tracking_surcharges_router, prefix=settings.api_prefix)
+app.include_router(tasks_router, prefix=settings.api_prefix)
 app.include_router(documents_contracts_router, prefix=settings.api_prefix)
 app.include_router(billing_router, prefix=settings.api_prefix)
 app.include_router(identity_router, prefix=settings.api_prefix)
