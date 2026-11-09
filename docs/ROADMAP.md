@@ -17,4 +17,6 @@ PR #28 ist gemergt und hat Produktions-Compose, Redis-Rate-Limiting, separate Re
 
 PR #35 ist in `main` gemergt und `0020_notifications` ergänzt In-App-Benachrichtigungen bei Aufgaben-Neuzuweisung und Statuswechsel. Inbox und Outbox werden transaktional gespeichert, aber es gibt keinen Worker, Retry-Verarbeitung, E-Mail-/Push-Versand oder Modulereignisse außerhalb der Aufgaben. PR #25 ist die einzige offene PR.
 
+PR #36 ist mit `0021_key_management` ebenfalls in `main` gemergt. Das objektgebundene Register protokolliert Schlüsselbewegungen append-only und verlangt bei Ausgabe eine aktive, dem Objekt zugewiesene Person sowie Quittierung. Die digitale Quittierung ist keine qualifizierte elektronische Signatur oder ein Nachweis physischer Verwahrung; Freitext-Zutrittsangaben werden nicht migriert.
+
 Reihenfolge stellt keinen Implementierungs- oder Rechtsstatus dar. Keine Produktions-, Rechts- oder Steuerfreigabe wird behauptet.

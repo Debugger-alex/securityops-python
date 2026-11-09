@@ -1,7 +1,17 @@
 # Änderungsprotokoll
 
+## 2026-11-09 – Dokumentation auf Main mit Schlüsselverwaltung aktualisiert
+
+- Maßgeblicher `main`-Stand: `744eff7c4c747d089a2fa6da2aeadab4840c5ef8`, Alembic-Head `0021_key_management`, 67 SQLAlchemy-Tabellen, 177 `/api/v1`-Operationen und zwei Health-Operationen.
+- PR #36 wurde am 09.11.2026 gemergt. Migration `0021_key_management` ergänzt `physical_keys` und append-only `key_movements`, drei `keys.*`-Rechte und acht API-Operationen. Ausgabe erfordert eine aktive, dem Objekt zugewiesene Person und Quittierungsbestätigung. Diese ist keine qualifizierte elektronische Signatur oder ein Nachweis physischer Verwahrung; bestehende Freitext-Zutrittsangaben werden nicht migriert.
+- Die PR-CI war für alle acht Checks erfolgreich (Backend/Migrationen/PostgreSQL, Frontend-Typprüfung/Build, Docker-Images, verschlüsselter PostgreSQL-17-Restore, SCA, CodeQL Python, CodeQL JavaScript/TypeScript und zusätzlicher CodeQL-Check). Der PR meldete 78 Backendtests bestanden/12 übersprungen, 36 Frontendtests bestanden, Ruff-Check/Format und Alembic-Head erfolgreich. CI ist keine fachliche oder produktive Abnahme.
+- Lokale Prüfung dieses Updates: Schlüsseltests 5 bestanden/2 übersprungen; interne Markdown-Links/Anker und Codefences in 19 Markdown-Dateien geprüft.
+- Frisch geprüft: PR #25 ist die einzige offene PR; Issues #7–#10 sind offen, #2–#6 geschlossen.
+- API-, Datenbank-/ER-, Architektur-, Audit-, Roadmap-, Status-, Sicherheits-, Task-, README- und Schlüsselverwaltungsdokumentation auf den integrierten Stand abgeglichen. Der Dokumentations-PR bleibt offen und wird nicht gemergt.
+
 ## 2026-11-09 – Dokumentation auf Main mit Benachrichtigungen aktualisiert
 
+- Diese Momentaufnahme beschreibt den vor dem Merge von PR #36 geltenden Main-Stand; der neuere Eintrag oben ist maßgeblich.
 - Maßgeblicher `main`-Stand: `881ba0873f616f8b6ab9b5a13ba5fd8e6f81f704`, Alembic-Head `0020_notifications`, 65 SQLAlchemy-Tabellen, 169 `/api/v1`-Operationen und zwei Health-Operationen.
 - PR #35 ist gemergt. `0020_notifications` folgt auf `0019_tasks` und ergänzt eine Inbox sowie dauerhafte Outbox für Aufgaben-Neuzuweisungen und Statuswechsel. Einträge werden transaktional erzeugt; Outbox-Ereignisse werden nicht verarbeitet. Worker, Retry-Verarbeitung, E-Mail/Push und Ereignisse aus anderen Modulen fehlen.
 - Frisch geprüft: PR #25 ist die einzige offene PR; Issues #7–#10 sind offen, #2–#6 geschlossen.
