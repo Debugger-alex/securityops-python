@@ -21,6 +21,7 @@ vi.mock("./api", () => ({
   getEmployees: vi.fn(),
   getEmployeeAvailability: vi.fn(),
   getObjects: vi.fn(),
+  getNotifications: vi.fn(),
   getSession: vi.fn(),
   getUserSessions: vi.fn(),
   getUserSessionsForAdmin: vi.fn(),
@@ -43,6 +44,7 @@ vi.mock("./api", () => ({
   createTaskComment: vi.fn(),
   updateTask: vi.fn(),
   login: vi.fn(),
+  markNotificationRead: vi.fn(),
   revokeUserSession: vi.fn(),
   resetUserPassword: vi.fn(),
   startMFASetup: vi.fn(),
@@ -123,6 +125,32 @@ describe("Kundenformulare", () => {
     expect(await screen.findByRole("button", { name: "Aufgaben" })).toBeTruthy();
     expect(await screen.findByRole("heading", { name: "Aufgaben" })).toBeTruthy();
     expect(await screen.findByText("Keine Aufgaben gefunden.")).toBeTruthy();
+  });
+
+  it("bietet berechtigten Nutzern den In-App-Posteingang an", async () => {
+    vi.mocked(api.getSession).mockResolvedValue({
+      user: {
+        id: "notification-user",
+        username: "benachrichtigungen",
+        email: "benachrichtigungen@example.com",
+        full_name: "Benachrichtigungszugriff",
+        is_active: true,
+        roles: ["employee"],
+        permissions: ["notifications.read_own", "tasks.read_own"],
+      },
+    });
+    vi.mocked(api.getNotifications).mockResolvedValue({
+      items: [],
+      total: 0,
+      unread_count: 0,
+      limit: 25,
+      offset: 0,
+    });
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Benachrichtigungen" }));
+    expect(await screen.findByRole("heading", { name: "Benachrichtigungen" })).toBeTruthy();
+    expect(await screen.findByText("Keine Benachrichtigungen vorhanden.")).toBeTruthy();
   });
 
   it("sendet den MFA-Code beim Anmelden an den Server", async () => {

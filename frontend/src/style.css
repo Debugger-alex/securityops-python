@@ -214,6 +214,13 @@ footer span { padding: 0 5px; }
 .time-status-submitted, .time-status-correction_requested { color: #8a6413; background: #fff5d9; }
 .time-status-approved, .time-status-locked { color: #2d6484; background: #eaf3f8; }
 .time-status-rejected { color: #a63d3d; background: #fff0ef; }
+.notification-module { padding-bottom: 12px; }
+.notification-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.notification-list li { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px; border: 1px solid #e8edef; border-radius: 8px; background: #fff; }
+.notification-list li > div { min-width: 0; }
+.notification-list p { margin: 5px 0; color: #43515c; }
+.notification-list time, .notification-status { color: #74818d; font-size: .78rem; }
+.notification-read { background: #f8fafb !important; }
 .owks-module { padding-bottom: 12px; }
 .owks-object-picker { margin: 0 0 16px; }
 .owks-object-picker label { display: grid; max-width: 430px; gap: 7px; color: #43515c; font-size: .84rem; font-weight: 600; }

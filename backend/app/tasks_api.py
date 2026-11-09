@@ -18,6 +18,7 @@ from app.models import (
     TaskHistory,
     User,
 )
+from app.notifications_service import enqueue_task_event
 from app.task_schemas import (
     TaskAssigneeRead,
     TaskCommentCreate,
@@ -178,15 +179,16 @@ def record_history(
     actor_id: UUID,
     action: str,
     changes: dict[str, object] | None = None,
-) -> None:
-    db.add(
-        TaskHistory(
-            task_id=task.id,
-            actor_id=actor_id,
-            action=action,
-            changes=changes or {},
-        )
+) -> TaskHistory:
+    history = TaskHistory(
+        id=uuid4(),
+        task_id=task.id,
+        actor_id=actor_id,
+        action=action,
+        changes=changes or {},
     )
+    db.add(history)
+    return history
 
 
 def audit_task(
@@ -485,12 +487,19 @@ def create_task(
     )
     audit_task(db, request, principal, "task.created", task)
     if assignee_id != principal.user.id:
-        record_history(
+        assignment_history = record_history(
             db,
             task,
             principal.user.id,
             "assigned",
             {"previous_assignee_id": None, "assignee_id": str(assignee_id)},
+        )
+        enqueue_task_event(
+            db,
+            task,
+            assignment_history,
+            event_type="task.assigned",
+            recipient_ids={assignee_id},
         )
         audit_task(
             db,
@@ -595,10 +604,12 @@ def update_task(
     action = (
         "completed" if task.status == "completed" and original_status != "completed" else "updated"
     )
-    record_history(db, task, principal.user.id, action, {"before": before, "after": after})
+    history = record_history(
+        db, task, principal.user.id, action, {"before": before, "after": after}
+    )
     audit_task(db, request, principal, "task.updated", task, {"fields": sorted(after)})
     if task.assigned_to_id != original_assignee_id:
-        record_history(
+        assignment_history = record_history(
             db,
             task,
             principal.user.id,
@@ -607,6 +618,14 @@ def update_task(
                 "previous_assignee_id": str(original_assignee_id),
                 "assignee_id": str(task.assigned_to_id),
             },
+        )
+        enqueue_task_event(
+            db,
+            task,
+            assignment_history,
+            event_type="task.assigned",
+            recipient_ids={task.assigned_to_id},
+            previous_assignee_id=original_assignee_id,
         )
         audit_task(
             db,
@@ -621,6 +640,19 @@ def update_task(
         )
     if task.status == "completed" and original_status != "completed":
         audit_task(db, request, principal, "task.completed", task)
+    if task.status != original_status:
+        status_recipients = {
+            recipient_id
+            for recipient_id in (task.assigned_to_id, task.created_by_id)
+            if recipient_id is not None and recipient_id != principal.user.id
+        }
+        enqueue_task_event(
+            db,
+            task,
+            history,
+            event_type="task.status_changed",
+            recipient_ids=status_recipients,
+        )
     commit_task_transaction(db)
     db.expire(task, ["assignee", "customer", "object"])
     task = db.scalar(task_query().where(Task.id == task.id))

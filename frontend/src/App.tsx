@@ -26,6 +26,7 @@ import OWKSManagement from "./OWKSManagement";
 import BillingManagement from "./BillingManagement";
 import IdentitySecurity from "./IdentitySecurity";
 import TaskManagement from "./TaskManagement";
+import NotificationManagement from "./NotificationManagement";
 import type {
   AuthUser,
   Customer,
@@ -79,6 +80,7 @@ type ActiveModule =
   | "billing"
   | "owks"
   | "tasks"
+  | "notifications"
   | "security";
 
 function messageFrom(reason: unknown, fallback: string) {
@@ -165,6 +167,9 @@ export default function App() {
     ["tasks.read_own", "tasks.read_all", "tasks.manage_all"].includes(permission),
   ) ?? false;
   const canCreateTasks = user?.permissions.includes("tasks.create") ?? false;
+  const canReadNotifications = Boolean(
+    user?.permissions.includes("notifications.read_own") && canReadTasks,
+  );
 
   useEffect(() => {
     getSession()
@@ -260,7 +265,14 @@ export default function App() {
     ) {
       setActiveModule("tasks");
     }
-  }, [canAccessBilling, canAccessDocuments, canCreateTasks, canReadCustomers, canReadEmployees, canReadObjects, canReadOWKS, canReadScheduling, canReadTasks, canReadTimeTracking, user]);
+    else if (
+      user && !canReadCustomers && !canReadObjects && !canReadEmployees
+      && !canReadScheduling && !canReadTimeTracking && !canAccessDocuments && !canAccessBilling
+      && !canReadOWKS && !canReadTasks && !canCreateTasks && canReadNotifications
+    ) {
+      setActiveModule("notifications");
+    }
+  }, [canAccessBilling, canAccessDocuments, canCreateTasks, canReadCustomers, canReadEmployees, canReadNotifications, canReadObjects, canReadOWKS, canReadScheduling, canReadTasks, canReadTimeTracking, user]);
 
   async function submitLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -561,6 +573,9 @@ export default function App() {
         {(canReadTasks || canCreateTasks) && <button
           className={activeModule === "tasks" ? "module-tab active" : "module-tab"}
           onClick={() => selectModule("tasks")}>Aufgaben</button>}
+        {canReadNotifications && <button
+          className={activeModule === "notifications" ? "module-tab active" : "module-tab"}
+          onClick={() => selectModule("notifications")}>Benachrichtigungen</button>}
         {canReadObjects && <button
           className={activeModule === "objects" ? "module-tab active" : "module-tab"}
           onClick={() => selectModule("objects")}>Objekte</button>}
@@ -595,6 +610,8 @@ export default function App() {
         />
         : activeModule === "tasks" && (canReadTasks || canCreateTasks)
         ? <TaskManagement user={user} />
+        : activeModule === "notifications" && canReadNotifications
+        ? <NotificationManagement />
         : activeModule === "documents" && canAccessDocuments
         ? <DocumentContractManagement user={user} />
         : activeModule === "billing" && canAccessBilling
