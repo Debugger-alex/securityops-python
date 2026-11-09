@@ -207,8 +207,20 @@ def _commit_incident(db: Session) -> None:
     try:
         db.commit()
     except IntegrityError as exc:
-        db.rollback()
-        raise HTTPException(409, "Die Vorfalländerung kollidiert mit vorhandenen Daten.") from exc
+        _raise_incident_integrity_error(db, exc)
+
+
+def _raise_incident_integrity_error(db: Session, exc: IntegrityError) -> None:
+    db.rollback()
+    constraint_name = getattr(getattr(exc.orig, "diag", None), "constraint_name", None)
+    if constraint_name == "uq_incidents_owks_event_id" or (
+        "UNIQUE constraint failed: incidents.owks_event_id" in str(exc.orig)
+    ):
+        raise HTTPException(
+            409,
+            "Dieses OWKS-Ereignis ist bereits mit einem Vorgang verknüpft.",
+        ) from exc
+    raise HTTPException(409, "Die Vorfalländerung kollidiert mit vorhandenen Daten.") from exc
 
 
 def _incident_detail(db: Session, incident: Incident, principal: AuthPrincipal) -> IncidentDetail:
@@ -299,6 +311,18 @@ def get_incident_choices(
         assignees=[
             IncidentAssigneeChoice(id=item.id, full_name=item.full_name) for item in assignees
         ],
+        linked_owks_event_ids=(
+            db.scalars(
+                select(Incident.owks_event_id)
+                .where(
+                    Incident.object_id == object_id,
+                    Incident.owks_event_id.is_not(None),
+                )
+                .order_by(Incident.owks_event_id)
+            ).all()
+            if can_create
+            else []
+        ),
     )
 
 
@@ -370,10 +394,13 @@ def create_incident(
         created_by_id=principal.user.id,
     )
     db.add(incident)
-    db.flush()
-    _record_history(db, incident, principal, "created", {"fields": ["report", "title"]})
-    _audit_incident(db, request, principal, incident, "created", {"object_id": str(obj.id)})
-    _commit_incident(db)
+    try:
+        db.flush()
+        _record_history(db, incident, principal, "created", {"fields": ["report", "title"]})
+        _audit_incident(db, request, principal, incident, "created", {"object_id": str(obj.id)})
+        _commit_incident(db)
+    except IntegrityError as exc:
+        _raise_incident_integrity_error(db, exc)
     return _incident_read(db, incident)
 
 

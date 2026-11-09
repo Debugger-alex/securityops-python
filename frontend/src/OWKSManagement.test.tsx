@@ -79,6 +79,7 @@ describe("OWKS-NFC-Fallback", () => {
     vi.mocked(api.getIncidentChoices).mockResolvedValue({
       objects: [{ id: "object-1", code: "OBJ-1", name: "Testobjekt" }],
       assignees: [{ id: "employee-1", full_name: "Testwache" }],
+      linked_owks_event_ids: [],
     });
     vi.mocked(api.createIncident).mockResolvedValue({} as never);
     vi.mocked(api.createOWKSChallenge).mockResolvedValue({
@@ -270,7 +271,11 @@ describe("OWKS-NFC-Fallback", () => {
     expect(screen.queryByRole("button", { name: "Als Vorfall erfassen" })).toBeNull();
 
     cleanup();
-    vi.mocked(api.getIncidentChoices).mockResolvedValue({ objects: [], assignees: [] });
+    vi.mocked(api.getIncidentChoices).mockResolvedValue({
+      objects: [],
+      assignees: [],
+      linked_owks_event_ids: [],
+    });
     render(<OWKSManagement user={{
       ...user,
       permissions: [...user.permissions, "incidents.create"],
@@ -338,6 +343,88 @@ describe("OWKS-NFC-Fallback", () => {
     }));
     expect(await screen.findByText("Vorfall wurde angelegt und mit dem OWKS-Ereignis verknüpft."))
       .toBeTruthy();
+    expect(await screen.findByText("Bereits mit einem Vorgang verknüpft")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Als Vorfall erfassen" })).toBeNull();
+  });
+
+  it("markiert bereits verknüpfte Ereignisse ohne Vorfalldetails", async () => {
+    vi.mocked(api.getOWKSEvents).mockResolvedValue([{
+      id: "owks-event-1",
+      object_id: "object-1",
+      route_id: null,
+      control_point_id: null,
+      corrects_event_id: null,
+      employee_id: null,
+      actor_id: null,
+      client_event_id: null,
+      event_type: "entry",
+      severity: "warning",
+      title: "Ereignis",
+      description: "",
+      occurred_at: "2026-11-09T08:00:00Z",
+      sync_status: "synced",
+      presence_verified: false,
+      status: "open",
+      created_at: "2026-11-09T08:00:00Z",
+    }]);
+    vi.mocked(api.getIncidentChoices).mockResolvedValue({
+      objects: [{ id: "object-1", code: "OBJ-1", name: "Testobjekt" }],
+      assignees: [{ id: "employee-1", full_name: "Testwache" }],
+      linked_owks_event_ids: ["owks-event-1"],
+    });
+    render(<OWKSManagement user={{
+      ...user,
+      permissions: [...user.permissions, "incidents.create"],
+    }} />);
+
+    expect(await screen.findByText("Bereits mit einem Vorgang verknüpft")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Als Vorfall erfassen" })).toBeNull();
+    expect(screen.queryByText("Vorfalldetails")).toBeNull();
+  });
+
+  it("markiert ein paralleles Duplikat nach HTTP 409 als verknüpft", async () => {
+    vi.mocked(api.getOWKSEvents).mockResolvedValue([{
+      id: "owks-event-1",
+      object_id: "object-1",
+      route_id: null,
+      control_point_id: null,
+      corrects_event_id: null,
+      employee_id: null,
+      actor_id: null,
+      client_event_id: null,
+      event_type: "entry",
+      severity: "warning",
+      title: "Ereignis",
+      description: "",
+      occurred_at: "2026-11-09T08:00:00Z",
+      sync_status: "synced",
+      presence_verified: false,
+      status: "open",
+      created_at: "2026-11-09T08:00:00Z",
+    }]);
+    vi.mocked(api.createIncident).mockRejectedValue(
+      new Error("Dieses OWKS-Ereignis ist bereits mit einem Vorgang verknüpft."),
+    );
+    render(<OWKSManagement user={{
+      ...user,
+      permissions: [...user.permissions, "incidents.create"],
+    }} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Als Vorfall erfassen" }));
+    fireEvent.change(screen.getByLabelText("Titel", { selector: "input[name='incident_title']" }), {
+      target: { value: "Vorfall" },
+    });
+    fireEvent.change(screen.getByLabelText("Bericht"), { target: { value: "Bericht" } });
+    fireEvent.change(screen.getByLabelText("Verantwortliche Person"), {
+      target: { value: "employee-1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Vorfall anlegen" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "Dieses OWKS-Ereignis ist bereits mit einem Vorgang verknüpft.",
+    );
+    expect(await screen.findByText("Bereits mit einem Vorgang verknüpft")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Als Vorfall erfassen" })).toBeNull();
   });
 
   it.each([

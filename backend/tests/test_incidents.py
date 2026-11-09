@@ -5,7 +5,7 @@ import pytest
 from conftest import ADMIN_PASSWORD, TestingSessionLocal, test_engine
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, inspect, select, update
-from sqlalchemy.exc import DBAPIError
+from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from app.identity_api import password_hasher
 from app.models import (
@@ -375,6 +375,11 @@ def test_incident_model_and_migration_are_linear_and_constrained() -> None:
     migration = importlib.import_module("migrations.versions.0022_incident_management")
     assert migration.revision == "0022_incident_management"
     assert migration.down_revision == "0021_key_management"
+    unique_link_migration = importlib.import_module(
+        "migrations.versions.0025_unique_incident_owks_event"
+    )
+    assert unique_link_migration.revision == "0025_unique_incident_owks_event"
+    assert unique_link_migration.down_revision == "0024_notification_outbox_worker"
     constraints = {constraint.name for constraint in Incident.__table__.constraints}
     assert {
         "ck_incidents_type",
@@ -383,9 +388,11 @@ def test_incident_model_and_migration_are_linear_and_constrained() -> None:
         "ck_incidents_title",
         "ck_incidents_report",
     } <= constraints
-    assert {"ix_incidents_object_status_due", "ix_incidents_assignee_status"} <= {
-        index.name for index in Incident.__table__.indexes
-    }
+    assert {
+        "ix_incidents_object_status_due",
+        "ix_incidents_assignee_status",
+        "uq_incidents_owks_event_id",
+    } <= {index.name for index in Incident.__table__.indexes}
 
 
 def test_owks_event_incident_reference_is_scoped_and_non_mutating(client: TestClient) -> None:
@@ -417,6 +424,44 @@ def test_owks_event_incident_reference_is_scoped_and_non_mutating(client: TestCl
     )
     assert linked.status_code == 201, linked.text
     assert linked.json()["owks_event_id"] == event_a["id"]
+    repeated = client.post(
+        "/api/v1/incidents",
+        headers=creator_headers,
+        json={
+            "title": "Erneuter synthetischer Versuch",
+            "report": "Synthetischer erneuter Kurzbericht.",
+            "incident_type": "incident",
+            "severity": "medium",
+            "object_id": object_a,
+            "assigned_to_id": choices.json()["assignees"][0]["id"],
+            "owks_event_id": event_a["id"],
+        },
+    )
+    assert repeated.status_code == 409
+    assert repeated.json()["detail"] == (
+        "Dieses OWKS-Ereignis ist bereits mit einem Vorgang verknüpft."
+    )
+    with TestingSessionLocal() as db:
+        db.add(
+            Incident(
+                id=uuid4(),
+                title="Paralleler Datenbankversuch",
+                report="Synthetischer Constraint-Test.",
+                incident_type="incident",
+                severity="medium",
+                object_id=UUID(object_a),
+                assigned_to_id=UUID(choices.json()["assignees"][0]["id"]),
+                owks_event_id=UUID(event_a["id"]),
+            )
+        )
+        with pytest.raises(IntegrityError):
+            db.commit()
+        db.rollback()
+    refreshed_choices = client.get(
+        f"/api/v1/incidents/choices?object_id={object_a}", headers=creator_headers
+    )
+    assert refreshed_choices.status_code == 200
+    assert refreshed_choices.json()["linked_owks_event_ids"] == [event_a["id"]]
 
     foreign_object = client.post(
         "/api/v1/incidents",
@@ -480,6 +525,11 @@ def test_owks_event_incident_reference_is_scoped_and_non_mutating(client: TestCl
         },
     )
     assert denied.status_code == 403
+    read_only_choices = client.get(
+        f"/api/v1/incidents/choices?object_id={object_a}", headers=reader_headers
+    )
+    assert read_only_choices.status_code == 200
+    assert read_only_choices.json()["linked_owks_event_ids"] == []
 
 
 def test_incident_input_validation_uses_german_error_message(client: TestClient) -> None:

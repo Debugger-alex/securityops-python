@@ -109,7 +109,8 @@ export default function OWKSManagement({ user }: { user: AuthUser }) {
       setError("");
       if (canCreateIncident) {
         try {
-          setIncidentChoices(await getIncidentChoices(objectId));
+          const choices = await getIncidentChoices(objectId);
+          setIncidentChoices(choices);
         } catch (reason) {
           setIncidentChoices(null);
           setError(messageFrom(reason));
@@ -393,10 +394,24 @@ export default function OWKSManagement({ user }: { user: AuthUser }) {
         due_at: dueAt?.toISOString(),
         owks_event_id: incidentEvent.id,
       });
+      setIncidentChoices((current) => current && ({
+        ...current,
+        linked_owks_event_ids: [...current.linked_owks_event_ids, incidentEvent.id],
+      }));
       setIncidentEvent(null);
       setNotice("Vorfall wurde angelegt und mit dem OWKS-Ereignis verknüpft.");
       formElement.reset();
     } catch (reason) {
+      if (
+        reason instanceof Error
+        && reason.message === "Dieses OWKS-Ereignis ist bereits mit einem Vorgang verknüpft."
+      ) {
+        setIncidentChoices((current) => current && ({
+          ...current,
+          linked_owks_event_ids: [...current.linked_owks_event_ids, incidentEvent.id],
+        }));
+        setIncidentEvent(null);
+      }
       setError(incidentMessageFrom(reason));
     } finally {
       setBusy(false);
@@ -591,7 +606,9 @@ export default function OWKSManagement({ user }: { user: AuthUser }) {
             {canCreateIncident
               && incidentChoices?.objects.some((object) => object.id === item.object_id)
               && item.object_id === selectedObjectId
-              && <div className="time-action-row">
+              && (incidentChoices.linked_owks_event_ids.includes(item.id)
+                ? <p className="muted" role="status">Bereits mit einem Vorgang verknüpft</p>
+                : <div className="time-action-row">
                 <button
                   type="button"
                   className="secondary-button"
@@ -603,7 +620,7 @@ export default function OWKSManagement({ user }: { user: AuthUser }) {
                 >
                   {incidentEvent?.id === item.id ? "Erfassung abbrechen" : "Als Vorfall erfassen"}
                 </button>
-              </div>}
+              </div>)}
             {incidentEvent?.id === item.id && <form
               className="owks-event-form"
               onSubmit={(event) => void submitIncident(event)}
