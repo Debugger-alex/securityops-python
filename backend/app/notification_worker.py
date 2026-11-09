@@ -168,7 +168,7 @@ class NotificationOutboxWorker:
             recipients_raw = payload["recipient_ids"]
         except (KeyError, TypeError, ValueError, AttributeError) as exc:
             raise InvalidOutboxEvent("invalid_payload") from exc
-        if not isinstance(recipients_raw, list) or not recipients_raw:
+        if not isinstance(recipients_raw, list):
             raise InvalidOutboxEvent("invalid_payload")
         if task_id != event.aggregate_id:
             raise InvalidOutboxEvent("invalid_payload")
@@ -176,8 +176,6 @@ class NotificationOutboxWorker:
             recipient_ids = {UUID(str(item)) for item in recipients_raw}
         except (TypeError, ValueError) as exc:
             raise InvalidOutboxEvent("invalid_recipient") from exc
-        if not recipient_ids:
-            raise InvalidOutboxEvent("invalid_recipient")
         existing_notifications = db.execute(
             select(Notification.recipient_id, Notification.title, Notification.body).where(
                 Notification.outbox_id == event.id

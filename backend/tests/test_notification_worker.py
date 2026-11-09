@@ -146,6 +146,34 @@ def test_legacy_outbox_with_existing_notification_is_completed_idempotently(clie
     assert len(notifications) == 1
 
 
+def test_status_event_without_recipients_is_successful_noop(client) -> None:
+    event_id, _ = create_task_event()
+    with TestingSessionLocal() as db:
+        event = db.get(NotificationOutbox, event_id)
+        assert event is not None
+        event.event_type = "task.status_changed"
+        event.payload = {**event.payload, "recipient_ids": []}
+        db.commit()
+
+    result = NotificationOutboxWorker(TestingSessionLocal).run_once()
+
+    assert result.delivered == 1
+    with TestingSessionLocal() as db:
+        event = db.get(NotificationOutbox, event_id)
+        notifications = db.scalars(
+            select(Notification).where(Notification.outbox_id == event_id)
+        ).all()
+        succeeded = db.scalar(
+            select(NotificationOutboxAttempt).where(
+                NotificationOutboxAttempt.outbox_id == event_id,
+                NotificationOutboxAttempt.event == "succeeded",
+            )
+        )
+    assert event is not None and event.status == "completed"
+    assert notifications == []
+    assert succeeded is not None
+
+
 def test_retry_backoff_is_bounded_and_error_logging_excludes_exception_text(
     client, caplog, monkeypatch
 ) -> None:
