@@ -183,6 +183,110 @@ class AuditLog(Base):
     )
 
 
+class Task(Base):
+    __tablename__ = "tasks"
+    __table_args__ = (
+        CheckConstraint(
+            "priority IN ('low', 'normal', 'high', 'urgent')", name="ck_tasks_priority"
+        ),
+        CheckConstraint(
+            "status IN ('open', 'in_progress', 'blocked', 'completed', 'cancelled')",
+            name="ck_tasks_status",
+        ),
+        CheckConstraint("length(trim(title)) > 0", name="ck_tasks_title"),
+        Index("ix_tasks_assignee_status_due", "assigned_to_id", "status", "due_at"),
+        Index("ix_tasks_object_status_due", "object_id", "status", "due_at"),
+        Index("ix_tasks_customer_status_due", "customer_id", "status", "due_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    assigned_to_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    customer_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("customers.id", ondelete="RESTRICT"), nullable=True
+    )
+    object_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("objects.id", ondelete="RESTRICT"), nullable=True
+    )
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    priority: Mapped[str] = mapped_column(
+        String(20), default="normal", server_default=text("'normal'"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(
+        String(20), default="open", server_default=text("'open'"), nullable=False
+    )
+    completion_evidence: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    assignee: Mapped["User"] = relationship(foreign_keys=[assigned_to_id])
+    creator: Mapped["User | None"] = relationship(foreign_keys=[created_by_id])
+    customer: Mapped["Customer | None"] = relationship()
+    object: Mapped["SecurityObject | None"] = relationship()
+    comments: Mapped[list["TaskComment"]] = relationship(
+        back_populates="task", cascade="all, delete-orphan"
+    )
+    history: Mapped[list["TaskHistory"]] = relationship(
+        back_populates="task", cascade="all, delete-orphan"
+    )
+
+
+class TaskComment(Base):
+    __tablename__ = "task_comments"
+    __table_args__ = (
+        CheckConstraint("length(trim(body)) > 0", name="ck_task_comments_body"),
+        Index("ix_task_comments_task_created", "task_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    task_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False
+    )
+    author_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    task: Mapped[Task] = relationship(back_populates="comments")
+    author: Mapped["User | None"] = relationship()
+
+
+class TaskHistory(Base):
+    __tablename__ = "task_history"
+    __table_args__ = (Index("ix_task_history_task_created", "task_id", "created_at"),)
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    task_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False
+    )
+    actor_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    action: Mapped[str] = mapped_column(String(50), nullable=False)
+    changes: Mapped[dict[str, object]] = mapped_column(
+        JSON, default=dict, server_default=text("'{}'"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    task: Mapped[Task] = relationship(back_populates="history")
+    actor: Mapped["User | None"] = relationship()
+
+
 class Customer(Base):
     __tablename__ = "customers"
     __table_args__ = (

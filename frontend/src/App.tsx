@@ -25,6 +25,7 @@ import TimeTracking from "./TimeTracking";
 import OWKSManagement from "./OWKSManagement";
 import BillingManagement from "./BillingManagement";
 import IdentitySecurity from "./IdentitySecurity";
+import TaskManagement from "./TaskManagement";
 import type {
   AuthUser,
   Customer,
@@ -77,6 +78,7 @@ type ActiveModule =
   | "documents"
   | "billing"
   | "owks"
+  | "tasks"
   | "security";
 
 function messageFrom(reason: unknown, fallback: string) {
@@ -159,6 +161,10 @@ export default function App() {
   ) ?? false;
   const canReadOWKS = user?.permissions.includes("owks.read") ?? false;
   const canAccessBilling = user?.permissions.includes("billing.invoices.read") ?? false;
+  const canReadTasks = user?.permissions.some((permission) =>
+    ["tasks.read_own", "tasks.read_all", "tasks.manage_all"].includes(permission),
+  ) ?? false;
+  const canCreateTasks = user?.permissions.includes("tasks.create") ?? false;
 
   useEffect(() => {
     getSession()
@@ -247,7 +253,14 @@ export default function App() {
     ) {
       setActiveModule("owks");
     }
-  }, [canAccessBilling, canAccessDocuments, canReadCustomers, canReadEmployees, canReadObjects, canReadOWKS, canReadScheduling, canReadTimeTracking, user]);
+    else if (
+      user && !canReadCustomers && !canReadObjects && !canReadEmployees
+      && !canReadScheduling && !canReadTimeTracking && !canAccessDocuments && !canAccessBilling
+      && !canReadOWKS && (canReadTasks || canCreateTasks)
+    ) {
+      setActiveModule("tasks");
+    }
+  }, [canAccessBilling, canAccessDocuments, canCreateTasks, canReadCustomers, canReadEmployees, canReadObjects, canReadOWKS, canReadScheduling, canReadTasks, canReadTimeTracking, user]);
 
   async function submitLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -538,13 +551,16 @@ export default function App() {
       <section className="intro">
         <p className="eyebrow">SECURITYOPS VERWALTUNG</p>
         <h1>Guten Tag.</h1>
-        <p>Kunden, Objekte, Personal, Dienste und Arbeitszeiten zentral verwalten.</p>
+        <p>Kunden, Objekte, Personal, Aufgaben, Dienste und Arbeitszeiten zentral verwalten.</p>
       </section>
 
       <nav className="module-tabs" aria-label="Verwaltungsmodule">
         {(canReadCustomers || canCreateCustomers) && <button
           className={activeModule === "customers" ? "module-tab active" : "module-tab"}
           onClick={() => selectModule("customers")}>Kunden</button>}
+        {(canReadTasks || canCreateTasks) && <button
+          className={activeModule === "tasks" ? "module-tab active" : "module-tab"}
+          onClick={() => selectModule("tasks")}>Aufgaben</button>}
         {canReadObjects && <button
           className={activeModule === "objects" ? "module-tab active" : "module-tab"}
           onClick={() => selectModule("objects")}>Objekte</button>}
@@ -577,6 +593,8 @@ export default function App() {
           onSignedOut={clearLocalSession}
           onPasswordChanged={clearLocalSession}
         />
+        : activeModule === "tasks" && (canReadTasks || canCreateTasks)
+        ? <TaskManagement user={user} />
         : activeModule === "documents" && canAccessDocuments
         ? <DocumentContractManagement user={user} />
         : activeModule === "billing" && canAccessBilling

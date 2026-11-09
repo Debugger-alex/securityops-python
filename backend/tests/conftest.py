@@ -62,6 +62,9 @@ from app.models import (
     ScheduleShift,
     ScheduleShiftHistory,
     SecurityObject,
+    Task,
+    TaskComment,
+    TaskHistory,
     TimeEntry,
     TimeEntryCorrection,
     TimeEntryCorrectionSegment,
@@ -114,6 +117,9 @@ def client() -> Generator[TestClient, None, None]:
         db.execute(delete(UserSession))
         db.execute(delete(UserMFARecoveryCode))
         db.execute(delete(AuditLog))
+        db.execute(delete(TaskComment))
+        db.execute(delete(TaskHistory))
+        db.execute(delete(Task))
         if test_engine.dialect.name == "postgresql":
             for table in ("owks_events", "owks_event_statuses", "owks_attachments"):
                 db.execute(text(f"ALTER TABLE {table} DISABLE TRIGGER {table}_append_only"))
@@ -241,6 +247,13 @@ def client() -> Generator[TestClient, None, None]:
             "billing.rates.manage",
             "billing.payments.manage",
             "billing.exports.create",
+            "tasks.read_own",
+            "tasks.read_all",
+            "tasks.create",
+            "tasks.update_own",
+            "tasks.manage",
+            "tasks.assign",
+            "tasks.manage_all",
         )
         permissions = {}
         for code in permission_codes:
@@ -328,6 +341,9 @@ def client() -> Generator[TestClient, None, None]:
                 "time_tracking.read_own",
                 "time_tracking.create",
                 "time_tracking.correct_own",
+                "tasks.read_own",
+                "tasks.create",
+                "tasks.update_own",
             ),
         )
         get_or_create_role(

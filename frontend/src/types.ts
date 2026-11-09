@@ -8,6 +8,8 @@ export type CustomerSort =
   | "contract_status";
 export type ObjectStatus = "active" | "inactive";
 export type ObjectSort = "name" | "code" | "created_at" | "status";
+export type TaskPriority = "low" | "normal" | "high" | "urgent";
+export type TaskStatus = "open" | "in_progress" | "blocked" | "completed" | "cancelled";
 export type EmployeeStatus = "active" | "inactive" | "leave" | "terminated";
 export type EmployeeAbsenceType = "vacation" | "sick_leave" | "other";
 export type EmployeeAbsenceStatus = "pending" | "approved" | "rejected";
@@ -342,6 +344,70 @@ export interface AuthUser {
   is_active: boolean;
   roles: string[];
   permissions: string[];
+}
+
+export interface TaskItem {
+  id: string;
+  title: string;
+  description: string | null;
+  assigned_to_id: string;
+  assigned_to_name: string;
+  created_by_id: string | null;
+  created_by_name: string | null;
+  customer_id: string | null;
+  customer_name: string | null;
+  object_id: string | null;
+  object_name: string | null;
+  due_at: string | null;
+  priority: TaskPriority;
+  status: TaskStatus;
+  completion_evidence: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TaskComment {
+  id: string;
+  author_id: string | null;
+  author_name: string | null;
+  body: string;
+  created_at: string;
+}
+
+export interface TaskHistory {
+  id: string;
+  actor_id: string | null;
+  actor_name: string | null;
+  action: string;
+  changes: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface TaskDetail extends TaskItem {
+  comments: TaskComment[];
+  history: TaskHistory[];
+}
+
+export interface TaskPage {
+  items: TaskItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface TaskAssignee {
+  id: string;
+  full_name: string;
+}
+
+export interface TaskLocations {
+  customers: Array<{ id: string; company_name: string }>;
+  objects: Array<{
+    id: string;
+    name: string;
+    customer_id: string;
+    customer_name: string;
+  }>;
 }
 
 export interface Session {
