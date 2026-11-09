@@ -1,6 +1,6 @@
 # Priorisierte Implementierungs-Roadmap
 
-Diese Roadmap basiert auf dem tatsächlich gemergten `main`-Stand vom 09.11.2026 (SHA `744eff7c4c747d089a2fa6da2aeadab4840c5ef8`) und der aktuellen GitHub-Abfrage. Statusdetails stehen in [`PROJECT_STATUS.md`](PROJECT_STATUS.md). Priorität folgt Sicherheits- und Datenabhängigkeiten, nicht der Nummer offener Issues.
+Diese Roadmap basiert auf dem tatsächlich gemergten `main`-Stand vom 09.11.2026 (SHA `ac31bae99ee9f70026057483f303e86c69159e38`) und der aktuellen GitHub-Abfrage. Statusdetails stehen in [`PROJECT_STATUS.md`](PROJECT_STATUS.md). Priorität folgt Sicherheits- und Datenabhängigkeiten, nicht der Nummer offener Issues.
 
 ## Prioritäten
 
@@ -20,6 +20,8 @@ PR #35 ist inzwischen gemergt und ergänzt mit `0020_notifications` In-App-Benac
 
 PR #36 ist mit Migration `0021_key_management` gemergt und ergänzt ein objektgebundenes Schlüsselregister mit Ausgabe, Rückgabe, Verlust-/Defektmeldung, Inventur und append-only Bewegungsverlauf. Ausgabe erfordert eine aktive, dem Objekt zugewiesene Person und eine digitale Quittierung. Die Quittierung ist keine qualifizierte elektronische Signatur oder ein Nachweis physischer Verwahrung; bestehende Freitext-Zutrittsangaben werden nicht als Schlüsselbestand migriert. Betriebsprozesse für tatsächliche Schlüsselübergabe und physische Sicherung bleiben erforderlich.
 
+PR #37 ist mit Migration `0022_incident_management` gemergt und ergänzt objektbezogene Vorfälle/Beschwerden, Maßnahmen, Fristen, Statusübergänge und Abschlussbericht. Separate Sensitivitätsrechte schützen Hergang, Abschlussbericht, Beteiligte/Zeugen und Dateizugriff; alle Endpunkte prüfen zusätzlich Objekt-Scope. Vorfallanhänge werden fail-closed mit ClamAV geprüft, privat gespeichert und nur autorisiert abgerufen; vorhandene Dateien werden nicht rückwirkend geprüft. Maßnahmen, Fristen und Eskalationen bleiben manuell: es gibt keine automatische Aufgaben-/Benachrichtigungsintegration, Fristerinnerung oder Eskalationsregel.
+
 ### P1 – Abnahme und Bestand konsolidieren
 
 1. Issue #10: Dienstplanung fachlich abnehmen. PR #26 ist gemergt und ergänzt wöchentliche Verfügbarkeitsfenster, befristete Dienstwünsche/Sperrzeiten und nachvollziehbare Schichtvertretungen. Issue #10 bleibt offen; die Konflikt-/Ruhezeitprüfung ist keine arbeitsrechtliche Freigabe.
@@ -38,10 +40,10 @@ PR #36 ist mit Migration `0021_key_management` gemergt und ergänzt ein objektge
 
 ## Bestätigte GitHub-Lage
 
-- In `main`: Identity inklusive MFA/Sitzungsverwaltung, Kunden, Objekte, Personal/Qualifikationen, Dienstplanung einschließlich Verfügbarkeiten/Vertretungen, Zeiterfassung, OWKS, Dokumente/Verträge, Rechnungswesen, Upload-Scan, Aufgaben, In-App-Aufgabenbenachrichtigungen und Schlüsselverwaltung (Migrationen `0001`–`0021`); PRs #23, #24, #26, #27, #28, #29, #31, #33, #34, #35 und #36 sind gemergt.
+- In `main`: Identity inklusive MFA/Sitzungsverwaltung, Kunden, Objekte, Personal/Qualifikationen, Dienstplanung einschließlich Verfügbarkeiten/Vertretungen, Zeiterfassung, OWKS, Dokumente/Verträge, Rechnungswesen, Upload-Scan, Aufgaben, In-App-Aufgabenbenachrichtigungen, Schlüssel- und Vorfallmanagement (Migrationen `0001`–`0022`); PRs #23, #24, #26, #27, #28, #29, #31, #33, #34, #35, #36 und #37 sind gemergt.
 - PR #33 ergänzt fail-closed ClamAV-Scan neuer relevanter Uploads; PR #34 ergänzt den generischen Aufgaben-Kern, der nicht automatisch mit Fachmodulen gekoppelt ist. PR #35 ergänzt transaktionale In-App-Benachrichtigungen für Aufgabenereignisse; die Outbox wird nicht von einem Worker verarbeitet und es gibt keine Retries oder externe Kanäle.
 - Offen ist nur PR #25 (Dokumentation); aktuelle CI-Ergebnisse sind pro PR-Head zu prüfen.
-- Migration `0017_billing` folgt auf `0016_scheduling_availability`; `0018_identity_security` folgt auf `0017_billing`, `0019_tasks` auf `0018_identity_security`, `0020_notifications` auf `0019_tasks` und `0021_key_management` auf `0020_notifications`. Issues #7–#10 sind offen, #2–#6 geschlossen; PR #25 ist die einzige offene PR.
+- Migration `0017_billing` folgt auf `0016_scheduling_availability`; `0018_identity_security` folgt auf `0017_billing`, `0019_tasks` auf `0018_identity_security`, `0020_notifications` auf `0019_tasks`, `0021_key_management` auf `0020_notifications` und `0022_incident_management` auf `0021_key_management`. Issues #7–#10 sind offen, #2–#6 geschlossen; PR #25 ist die einzige offene PR.
 - Issues #2–#6 sind geschlossen; #7–#10 sind laut frischer GitHub-Abfrage offen. Issue #8 bleibt trotz PR #24 offen; Issue #9 trotz PR #28, Issue #10 trotz PR #26 und Issue #7 trotz PR #27. Offene Issues sind keine Aussage, dass die gemergte Funktion nicht vorhanden ist; keine Issue wurde durch diese Dokumentationsänderung geändert.
 
 ## Abhängigkeiten und Abschlusskriterien

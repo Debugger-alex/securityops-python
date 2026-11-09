@@ -1,7 +1,16 @@
 # Änderungsprotokoll
 
+## 2026-11-09 – Dokumentation auf Main mit Vorfallmanagement aktualisiert
+
+- Maßgeblicher `main`-Stand: `ac31bae99ee9f70026057483f303e86c69159e38`, Alembic-Head `0022_incident_management`, 73 SQLAlchemy-Tabellen, 189 `/api/v1`-Operationen und zwei Health-Operationen.
+- PR #37 wurde am 09.11.2026 gemergt. Migration `0022_incident_management` ergänzt sechs Tabellen und zwölf API-Operationen für objektbezogene Vorfälle/Beschwerden, sensible Details, Maßnahmen, Beteiligte/Zeugen, private Anhänge und append-only Historie. Sieben abgestufte `incidents.*`-Rechte erzwingen serverseitigen Objekt-Scope und gesonderten Schutz sensibler Inhalte. Anhänge werden fail-closed mit ClamAV geprüft und privat gespeichert; kein rückwirkender Bestandsscan. Keine automatische Aufgaben-/Benachrichtigungsintegration, Fristerinnerung oder Eskalationsregeln.
+- Die Merge-PR-CI war bei allen acht Checks erfolgreich. Im PR-Text gemeldet: 82 Backendtests bestanden/13 übersprungen (lokal ausgelassene PostgreSQL-spezifische Prüfungen), 39 Frontendtests bestanden, Ruff-Check/Format und Alembic-Head erfolgreich. Dies ist kein fachlicher, rechtlicher oder produktiver Nachweis.
+- Frisch geprüft: PR #25 ist die einzige offene PR; Issues #7–#10 sind offen, #2–#6 geschlossen.
+- API-, Datenbank-/ER-, Architektur-, Audit-, Roadmap-, Status-, Sicherheits-, README- und Incident-Dokumentation auf den integrierten Stand abgeglichen. Der Dokumentations-PR bleibt offen und wird nicht gemergt.
+
 ## 2026-11-09 – Dokumentation auf Main mit Schlüsselverwaltung aktualisiert
 
+- Diese Momentaufnahme beschreibt den vor dem Merge von PR #37 geltenden Main-Stand; der neuere Eintrag oben ist maßgeblich.
 - Maßgeblicher `main`-Stand: `744eff7c4c747d089a2fa6da2aeadab4840c5ef8`, Alembic-Head `0021_key_management`, 67 SQLAlchemy-Tabellen, 177 `/api/v1`-Operationen und zwei Health-Operationen.
 - PR #36 wurde am 09.11.2026 gemergt. Migration `0021_key_management` ergänzt `physical_keys` und append-only `key_movements`, drei `keys.*`-Rechte und acht API-Operationen. Ausgabe erfordert eine aktive, dem Objekt zugewiesene Person und Quittierungsbestätigung. Diese ist keine qualifizierte elektronische Signatur oder ein Nachweis physischer Verwahrung; bestehende Freitext-Zutrittsangaben werden nicht migriert.
 - Die PR-CI war für alle acht Checks erfolgreich (Backend/Migrationen/PostgreSQL, Frontend-Typprüfung/Build, Docker-Images, verschlüsselter PostgreSQL-17-Restore, SCA, CodeQL Python, CodeQL JavaScript/TypeScript und zusätzlicher CodeQL-Check). Der PR meldete 78 Backendtests bestanden/12 übersprungen, 36 Frontendtests bestanden, Ruff-Check/Format und Alembic-Head erfolgreich. CI ist keine fachliche oder produktive Abnahme.

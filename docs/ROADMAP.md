@@ -19,4 +19,6 @@ PR #35 ist in `main` gemergt und `0020_notifications` ergänzt In-App-Benachrich
 
 PR #36 ist mit `0021_key_management` ebenfalls in `main` gemergt. Das objektgebundene Register protokolliert Schlüsselbewegungen append-only und verlangt bei Ausgabe eine aktive, dem Objekt zugewiesene Person sowie Quittierung. Die digitale Quittierung ist keine qualifizierte elektronische Signatur oder ein Nachweis physischer Verwahrung; Freitext-Zutrittsangaben werden nicht migriert.
 
+PR #37 ist mit `0022_incident_management` in `main` gemergt. Das Incident-Modul ist objektgebunden, trennt Vorfall-/Schreibrechte von Sensitivitätsrechten für Hergang, Abschlussbericht, Beteiligte und Dateien und prüft diesen Scope serverseitig. PDF-/Bildanhänge werden vor Ablage fail-closed mit ClamAV geprüft, privat gespeichert und nur autorisiert ausgeliefert; History, Personen- und Dateireferenzen haben Append-only-Trigger. Es gibt keine automatische Aufgaben-/Benachrichtigungsintegration, Fristerinnerung oder Eskalationsregel.
+
 Reihenfolge stellt keinen Implementierungs- oder Rechtsstatus dar. Keine Produktions-, Rechts- oder Steuerfreigabe wird behauptet.

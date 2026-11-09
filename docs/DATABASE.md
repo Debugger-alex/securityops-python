@@ -2,7 +2,7 @@
 
 ## Quelle und Stand
 
-Diese Referenz beschreibt den Quellcode auf `main` (`744eff7c4c747d089a2fa6da2aeadab4840c5ef8`), insbesondere `backend/app/models.py` und `backend/migrations/versions/`. Die Tabellen-/Spaltenlisten sind aus den SQLAlchemy-Metadaten abgeleitet, die Migrationshistorie aus den Alembic-Dateien. Das Metadateninventar umfasst 67 Tabellen; der Alembic-Head ist `0021_key_management`. PRs #23, #24, #26, #27, #31, #33, #34, #35 und #36 sind gemergt; die Revisionen `0014_owks_wachbuch` bis `0021_key_management` gehören zum aktuellen Schema.
+Diese Referenz beschreibt den Quellcode auf `main` (`ac31bae99ee9f70026057483f303e86c69159e38`), insbesondere `backend/app/models.py` und `backend/migrations/versions/`. Die Tabellen-/Spaltenlisten sind aus den SQLAlchemy-Metadaten abgeleitet, die Migrationshistorie aus den Alembic-Dateien. Das Metadateninventar umfasst 73 Tabellen; der Alembic-Head ist `0022_incident_management`. PRs #23, #24, #26, #27, #31, #33, #34, #35, #36 und #37 sind gemergt; die Revisionen `0014_owks_wachbuch` bis `0022_incident_management` gehören zum aktuellen Schema.
 
 UUID-Primärschlüssel werden in PostgreSQL als UUID geführt. Datums-/Zeitpunktfelder mit `DateTime(timezone=True)` werden als zeitzonenbewusste Zeitpunkte (`TIMESTAMPTZ`) abgebildet; APIs normalisieren Zeitpunkte für operative Zeitdaten nach UTC. JSON-Spalten und Binärdaten verwenden PostgreSQL-JSON bzw. `BYTEA`. Nicht aufgeführte `CHECK`-Regeln können zusätzlich in Schemas/Service-Code validiert werden; hier werden Datenbankconstraints und -indizes dokumentiert.
 
@@ -79,6 +79,12 @@ UUID-Primärschlüssel werden in PostgreSQL als UUID geführt. Datums-/Zeitpunkt
 | `notifications` | PK `id`; `outbox_id`, `recipient_id`, `task_id`, `event_type`, `title`, `body`, `created_at`, `read_at` |
 | `physical_keys` | PK `id`; `key_number`, `description`, `object_id`, `status`, `current_employee_id`, `created_by_id`, `archived_at`, `created_at`, `updated_at` |
 | `key_movements` | PK `id`; `key_id`, `object_id`, `employee_id`, `actor_id`, `movement_type`, `key_status_after`, `acknowledged_at`, `acknowledgement_note`, `note`, `created_at` |
+| `incidents` | PK `id`; `title`, `report`, `incident_type`, `severity`, `object_id`, `status`, `due_at`, `assigned_to_id`, `owks_event_id`, `created_by_id`, `created_at`, `updated_at` |
+| `incident_sensitive_details` | PK/FK `incident_id`; `narrative`, `closure_report`, `updated_by_id`, `updated_at` |
+| `incident_measures` | PK `id`; `incident_id`, `title`, `description`, `due_at`, `assigned_to_id`, `status`, `created_by_id`, `created_at`, `updated_at` |
+| `incident_people` | PK `id`; `incident_id`, `name`, `role`, `notes`, `created_by_id`, `created_at` |
+| `incident_attachments` | PK `id`; `incident_id`, `storage_key`, `file_name`, `media_type`, `size_bytes`, `sha256`, `uploaded_by_id`, `created_at` |
+| `incident_history` | PK `id`; `incident_id`, `actor_id`, `action`, `changes`, `created_at` |
 
 ### Nullable Spalten
 
@@ -143,6 +149,12 @@ Alle nicht in dieser Liste enthaltenen Spalten sind in den Modellen `nullable=Fa
 | `notifications` | `read_at` |
 | `physical_keys` | `current_employee_id`, `created_by_id`, `archived_at` |
 | `key_movements` | `employee_id`, `acknowledged_at`, `acknowledgement_note`, `note` |
+| `incidents` | `due_at`, `owks_event_id`, `created_by_id` |
+| `incident_sensitive_details` | `narrative`, `closure_report`, `updated_by_id` |
+| `incident_measures` | `description`, `due_at`, `created_by_id` |
+| `incident_people` | `notes`, `created_by_id` |
+| `incident_attachments` | `uploaded_by_id` |
+| `incident_history` | `actor_id` |
 
 ## Fremdschlüssel und Löschverhalten
 
@@ -204,6 +216,16 @@ Alle nicht in dieser Liste enthaltenen Spalten sind in den Modellen `nullable=Fa
 | `physical_keys.created_by_id` | `users.id` | `SET NULL` |
 | `key_movements.key_id` | `physical_keys.id` | `RESTRICT` |
 | `key_movements.actor_id` | `users.id` | `RESTRICT` |
+| `incidents.object_id` | `objects.id` | `RESTRICT` |
+| `incidents.assigned_to_id` | `users.id` | `RESTRICT` |
+| `incidents.owks_event_id` | `owks_events.id` | `RESTRICT` |
+| `incidents.created_by_id` | `users.id` | `SET NULL` |
+| `incident_sensitive_details.incident_id` | `incidents.id` | `RESTRICT` |
+| `incident_sensitive_details.updated_by_id` | `users.id` | `SET NULL` |
+| `incident_measures.incident_id`, `incident_people.incident_id`, `incident_attachments.incident_id`, `incident_history.incident_id` | `incidents.id` | jeweils `RESTRICT` |
+| `incident_measures.assigned_to_id` | `users.id` | `RESTRICT` |
+| `incident_measures.created_by_id` | `users.id` | `SET NULL` |
+| `incident_people.created_by_id`, `incident_attachments.uploaded_by_id`, `incident_history.actor_id` | `users.id` | jeweils `RESTRICT` |
 
 ## Constraints und Indizes
 
@@ -275,6 +297,12 @@ Primärschlüssel sind in der Tabellenübersicht aufgeführt. Die folgenden bena
 | `notifications` | Unique `uq_notifications_event_recipient`; Index `ix_notifications_recipient_created` |
 | `physical_keys` | Unique `key_number`; Checks `ck_physical_keys_status`, `ck_physical_keys_number`, `ck_physical_keys_description`, `ck_physical_keys_holder_status`, `ck_physical_keys_archived_at`; Indizes `ix_physical_keys_object_status`, `ix_physical_keys_holder_status` |
 | `key_movements` | Checks `ck_key_movements_type`, `ck_key_movements_status_after`, `ck_key_movements_issue_acknowledged`, `ck_key_movements_type_status`; Indizes `ix_key_movements_key_created`, `ix_key_movements_object_created`, `ix_key_movements_employee_created`; PostgreSQL-Trigger `key_movements_append_only` verhindert UPDATE/DELETE |
+| `incidents` | Checks `ck_incidents_type`, `ck_incidents_severity`, `ck_incidents_status`, `ck_incidents_title`, `ck_incidents_report`; Indizes `ix_incidents_object_status_due`, `ix_incidents_assignee_status` |
+| `incident_sensitive_details` | FK/PK auf `incident_id`; keine zusätzlichen benannten Checks/Indizes |
+| `incident_measures` | Checks `ck_incident_measures_status`, `ck_incident_measures_title`; Indizes `ix_incident_measures_incident_status_due`, `ix_incident_measures_assignee_status` |
+| `incident_people` | Checks `ck_incident_people_role`, `ck_incident_people_name`; Index `ix_incident_people_incident_created`; PostgreSQL-Trigger `incident_people_append_only` verhindert UPDATE/DELETE |
+| `incident_attachments` | Unique `storage_key`; Checks `ck_incident_attachments_media_type`, `ck_incident_attachments_size` (max. 10 MiB); Index `ix_incident_attachments_incident_created`; PostgreSQL-Trigger `incident_attachments_append_only` verhindert UPDATE/DELETE |
+| `incident_history` | Index `ix_incident_history_incident_created`; PostgreSQL-Trigger `incident_history_append_only` verhindert UPDATE/DELETE |
 
 Die `user_roles`- und `role_permissions`-Join-Tabellen haben zusammengesetzte Primärschlüssel; ihre beiden Fremdschlüssel sind jeweils `ON DELETE CASCADE`. Einige modelldeklarierte, nicht benannte Einzelspalten-Unique-Constraints (zum Beispiel `roles.code`) sind oben als Feld-Unique erwähnt. Migrationsspezifische PostgreSQL- und partielle Indizes sind zusätzlich aufgeführt, auch wenn sie nicht vollständig in `Base.metadata` als Modell-Index gespiegelt sind.
 
@@ -374,6 +402,17 @@ erDiagram
     OBJECTS ||--o{ KEY_MOVEMENTS : object_scope
     EMPLOYEES o|--o{ KEY_MOVEMENTS : employee
     USERS ||--o{ KEY_MOVEMENTS : actor
+    OBJECTS ||--o{ INCIDENTS : object_scope
+    USERS ||--o{ INCIDENTS : assigned_to
+    USERS o|--o{ INCIDENTS : created_by
+    OWKS_EVENTS o|--o{ INCIDENTS : optional_reference
+    INCIDENTS ||--o| INCIDENT_SENSITIVE_DETAILS : restricted_details
+    INCIDENTS ||--o{ INCIDENT_MEASURES : measures
+    USERS ||--o{ INCIDENT_MEASURES : measure_assignee
+    INCIDENTS ||--o{ INCIDENT_PEOPLE : restricted_people
+    INCIDENTS ||--o{ INCIDENT_ATTACHMENTS : restricted_attachments
+    INCIDENTS ||--o{ INCIDENT_HISTORY : append_only_history
+    USERS o|--o{ INCIDENT_HISTORY : actor
 ```
 
 `schedule_settings`, `time_tracking_settings` und `document_contract_reminder_settings` sind Singleton-Konfigurationen. Beziehungen zu `users` als Ersteller/Prüfer/Sperrer sowie einzelne optionale Beziehungen sind aus Gründen der Lesbarkeit nicht sämtlich im Diagramm gezeichnet; die Fremdschlüsselliste oben ist vollständig.
@@ -403,10 +442,11 @@ erDiagram
 | `0019_tasks` | `0018_identity_security` | Generische Aufgaben, Kommentare, Verlauf, Kunden-/Objekt- und Benutzer-FKs, Status-/Prioritätsprüfungen, Indizes sowie `tasks.*`-Rollenrechte |
 | `0020_notifications` | `0019_tasks` | In-App-Aufgabenbenachrichtigungen, dauerhafte Outbox, Empfänger-/Aufgaben-FKs, Deduplizierung, Lesestatus und Recht `notifications.read_own` |
 | `0021_key_management` | `0020_notifications` | Objektgebundenes Schlüsselregister und append-only Bewegungen, Zustands-/Quittierungschecks, Objekt-/Mitarbeiter-/Akteur-FKs, Indizes, Append-only-Trigger und Rechte `keys.read`, `keys.manage`, `keys.move` |
+| `0022_incident_management` | `0021_key_management` | Objektbezogene Vorfälle/Beschwerden, getrennte sensible Details, Maßnahmen, Beteiligte/Zeugen, private Dateianhänge, append-only Verlauf/Bezüge, Rechte `incidents.*` |
 
 Neue Schemaänderungen benötigen eine neue Alembic-Migration. Ein `Base.metadata.create_all` ist nur in Tests zulässig. Migrationen sollten vor Rollout in PostgreSQL geprüft werden; Daten-destruktive Downgrades sind keine sichere Rollbackstrategie. Release-Migrationen und verschlüsselte Backup-/Restore-Skripte sind vorhanden; produktive Rollouts und Wiederherstellungen sind nicht unabhängig nachgewiesen.
 
-PR #27, #31, #33, #34, #35 und #36 sind gemergt; die Migrationsfolge auf `main` endet auf `0021_key_management`, nach `0017_billing`, `0018_identity_security`, `0019_tasks` und `0020_notifications`. Issue #7 bleibt trotz des Billing-Merges offen zur fachlichen Abnahme. PR #25 ist die einzige offene PR und ändert ausschließlich Dokumentation.
+PR #27, #31, #33, #34, #35, #36 und #37 sind gemergt; die Migrationsfolge auf `main` endet auf `0022_incident_management`, nach `0017_billing`, `0018_identity_security`, `0019_tasks`, `0020_notifications` und `0021_key_management`. Issue #7 bleibt trotz des Billing-Merges offen zur fachlichen Abnahme. PR #25 ist die einzige offene PR und ändert ausschließlich Dokumentation.
 
 ## Datenhaltungsgrenzen
 
@@ -418,6 +458,7 @@ PR #27, #31, #33, #34, #35 und #36 sind gemergt; die Migrationsfolge auf `main` 
 - `tasks` referenziert den verantwortlichen Benutzer verpflichtend sowie Ersteller, Kunden und Objekt optional. Kommentare und Verlauf hängen mit `CASCADE` an Aufgaben; personenbezogene Autoren-/Akteur-FKs werden bei Benutzerlöschung `SET NULL`. Historie und App-Audit werden mit Aufgabenänderungen transaktional erzeugt; Beziehungen zu fachlichen Aufgabenereignissen oder automatische Folgeaufgaben bestehen nicht.
 - `notification_outbox` persistiert Ereignisse für spätere Verarbeitung, während `notifications` die empfängergebundenen In-App-Einträge samt Lesestatus speichert. Aufgaben-Neuzuweisung und tatsächliche Statusänderung erzeugen Ereignis, Outbox und Inbox-Einträge transaktional; Outbox-Ereignisse werden derzeit nicht durch Worker verarbeitet. Es gibt keine Retry-Verarbeitung, E-Mail-/Push-Zustellung oder Modulereignisse außerhalb der Aufgaben. `notifications` verweist auf Outbox, Empfänger und Aufgabe; Empfängerzeilen werden bei Benutzerlöschung mit `CASCADE` gelöscht, Aufgabe und Outbox dürfen wegen `RESTRICT` nicht gelöscht werden, solange Benachrichtigungen referenzieren.
 - `physical_keys` hält Nummer, Beschreibung, Pflichtobjekt, Status und optionalen aktuellen Mitarbeiter; `key_movements` hält Ausgabe, Rückgabe, Verlust, Defekt und Inventur als append-only Historie. Änderungen am Schlüsselstatus, Bewegung und Audit werden transaktional gespeichert; der PostgreSQL-Trigger blockiert UPDATE/DELETE auf Bewegungen. Ausgabe verlangt aktive Mitarbeiter mit aktiver Objektzuweisung und bestätigter Quittierung. Die Quittierung ist keine qualifizierte elektronische Signatur oder ein physischer Verwahrnachweis. Freitext-Zutrittsangaben bestehender Objekte werden weder migriert noch als Schlüsselbestand übernommen.
+- `incidents` speichert objektbezogene Vorfälle mit verantwortlicher Person, Status, Frist und optionaler OWKS-Ereignisreferenz desselben Objekts. `incident_sensitive_details` trennt Hergang und Abschlussbericht; `incident_people` schützt Beteiligte/Zeugen; `incident_attachments` enthält nur private Speicherreferenz und Datei-Metadaten. Maßnahmen und Statuswechsel werden zusammen mit Audit und `incident_history` transaktional protokolliert. PostgreSQL-Trigger blockieren UPDATE/DELETE auf Verlauf, Personenbezügen und Dateireferenzen; privilegierte Datenbankadministration bleibt außerhalb der Anwendungsschutzgrenze. Dateiinhalte liegen im privaten Dokumentenspeicher, werden vor Ablage fail-closed mit ClamAV geprüft und über separate Berechtigungsprüfungen ausgeliefert. OWKS wird nur referenziert; es gibt keine automatische Aufgabenanlage, Benachrichtigung, Fristerinnerung oder Eskalationsregel.
 - `time_surcharge_calculations` speichert unveränderliche Zeit-/Regelsnapshots; es gibt keine Geldbetrags-Spalte. Geldberechnung ist nicht implementiert.
 - Abwesenheitsdaten und sensible Personal-/Objektdaten sind personenbezogen/sensibel; Verschlüsselung at rest, Aufbewahrung und Löschung müssen für die konkrete Betriebsumgebung entschieden werden.
 - Lokale API-Tests laufen standardmäßig gegen SQLite. PostgreSQL-Constraints, Migrationen und konkurrierende Schreibvorgänge benötigen PostgreSQL-Prüfungen. Backup-/Restore-Skripte und ein synthetischer Restoretest in CI sind vorhanden; das belegt keine Wiederherstellung produktiver Sicherungen.
