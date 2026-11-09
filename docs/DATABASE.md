@@ -2,7 +2,7 @@
 
 ## Quelle und Stand
 
-Diese Referenz beschreibt den Quellcode auf `main` (`ac31bae99ee9f70026057483f303e86c69159e38`), insbesondere `backend/app/models.py` und `backend/migrations/versions/`. Die Tabellen-/Spaltenlisten sind aus den SQLAlchemy-Metadaten abgeleitet, die Migrationshistorie aus den Alembic-Dateien. Das Metadateninventar umfasst 73 Tabellen; der Alembic-Head ist `0022_incident_management`. PRs #23, #24, #26, #27, #31, #33, #34, #35, #36 und #37 sind gemergt; die Revisionen `0014_owks_wachbuch` bis `0022_incident_management` gehören zum aktuellen Schema.
+Diese Referenz beschreibt den Quellcode auf `main` (`b275b5a0eb4a82a480e3c15ee09a0a5c85453a6d`), insbesondere `backend/app/models.py` und `backend/migrations/versions/`. Die Tabellen-/Spaltenlisten sind aus den SQLAlchemy-Metadaten abgeleitet, die Migrationshistorie aus den Alembic-Dateien. Das Metadateninventar umfasst 73 Tabellen; der Alembic-Head ist `0023_control_room_permission`. PRs #23, #24, #26, #27, #31, #33, #34, #35, #36, #37 und #38 sind gemergt; die Revisionen `0014_owks_wachbuch` bis `0023_control_room_permission` gehören zum aktuellen Schema.
 
 UUID-Primärschlüssel werden in PostgreSQL als UUID geführt. Datums-/Zeitpunktfelder mit `DateTime(timezone=True)` werden als zeitzonenbewusste Zeitpunkte (`TIMESTAMPTZ`) abgebildet; APIs normalisieren Zeitpunkte für operative Zeitdaten nach UTC. JSON-Spalten und Binärdaten verwenden PostgreSQL-JSON bzw. `BYTEA`. Nicht aufgeführte `CHECK`-Regeln können zusätzlich in Schemas/Service-Code validiert werden; hier werden Datenbankconstraints und -indizes dokumentiert.
 
@@ -443,10 +443,11 @@ erDiagram
 | `0020_notifications` | `0019_tasks` | In-App-Aufgabenbenachrichtigungen, dauerhafte Outbox, Empfänger-/Aufgaben-FKs, Deduplizierung, Lesestatus und Recht `notifications.read_own` |
 | `0021_key_management` | `0020_notifications` | Objektgebundenes Schlüsselregister und append-only Bewegungen, Zustands-/Quittierungschecks, Objekt-/Mitarbeiter-/Akteur-FKs, Indizes, Append-only-Trigger und Rechte `keys.read`, `keys.manage`, `keys.move` |
 | `0022_incident_management` | `0021_key_management` | Objektbezogene Vorfälle/Beschwerden, getrennte sensible Details, Maßnahmen, Beteiligte/Zeugen, private Dateianhänge, append-only Verlauf/Bezüge, Rechte `incidents.*` |
+| `0023_control_room_permission` | `0022_incident_management` | Recht `control_room.read` und Zuweisung an Administrator, Geschäftsführung, Operations und Objektleitung; keine neue Tabelle |
 
 Neue Schemaänderungen benötigen eine neue Alembic-Migration. Ein `Base.metadata.create_all` ist nur in Tests zulässig. Migrationen sollten vor Rollout in PostgreSQL geprüft werden; Daten-destruktive Downgrades sind keine sichere Rollbackstrategie. Release-Migrationen und verschlüsselte Backup-/Restore-Skripte sind vorhanden; produktive Rollouts und Wiederherstellungen sind nicht unabhängig nachgewiesen.
 
-PR #27, #31, #33, #34, #35, #36 und #37 sind gemergt; die Migrationsfolge auf `main` endet auf `0022_incident_management`, nach `0017_billing`, `0018_identity_security`, `0019_tasks`, `0020_notifications` und `0021_key_management`. Issue #7 bleibt trotz des Billing-Merges offen zur fachlichen Abnahme. PRs #25 und #38 sind offen. Die in PR #38 erwähnte Revision `0023_control_room_permission` ist nicht Teil dieses Schema-Inventars oder von `main`.
+PR #27, #31, #33, #34, #35, #36, #37 und #38 sind gemergt; die Migrationsfolge auf `main` endet auf `0023_control_room_permission`, nach `0022_incident_management`. Die Revision fügt nur ein RBAC-Recht samt Rollenzuweisungen hinzu und verändert die Tabellenliste nicht. Issue #7 bleibt trotz des Billing-Merges offen zur fachlichen Abnahme. PR #25 ist die einzige offene PR.
 
 ## Datenhaltungsgrenzen
 

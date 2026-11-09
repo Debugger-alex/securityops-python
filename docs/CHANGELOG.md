@@ -1,15 +1,16 @@
 # Änderungsprotokoll
 
-## 2026-11-09 – Offenes Leitstellen-Dashboard als PR-Arbeit vermerkt
+## 2026-11-09 – Leitstellenübersicht in main integriert
 
-- Frisch geprüft: PR #38 ist offen gegen `main`; PR #25 bleibt ebenfalls offen. Issues #7–#10 sind offen, #2–#6 geschlossen.
-- `main` bleibt auf `ac31bae99ee9f70026057483f303e86c69159e38`, Alembic-Head `0022_incident_management`, 73 SQLAlchemy-Tabellen und 189 `/api/v1`-Operationen.
-- PR #38 beschreibt eine Leitstellenübersicht mit Recht `control_room.read`, aktiven Objekt- und Fachbereichsprüfungen und begrenzten Listen. Seine Migration `0023_control_room_permission` ist ausstehend und nicht in Main-Tabellen-, API- oder Migrationsinventaren enthalten. Die PR-Beschreibung sagt, bestehende Dashboard-API und Datenmodell blieben unverändert.
-- Der vorherige PR-#38-Head hatte einen fehlgeschlagenen Backend/Migration/PostgreSQL-Check. Für Reparatur-Head `7b10693` laufen Backend/Migration/PostgreSQL, verschlüsselter Restore, Docker und beide CodeQL-Jobs; SCA und Frontend sind erfolgreich. PR #38 bleibt offen und mergeability ist UNSTABLE. CI ist kein Merge-, Fachabnahme- oder Produktionsnachweis.
-- Status-, Roadmap-, Audit-, README- und Datenbanktexte aktualisiert, ohne Änderungen an Software oder Migrationen.
+- PR #38 wurde am 09.11.2026 mit Merge-Commit `b275b5a0eb4a82a480e3c15ee09a0a5c85453a6d` gemergt. `main` hat nun Alembic-Head `0023_control_room_permission`, 73 SQLAlchemy-Tabellen und 190 `/api/v1`-Operationen (192 einschließlich zwei Health-Operationen).
+- Die Revision ergänzt `control_room.read` und Rollenzuweisungen, ohne neue Tabellen zu erstellen. `GET /api/v1/control-room` liefert serverberechnete Kennzahlen und begrenzte Listen aus vorhandenen Fachmodulen; Fachberechtigungen und Objekt-/Personenbereich werden je Quelle geprüft. Sensible Vorfallberichte und Anhänge werden nicht ausgegeben; keine simulierten Alarme oder automatische Aktualisierung.
+- Im ersten CI-Lauf schlug Backend/Migration/PostgreSQL fehl; der Reparaturlauf auf PR-Head `7b10693` war einschließlich aller acht Checks erfolgreich. Die PR-Beschreibung meldet 85 Backendtests bestanden/13 übersprungen und 42 Frontendtests bestanden. Dies sind keine fachlichen oder produktiven Nachweise.
+- Frisch geprüft: PR #25 ist die einzige offene PR; Issues #7–#10 sind offen, #2–#6 geschlossen. Der frühere offene PR-Status und fehlgeschlagene CI-Lauf von #38 in der vorherigen Momentaufnahme sind historisch, nicht aktuell.
+- Status-, Roadmap-, Audit-, README-, API-, Architektur- und Datenbanktexte auf den gemergten Stand synchronisiert; PR #25 bleibt offen.
 
 ## 2026-11-09 – Dokumentation auf Main mit Vorfallmanagement aktualisiert
 
+- Historische Momentaufnahme unmittelbar vor dem Merge von PR #38; aktueller Main-Stand steht im obersten Eintrag.
 - Maßgeblicher `main`-Stand: `ac31bae99ee9f70026057483f303e86c69159e38`, Alembic-Head `0022_incident_management`, 73 SQLAlchemy-Tabellen, 189 `/api/v1`-Operationen und zwei Health-Operationen.
 - PR #37 wurde am 09.11.2026 gemergt. Migration `0022_incident_management` ergänzt sechs Tabellen und zwölf API-Operationen für objektbezogene Vorfälle/Beschwerden, sensible Details, Maßnahmen, Beteiligte/Zeugen, private Anhänge und append-only Historie. Sieben abgestufte `incidents.*`-Rechte erzwingen serverseitigen Objekt-Scope und gesonderten Schutz sensibler Inhalte. Anhänge werden fail-closed mit ClamAV geprüft und privat gespeichert; kein rückwirkender Bestandsscan. Keine automatische Aufgaben-/Benachrichtigungsintegration, Fristerinnerung oder Eskalationsregeln.
 - Die Merge-PR-CI war bei allen acht Checks erfolgreich. Im PR-Text gemeldet: 82 Backendtests bestanden/13 übersprungen (lokal ausgelassene PostgreSQL-spezifische Prüfungen), 39 Frontendtests bestanden, Ruff-Check/Format und Alembic-Head erfolgreich. Dies ist kein fachlicher, rechtlicher oder produktiver Nachweis.
