@@ -453,7 +453,7 @@ erDiagram
 
 Neue Schemaänderungen benötigen eine neue Alembic-Migration. Ein `Base.metadata.create_all` ist nur in Tests zulässig. Migrationen sollten vor Rollout in PostgreSQL geprüft werden; Daten-destruktive Downgrades sind keine sichere Rollbackstrategie. Release-Migrationen und verschlüsselte Backup-/Restore-Skripte sind vorhanden; produktive Rollouts und Wiederherstellungen sind nicht unabhängig nachgewiesen.
 
-PR #39 ist gemergt; die Migrationsfolge auf `main` endet auf `0024_notification_outbox_worker`, nach `0023_control_room_permission`. Die Revision fügt eine Attempt-Tabelle zur Outbox-Verarbeitung sowie Lock-/Lease-Felder und einen Index hinzu. Issue #7 bleibt trotz des Billing-Merges offen zur fachlichen Abnahme. PR #25 ist nach frischer Abfrage die einzige offene PR.
+PR #39 ist gemergt; die Migrationsfolge auf `main` endet auf `0024_notification_outbox_worker`, nach `0023_control_room_permission`. Die Revision fügt eine Attempt-Tabelle zur Outbox-Verarbeitung sowie Lock-/Lease-Felder und einen Index hinzu. Issue #7 bleibt trotz des Billing-Merges offen zur fachlichen Abnahme. PR #25 ist gemergt; PR #40 bleibt offen und ist nicht Bestandteil von `main` (siehe [`PROJECT_STATUS.md`](PROJECT_STATUS.md)).
 
 ## Datenhaltungsgrenzen
 
