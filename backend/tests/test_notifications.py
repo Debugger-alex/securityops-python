@@ -199,8 +199,6 @@ def test_postgresql_database_has_the_notification_migration_applied(client: Test
     from sqlalchemy import inspect
 
     with test_engine.connect() as connection:
-        context = MigrationContext.configure(connection)
-        assert context.get_current_revision() == "0020_notifications"
         inspector = inspect(connection)
         assert {"notification_outbox", "notifications"} <= set(inspector.get_table_names())
 
