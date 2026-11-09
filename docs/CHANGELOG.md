@@ -5,7 +5,7 @@
 - Frisch geprüft: PR #38 ist offen gegen `main`; PR #25 bleibt ebenfalls offen. Issues #7–#10 sind offen, #2–#6 geschlossen.
 - `main` bleibt auf `ac31bae99ee9f70026057483f303e86c69159e38`, Alembic-Head `0022_incident_management`, 73 SQLAlchemy-Tabellen und 189 `/api/v1`-Operationen.
 - PR #38 beschreibt eine Leitstellenübersicht mit Recht `control_room.read`, aktiven Objekt- und Fachbereichsprüfungen und begrenzten Listen. Seine Migration `0023_control_room_permission` ist ausstehend und nicht in Main-Tabellen-, API- oder Migrationsinventaren enthalten. Die PR-Beschreibung sagt, bestehende Dashboard-API und Datenmodell blieben unverändert.
-- Beim letzten Statusabruf schlug PR #38 Backend/Migration/PostgreSQL fehl; verschlüsselter Restore, Docker, Frontend, SCA und beide CodeQL-Jobs waren erfolgreich, der separate CodeQL-Check neutral. PR #38 bleibt offen und mergeability ist UNSTABLE. CI ist kein Merge-, Fachabnahme- oder Produktionsnachweis.
+- Der vorherige PR-#38-Head hatte einen fehlgeschlagenen Backend/Migration/PostgreSQL-Check. Für Reparatur-Head `7b10693` laufen Backend/Migration/PostgreSQL, verschlüsselter Restore, Docker und beide CodeQL-Jobs; SCA und Frontend sind erfolgreich. PR #38 bleibt offen und mergeability ist UNSTABLE. CI ist kein Merge-, Fachabnahme- oder Produktionsnachweis.
 - Status-, Roadmap-, Audit-, README- und Datenbanktexte aktualisiert, ohne Änderungen an Software oder Migrationen.
 
 ## 2026-11-09 – Dokumentation auf Main mit Vorfallmanagement aktualisiert
