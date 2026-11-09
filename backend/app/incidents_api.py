@@ -267,10 +267,15 @@ def get_incident_choices(
     db: Session = Depends(get_db),
     principal: AuthPrincipal = Depends(get_auth_principal),
 ) -> IncidentChoices:
-    _require_incident_reader(principal)
-    objects_query = _object_access_query(principal).order_by(SecurityObject.name, SecurityObject.id)
+    can_create = "incidents.create" in principal.permission_codes
+    can_read = bool({"incidents.read", *GLOBAL_READ}.intersection(principal.permission_codes))
+    if not can_create and not can_read:
+        raise HTTPException(403, "Keine Berechtigung für Vorfälle")
+    objects_query = _object_access_query(principal, for_write=can_create).order_by(
+        SecurityObject.name, SecurityObject.id
+    )
     if object_id is not None:
-        _get_object(db, object_id, principal)
+        _get_object(db, object_id, principal, for_write=can_create)
         objects_query = objects_query.where(SecurityObject.id == object_id)
     objects = db.scalars(objects_query).all()
     if object_id is None:
