@@ -109,8 +109,8 @@ def setup_control_room_scope() -> tuple[str, str, str]:
                 ScheduleShift(
                     employee_id=employee.id,
                     object_id=object_b.id,
-                    starts_at=now - timedelta(hours=1),
-                    ends_at=now + timedelta(hours=1),
+                    starts_at=now + timedelta(hours=2),
+                    ends_at=now + timedelta(hours=3),
                     status="published",
                 ),
                 OWKSEvent(
