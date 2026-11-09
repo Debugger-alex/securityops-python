@@ -32,7 +32,7 @@ Diese Momentaufnahme trennt gemergten Quellcode, offene PRs, CI und fachliche Ab
 
 | PR | Status / CI (frisch geprüft) | Basis | Inhalt, Abhängigkeit und Abgrenzung |
 |---|---|---|---|
-| [#25](https://github.com/Xonni-star/securityops-python/pull/25) | Offen; frische Checks nach dieser Synchronisierung ausstehend | `main` | Diese Dokumentationssynchronisierung. Ausschließlich Dokumentation; kein Merge, keine Issue-Änderung. |
+| [#25](https://github.com/Xonni-star/securityops-python/pull/25) | Offen; alle acht Checks auf Head `91f981d` erfolgreich | `main` | Diese Dokumentationssynchronisierung. Ausschließlich Dokumentation; kein Merge, keine Issue-Änderung. |
 PR #38 wurde am 09.11.2026 mit Merge-Commit `b275b5a0eb4a82a480e3c15ee09a0a5c85453a6d` gemergt und integriert die Leitstellenübersicht sowie Revision `0023_control_room_permission`. PR #25 ist nach frischer Abfrage die einzige offene PR.
 
 ## Vollständiger PR- und Issue-Index
